@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Permission denied" %} · {{ block.super }}{% endblock %}
+
+{% block content %}
+  <section class="card auth-card">
+    <p class="eyebrow">{% translate "Access restricted" %}</p>
+    <h1>{% translate "Permission denied" %}</h1>
+    <p class="muted">{% translate "Your current role does not allow this action." %}</p>
+    <a class="button" href="{% url 'dashboard' %}">{% translate "Return to dashboard" %}</a>
+  </section>
+{% endblock %}

@@ -104,4 +104,6 @@ class ProductViewTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 403)
+        self.assertContains(response, "Permission denied", status_code=403)
+        self.assertContains(response, reverse("dashboard"), status_code=403)
         self.assertFalse(Product.objects.filter(name="Unauthorized Product").exists())
