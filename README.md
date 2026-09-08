@@ -25,6 +25,30 @@ reports are intentionally separate reviewed delivery slices.
 - PostgreSQL 17 for the container workflow
 - Docker with Compose, if using containers
 
+## Evaluate the demo with Docker
+
+After extracting the source ZIP, open a terminal in the project folder and run:
+
+```bash
+cp .env.example .env
+docker compose up --build -d
+docker compose exec web python manage.py seed_demo --password "Choose-A-Local-Password"
+```
+
+On Windows PowerShell, replace the first command with:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Open `http://localhost:8000/login/` and sign in with the password you chose:
+
+- owner: `owner@demo.ife.local`;
+- cashier: `cashier@demo.ife.local`.
+
+The owner can create products; the cashier can view the catalog but cannot create products.
+When finished, stop the containers with `docker compose down`.
+
 ## Local setup with SQLite
 
 ```bash

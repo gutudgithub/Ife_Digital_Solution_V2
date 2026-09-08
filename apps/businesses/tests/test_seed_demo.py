@@ -1,0 +1,41 @@
+from django.core.management import call_command
+from django.core.management.base import CommandError
+from django.test import TestCase, override_settings
+
+from apps.accounts.models import User
+from apps.businesses.models import Branch, Business, BusinessMembership, MembershipRole
+from apps.catalog.models import Category, Product, ProductVariant
+
+
+@override_settings(DEBUG=True)
+class SeedDemoCommandTests(TestCase):
+    password = "LocalDemo123!"
+
+    def test_seed_demo_creates_idempotent_tenant_data(self) -> None:
+        call_command("seed_demo", password=self.password)
+        call_command("seed_demo", password=self.password)
+
+        business = Business.objects.get(slug="ife-demo-fashion")
+        owner = User.objects.get(email="owner@demo.ife.local")
+        cashier = User.objects.get(email="cashier@demo.ife.local")
+
+        self.assertTrue(owner.check_password(self.password))
+        self.assertTrue(cashier.check_password(self.password))
+        self.assertEqual(Branch.objects.filter(business=business).count(), 1)
+        self.assertEqual(Category.objects.filter(business=business).count(), 2)
+        self.assertEqual(Product.objects.filter(business=business).count(), 2)
+        self.assertEqual(ProductVariant.objects.filter(business=business).count(), 4)
+        self.assertEqual(BusinessMembership.objects.filter(business=business).count(), 2)
+        self.assertEqual(
+            BusinessMembership.objects.get(business=business, user=owner).role,
+            MembershipRole.OWNER,
+        )
+        self.assertEqual(
+            BusinessMembership.objects.get(business=business, user=cashier).role,
+            MembershipRole.CASHIER,
+        )
+
+    @override_settings(DEBUG=False)
+    def test_seed_demo_is_disabled_outside_debug_mode(self) -> None:
+        with self.assertRaisesMessage(CommandError, "only be created"):
+            call_command("seed_demo", password=self.password)
