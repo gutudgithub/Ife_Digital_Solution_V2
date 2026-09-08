@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy apps config
+      - run: python manage.py makemigrations --check --dry-run
+      - run: python manage.py check --deploy
+        env:
+          DJANGO_DEBUG: "false"
+          DJANGO_SECRET_KEY: ci-only-7Yf2K9qP4mX8vN6cR3sW5tZ1bH0jL7dG9aE2uQ8iC4oM
+          DJANGO_ALLOWED_HOSTS: example.com
+      - run: pytest

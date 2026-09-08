@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Products" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{{ active_business.name }}</p>
+      <h1>{% translate "Products" %}</h1>
+      <p class="muted">{% translate "Styles and their sellable size or color variants." %}</p>
+    </div>
+    {% if can_manage_catalog %}
+      <a class="button" href="{% url 'catalog:product-create' %}">{% translate "Add product" %}</a>
+    {% endif %}
+  </div>
+  <section class="card table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>{% translate "Product" %}</th>
+          <th>{% translate "Category" %}</th>
+          <th>{% translate "Variants" %}</th>
+          <th>{% translate "Status" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for product in products %}
+          <tr>
+            <td>{{ product.name }}</td>
+            <td>{{ product.category.name|default:"—" }}</td>
+            <td>{{ product.variant_count }}</td>
+            <td>{% if product.is_active %}{% translate "Active" %}{% else %}{% translate "Inactive" %}{% endif %}</td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="4">{% translate "No products have been added yet." %}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}

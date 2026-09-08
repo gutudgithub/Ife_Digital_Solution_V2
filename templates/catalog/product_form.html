@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Add product" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{{ active_business.name }}</p>
+      <h1>{% translate "Add product" %}</h1>
+      <p class="muted">{% translate "Create the product style first; size and color variants follow." %}</p>
+    </div>
+  </div>
+  <section class="card">
+    <form method="post">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      {% for field in form %}
+        <div class="form-row">
+          {{ field.label_tag }}
+          {{ field }}
+          {% if field.help_text %}<div class="muted">{{ field.help_text }}</div>{% endif %}
+          {{ field.errors }}
+        </div>
+      {% endfor %}
+      <button class="button" type="submit">{% translate "Save product" %}</button>
+    </form>
+  </section>
+{% endblock %}

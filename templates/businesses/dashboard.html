@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Dashboard" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Pilot foundation" %}</p>
+      <h1>{{ active_business.name }}</h1>
+      <p class="muted">{% translate "Your operational overview will grow as transaction modules are added." %}</p>
+    </div>
+    {% if active_membership.can_manage_catalog %}
+      <a class="button" href="{% url 'catalog:product-create' %}">{% translate "Add product" %}</a>
+    {% endif %}
+  </div>
+  <section class="grid">
+    <article class="card">
+      <span class="muted">{% translate "Products" %}</span>
+      <p class="metric">{{ product_count }}</p>
+    </article>
+    <article class="card">
+      <span class="muted">{% translate "Active variants" %}</span>
+      <p class="metric">{{ variant_count }}</p>
+    </article>
+    <article class="card">
+      <span class="muted">{% translate "Your role" %}</span>
+      <p class="metric">{{ active_membership.get_role_display }}</p>
+    </article>
+  </section>
+{% endblock %}
