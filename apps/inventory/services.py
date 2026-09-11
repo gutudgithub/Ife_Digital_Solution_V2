@@ -24,6 +24,23 @@ from apps.inventory.models import (
 QUANTITY_QUANTUM = Decimal("0.001")
 COST_QUANTUM = Decimal("0.000001")
 VALUE_QUANTUM = Decimal("0.000001")
+INVENTORY_CONSTRAINT_NAMES = frozenset(
+    {
+        "inventory_unique_operation_idempotency_per_business",
+        "inventory_operation_type_is_valid",
+        "inventory_unique_movement_source_variant",
+        "inventory_movement_quantity_nonzero",
+        "inventory_movement_unit_cost_nonnegative",
+        "inventory_movement_value_direction_matches",
+        "inventory_movement_type_is_valid",
+        "inventory_source_type_is_valid",
+        "inventory_unique_balance_per_branch_variant",
+        "inventory_balance_quantity_nonnegative",
+        "inventory_balance_cost_nonnegative",
+        "inventory_balance_value_nonnegative",
+        "inventory_zero_balance_has_zero_cost_and_value",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -52,7 +69,9 @@ def _translate_inventory_constraint_errors() -> Iterator[None]:
     try:
         yield
     except ValidationError as error:
-        if any("inventory_" in message for message in error.messages):
+        if any(
+            name in message for message in error.messages for name in INVENTORY_CONSTRAINT_NAMES
+        ):
             raise ValidationError(
                 _(
                     "Inventory posting could not be completed because an inventory rule "
@@ -185,12 +204,12 @@ def _apply_outbound(
         new_value = Decimal("0.000000")
         new_average = Decimal("0.000000")
     else:
-        new_average = assigned_cost
         outbound_value = _value(outbound_quantity * assigned_cost)
         new_value = max(
             _value(balance.inventory_value - outbound_value),
             Decimal("0.000000"),
         )
+        new_average = Decimal("0.000000") if new_value == 0 else assigned_cost
     value_delta = _value(new_value - balance.inventory_value)
     balance.quantity_on_hand = new_quantity
     balance.inventory_value = new_value

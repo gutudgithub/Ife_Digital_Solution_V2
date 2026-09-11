@@ -413,9 +413,7 @@ class PurchasingServiceTests(TestCase):
 
     def test_purchasing_constraint_names_are_translated_during_posting(self) -> None:
         approve_purchase(actor=self.owner_membership, purchase=self.purchase)
-        raw_error = ValidationError(
-            'Constraint "purchasing_receipt_line_scope_matches" is violated.'
-        )
+        raw_error = ValidationError('Constraint "purchasing_unique_line_per_receipt" is violated.')
 
         with (
             patch(
@@ -434,6 +432,26 @@ class PurchasingServiceTests(TestCase):
         self.assertIs(raised.exception.__cause__, raw_error)
         self.assertFalse(GoodsReceipt.objects.exists())
         self.assertFalse(InventoryMovement.objects.exists())
+
+    def test_unrelated_purchasing_prefix_validation_is_not_translated(self) -> None:
+        approve_purchase(actor=self.owner_membership, purchase=self.purchase)
+        raw_error = ValidationError("The purchasing_reference field is invalid.")
+
+        with (
+            patch(
+                "apps.purchasing.services.GoodsReceiptLine.objects.create",
+                side_effect=raw_error,
+            ),
+            self.assertRaises(ValidationError) as raised,
+        ):
+            receive_purchase(
+                actor=self.owner_membership,
+                purchase=self.purchase,
+                quantities=[ReceiptQuantity(self.first_line.id, Decimal("1"))],
+                idempotency_key=uuid.uuid4(),
+            )
+
+        self.assertIs(raised.exception, raw_error)
 
     def test_receipt_fails_closed_if_stock_unit_changed_after_approval(self) -> None:
         approve_purchase(actor=self.owner_membership, purchase=self.purchase)

@@ -190,7 +190,9 @@ rebuild test.
 
   `(current value + inbound quantity × inbound unit cost) / new quantity`
 
-- Quantity and value become zero together. A zero balance stores zero average cost.
+- Full quantity depletion stores zero value and zero average cost. If rounded outbound cost
+  consumes the remaining stored value before quantity reaches zero, value clamps to zero and
+  the remaining quantity carries zero average cost until the next inbound recalculates it.
 - No costing method may change after posted movements without a separately approved,
   auditable migration/recalculation procedure.
 

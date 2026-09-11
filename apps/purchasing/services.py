@@ -26,6 +26,23 @@ from apps.purchasing.models import (
     PurchaseStatus,
 )
 
+PURCHASING_CONSTRAINT_NAMES = frozenset(
+    {
+        "purchasing_unique_purchase_number_per_business",
+        "purchasing_purchase_status_is_valid",
+        "purchasing_purchase_approval_fields_match",
+        "purchasing_post_approval_status_has_audit",
+        "purchasing_unique_variant_per_purchase",
+        "purchasing_line_quantity_positive",
+        "purchasing_line_unit_cost_nonnegative",
+        "purchasing_unique_receipt_number_per_business",
+        "purchasing_unique_receipt_idempotency_per_business",
+        "purchasing_unique_line_per_receipt",
+        "purchasing_receipt_quantity_positive",
+        "purchasing_receipt_unit_cost_nonnegative",
+    }
+)
+
 
 @dataclass(frozen=True)
 class PurchaseLineProgress:
@@ -53,7 +70,9 @@ def _translate_purchasing_constraint_errors() -> Iterator[None]:
     try:
         yield
     except ValidationError as error:
-        if any("purchasing_" in message for message in error.messages):
+        if any(
+            name in message for message in error.messages for name in PURCHASING_CONSTRAINT_NAMES
+        ):
             raise ValidationError(
                 _("Posting could not be completed because a purchasing rule was violated.")
             ) from error

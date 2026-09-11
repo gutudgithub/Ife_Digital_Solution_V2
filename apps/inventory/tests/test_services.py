@@ -231,6 +231,31 @@ class InventoryServiceTests(TestCase):
             balance.inventory_value,
         )
 
+        post_inventory_adjustment(
+            actor=self.owner_membership,
+            branch=self.branch,
+            variant=measured_variant,
+            operation_type="adjustment_out",
+            quantity=Decimal("4000"),
+            reason="Remaining measured value consumed after rounding",
+            idempotency_key=uuid.uuid4(),
+        )
+
+        balance.refresh_from_db()
+        self.assertEqual(balance.quantity_on_hand, Decimal("3532.225"))
+        self.assertEqual(balance.average_unit_cost, Decimal("0.000000"))
+        self.assertEqual(balance.inventory_value, Decimal("0.000000"))
+        self.assertEqual(
+            sum(
+                InventoryMovement.objects.filter(variant=measured_variant).values_list(
+                    "value_delta",
+                    flat=True,
+                ),
+                Decimal("0.000000"),
+            ),
+            balance.inventory_value,
+        )
+
     def test_constraint_names_are_translated_during_posting(self) -> None:
         raw_error = ValidationError(
             'Constraint "inventory_movement_value_direction_matches" is violated.'
@@ -255,6 +280,27 @@ class InventoryServiceTests(TestCase):
         self.assertIs(raised.exception.__cause__, raw_error)
         self.assertFalse(InventoryBalance.objects.exists())
         self.assertFalse(StockOperation.objects.exists())
+
+    def test_unrelated_inventory_prefix_validation_is_not_translated(self) -> None:
+        raw_error = ValidationError("The inventory_reference field is invalid.")
+
+        with (
+            patch(
+                "apps.inventory.services.InventoryMovement.objects.create",
+                side_effect=raw_error,
+            ),
+            self.assertRaises(ValidationError) as raised,
+        ):
+            post_opening_balance(
+                actor=self.owner_membership,
+                branch=self.branch,
+                variant=self.variant,
+                quantity=Decimal("1"),
+                unit_cost=Decimal("500"),
+                idempotency_key=uuid.uuid4(),
+            )
+
+        self.assertIs(raised.exception, raw_error)
 
     def test_negative_adjustment_rolls_back_all_effects(self) -> None:
         post_opening_balance(
