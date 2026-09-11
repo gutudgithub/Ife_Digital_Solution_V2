@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Suppliers" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{{ active_business.name }}</p>
+      <h1>{% translate "Suppliers" %}</h1>
+      <p class="muted">{% translate "Supplier records are private to the active business." %}</p>
+    </div>
+    {% if can_manage_purchasing %}
+      <a class="button" href="{% url 'purchasing:supplier-create' %}">{% translate "Add supplier" %}</a>
+    {% endif %}
+  </div>
+  <section class="card">
+    <div class="table-wrap">
+      <table>
+        <caption class="visually-hidden">{% translate "Supplier directory" %}</caption>
+        <thead>
+          <tr>
+            <th>{% translate "Name" %}</th>
+            <th>{% translate "Phone" %}</th>
+            <th>{% translate "Email" %}</th>
+            <th>{% translate "Status" %}</th>
+            {% if can_manage_purchasing %}<th><span class="visually-hidden">{% translate "Actions" %}</span></th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for supplier in suppliers %}
+            <tr>
+              <td>{{ supplier.name }}</td>
+              <td>{{ supplier.phone|default:"—" }}</td>
+              <td>{{ supplier.email|default:"—" }}</td>
+              <td>{% if supplier.is_active %}{% translate "Active" %}{% else %}{% translate "Inactive" %}{% endif %}</td>
+              {% if can_manage_purchasing %}
+                <td><a href="{% url 'purchasing:supplier-edit' supplier.id %}">{% translate "Edit" %}</a></td>
+              {% endif %}
+            </tr>
+          {% empty %}
+            <tr><td colspan="{% if can_manage_purchasing %}5{% else %}4{% endif %}">{% translate "No suppliers yet." %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}

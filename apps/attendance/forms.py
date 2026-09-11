@@ -7,16 +7,14 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.attendance.models import AttendanceRecord, AttendanceStatus
 from apps.businesses.models import Branch, Business, BusinessMembership
+from apps.forms import add_accessible_error_attributes
 
-
-def add_accessible_error_attributes(form: forms.BaseForm) -> None:
-    for field_name in form.errors:
-        if field_name not in form.fields:
-            continue
-        field = form.fields[field_name]
-        bound_field = form[field_name]
-        field.widget.attrs["aria-invalid"] = "true"
-        field.widget.attrs["aria-describedby"] = f"{bound_field.auto_id}_errors"
+__all__ = [
+    "AttendanceCorrectionForm",
+    "AttendanceCreateForm",
+    "AttendanceFilterForm",
+    "add_accessible_error_attributes",
+]
 
 
 class AttendanceFilterForm(forms.Form):

@@ -46,11 +46,14 @@ Copy-Item .env.example .env
 Open `http://localhost:8000/login/` and sign in with the password you chose:
 
 - owner: `owner@demo.ife.local`;
-- cashier: `cashier@demo.ife.local`.
+- cashier: `cashier@demo.ife.local`;
+- stock employee: `stock@demo.ife.local`.
 
-The owner can create products and manage attendance. The cashier can view the catalog and
-record personal attendance but cannot create products or correct another employee's
-attendance. When finished, stop the containers with `docker compose down`.
+The owner can manage products, suppliers, purchases, opening stock, adjustments, and
+attendance. The stock employee can receive approved purchases but cannot approve purchases or
+adjust stock. The cashier can view stock quantities and record personal attendance but cannot
+see suppliers, purchase costs, average costs, or inventory values. When finished, stop the
+containers with `docker compose down`.
 
 ## Local setup with SQLite
 

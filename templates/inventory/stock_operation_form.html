@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ page_title }} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Immutable posting" %}</p>
+      <h1>{{ page_title }}</h1>
+      <p class="muted">{% translate "Posting creates permanent inventory movement history." %}</p>
+    </div>
+  </div>
+  <form class="card form-card" method="post">
+    {% csrf_token %}
+    {% include "includes/form_fields.html" %}
+    <div class="action-row">
+      <button class="button" type="submit">{% translate "Post inventory movement" %}</button>
+      <a href="{% url 'inventory:inventory-list' %}">{% translate "Cancel" %}</a>
+    </div>
+  </form>
+{% endblock %}

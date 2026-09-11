@@ -12,7 +12,8 @@ from apps.businesses.models import (
     BusinessType,
     MembershipRole,
 )
-from apps.catalog.models import Category, Product, ProductVariant
+from apps.catalog.models import Category, Product, ProductVariant, StockUnit
+from apps.purchasing.models import Supplier
 
 
 class Command(BaseCommand):
@@ -42,6 +43,11 @@ class Command(BaseCommand):
             cashier = self._upsert_user(
                 email="cashier@demo.ife.local",
                 full_name="Demo Cashier",
+                password=password,
+            )
+            stock_employee = self._upsert_user(
+                email="stock@demo.ife.local",
+                full_name="Demo Stock Employee",
                 password=password,
             )
             business, _ = Business.objects.update_or_create(
@@ -75,6 +81,24 @@ class Command(BaseCommand):
                     "is_active": True,
                 },
             )
+            BusinessMembership.objects.update_or_create(
+                business=business,
+                user=stock_employee,
+                defaults={
+                    "assigned_branch": branch,
+                    "role": MembershipRole.STOCK_EMPLOYEE,
+                    "is_active": True,
+                },
+            )
+            Supplier.objects.update_or_create(
+                business=business,
+                name="Demo Addis Wholesale",
+                defaults={
+                    "phone": "+251 900 000 000",
+                    "notes": "Local demonstration supplier.",
+                    "is_active": True,
+                },
+            )
             clothing, _ = Category.objects.update_or_create(
                 business=business,
                 slug="clothing",
@@ -104,12 +128,57 @@ class Command(BaseCommand):
                 },
             )
             variants = (
-                (shirt, "TSHIRT-BLK-M", "M", "Black", Decimal("850.00"), Decimal("520.00")),
-                (shirt, "TSHIRT-WHT-L", "L", "White", Decimal("850.00"), Decimal("520.00")),
-                (shoes, "SHOE-BRN-42", "42", "Brown", Decimal("3200.00"), Decimal("2100.00")),
-                (shoes, "SHOE-BLK-43", "43", "Black", Decimal("3200.00"), Decimal("2100.00")),
+                (
+                    shirt,
+                    "TSHIRT-BLK-M",
+                    "M",
+                    "Black",
+                    Decimal("850.00"),
+                    Decimal("520.00"),
+                    StockUnit.PIECE,
+                    Decimal("5"),
+                ),
+                (
+                    shirt,
+                    "TSHIRT-WHT-L",
+                    "L",
+                    "White",
+                    Decimal("850.00"),
+                    Decimal("520.00"),
+                    StockUnit.PIECE,
+                    Decimal("5"),
+                ),
+                (
+                    shoes,
+                    "SHOE-BRN-42",
+                    "42",
+                    "Brown",
+                    Decimal("3200.00"),
+                    Decimal("2100.00"),
+                    StockUnit.PAIR,
+                    Decimal("3"),
+                ),
+                (
+                    shoes,
+                    "SHOE-BLK-43",
+                    "43",
+                    "Black",
+                    Decimal("3200.00"),
+                    Decimal("2100.00"),
+                    StockUnit.PAIR,
+                    Decimal("3"),
+                ),
             )
-            for product, sku, size, color, selling_price, cost_price in variants:
+            for (
+                product,
+                sku,
+                size,
+                color,
+                selling_price,
+                cost_price,
+                stock_unit,
+                low_stock_threshold,
+            ) in variants:
                 ProductVariant.objects.update_or_create(
                     business=business,
                     sku=sku,
@@ -119,6 +188,8 @@ class Command(BaseCommand):
                         "color": color,
                         "selling_price": selling_price,
                         "cost_price": cost_price,
+                        "stock_unit": stock_unit,
+                        "low_stock_threshold": low_stock_threshold,
                         "is_active": True,
                     },
                 )
@@ -126,6 +197,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("Local demo data is ready."))
         self.stdout.write("Owner: owner@demo.ife.local")
         self.stdout.write("Cashier: cashier@demo.ife.local")
+        self.stdout.write("Stock employee: stock@demo.ife.local")
 
     @staticmethod
     def _upsert_user(*, email: str, full_name: str, password: str) -> User:

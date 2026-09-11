@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Product variants" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Sellable stock items" %}</p>
+      <h1>{% translate "Product variants" %}</h1>
+      <p class="muted">{% translate "Each size, color, or SKU carries its own stock unit." %}</p>
+    </div>
+    {% if can_manage_catalog %}
+      <a class="button" href="{% url 'catalog:variant-create' %}">{% translate "Add variant" %}</a>
+    {% endif %}
+  </div>
+  <section class="card">
+    <div class="table-wrap">
+      <table>
+        <caption class="visually-hidden">{% translate "Product variants" %}</caption>
+        <thead>
+          <tr>
+            <th>{% translate "Product" %}</th>
+            <th>{% translate "SKU" %}</th>
+            <th>{% translate "Size" %}</th>
+            <th>{% translate "Color" %}</th>
+            <th>{% translate "Stock unit" %}</th>
+            <th>{% translate "Selling price" %}</th>
+            {% if can_view_inventory_cost %}<th>{% translate "Reference cost" %}</th>{% endif %}
+            <th>{% translate "Status" %}</th>
+            {% if can_manage_catalog %}<th><span class="visually-hidden">{% translate "Actions" %}</span></th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for variant in variants %}
+            <tr>
+              <td>{{ variant.product.name }}</td>
+              <td>{{ variant.sku }}</td>
+              <td>{{ variant.size|default:"—" }}</td>
+              <td>{{ variant.color|default:"—" }}</td>
+              <td>{{ variant.get_stock_unit_display }}</td>
+              <td>ETB {{ variant.selling_price|floatformat:2 }}</td>
+              {% if can_view_inventory_cost %}<td>{% if variant.cost_price != None %}ETB {{ variant.cost_price|floatformat:2 }}{% else %}—{% endif %}</td>{% endif %}
+              <td>{% if variant.is_active %}{% translate "Active" %}{% else %}{% translate "Inactive" %}{% endif %}</td>
+              {% if can_manage_catalog %}
+                <td><a href="{% url 'catalog:variant-edit' variant.id %}">{% translate "Edit" %}</a></td>
+              {% endif %}
+            </tr>
+          {% empty %}
+            <tr><td colspan="{% if can_manage_catalog and can_view_inventory_cost %}9{% elif can_manage_catalog or can_view_inventory_cost %}8{% else %}7{% endif %}">{% translate "No product variants yet." %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}

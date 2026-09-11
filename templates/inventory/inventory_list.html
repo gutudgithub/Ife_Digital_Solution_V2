@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Inventory" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Branch stock" %}</p>
+      <h1>{% translate "Inventory" %}</h1>
+      <p class="muted">{% translate "Balances are projections of immutable posted movements." %}</p>
+    </div>
+    {% if can_manage_inventory %}
+      <div class="action-row">
+        <a class="button button--secondary" href="{% url 'inventory:opening-create' %}">{% translate "Opening stock" %}</a>
+        <a class="button" href="{% url 'inventory:inventory-adjust' %}">{% translate "Adjust stock" %}</a>
+      </div>
+    {% endif %}
+  </div>
+
+  <section class="card">
+    <h2>{% translate "Stock balances" %}</h2>
+    <div class="table-wrap">
+      <table>
+        <caption class="visually-hidden">{% translate "Branch stock balances" %}</caption>
+        <thead>
+          <tr>
+            <th>{% translate "Product" %}</th>
+            <th>{% translate "SKU" %}</th>
+            <th>{% translate "Branch" %}</th>
+            <th>{% translate "Quantity" %}</th>
+            <th>{% translate "State" %}</th>
+            {% if can_view_inventory_cost %}
+              <th>{% translate "Average cost" %}</th>
+              <th>{% translate "Inventory value" %}</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for balance in balances %}
+            <tr>
+              <td>{{ balance.variant.product.name }}</td>
+              <td>{{ balance.variant.sku }}</td>
+              <td>{{ balance.branch.name }}</td>
+              <td>{{ balance.quantity_on_hand }} {{ balance.variant.get_stock_unit_display }}</td>
+              <td>
+                {% if balance.quantity_on_hand == 0 %}
+                  {% translate "Out of stock" %}
+                {% elif balance.variant.low_stock_threshold != None and balance.quantity_on_hand <= balance.variant.low_stock_threshold %}
+                  {% translate "Low stock" %}
+                {% else %}
+                  {% translate "In stock" %}
+                {% endif %}
+              </td>
+              {% if can_view_inventory_cost %}
+                <td>ETB {{ balance.average_unit_cost|floatformat:2 }}</td>
+                <td>ETB {{ balance.inventory_value|floatformat:2 }}</td>
+              {% endif %}
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="{% if can_view_inventory_cost %}7{% else %}5{% endif %}">
+                {% translate "No posted stock balances yet." %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  {% if can_view_movement_history %}
+    <section class="card section-gap">
+      <h2>{% translate "Recent movements" %}</h2>
+      <div class="table-wrap">
+        <table>
+          <caption class="visually-hidden">{% translate "Recent inventory movements" %}</caption>
+          <thead>
+            <tr>
+              <th>{% translate "Posted" %}</th>
+              <th>{% translate "Product" %}</th>
+              <th>{% translate "Branch" %}</th>
+              <th>{% translate "Movement" %}</th>
+              <th>{% translate "Quantity" %}</th>
+              <th>{% translate "Actor" %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for movement in movements %}
+              <tr>
+                <td>{{ movement.posted_at|date:"SHORT_DATETIME_FORMAT" }}</td>
+                <td>{{ movement.variant.product.name }} · {{ movement.variant.sku }}</td>
+                <td>{{ movement.branch.name }}</td>
+                <td>{{ movement.get_movement_type_display }}</td>
+                <td>{{ movement.quantity_delta }} {{ movement.variant.get_stock_unit_display }}</td>
+                <td>{{ movement.actor.user.full_name }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="6">{% translate "No inventory movements yet." %}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

@@ -5,6 +5,7 @@ from django.test import TestCase, override_settings
 from apps.accounts.models import User
 from apps.businesses.models import Branch, Business, BusinessMembership, MembershipRole
 from apps.catalog.models import Category, Product, ProductVariant
+from apps.purchasing.models import Supplier
 
 
 @override_settings(DEBUG=True)
@@ -18,14 +19,17 @@ class SeedDemoCommandTests(TestCase):
         business = Business.objects.get(slug="ife-demo-fashion")
         owner = User.objects.get(email="owner@demo.ife.local")
         cashier = User.objects.get(email="cashier@demo.ife.local")
+        stock_employee = User.objects.get(email="stock@demo.ife.local")
 
         self.assertTrue(owner.check_password(self.password))
         self.assertTrue(cashier.check_password(self.password))
+        self.assertTrue(stock_employee.check_password(self.password))
         self.assertEqual(Branch.objects.filter(business=business).count(), 1)
         self.assertEqual(Category.objects.filter(business=business).count(), 2)
         self.assertEqual(Product.objects.filter(business=business).count(), 2)
         self.assertEqual(ProductVariant.objects.filter(business=business).count(), 4)
-        self.assertEqual(BusinessMembership.objects.filter(business=business).count(), 2)
+        self.assertEqual(BusinessMembership.objects.filter(business=business).count(), 3)
+        self.assertEqual(Supplier.objects.filter(business=business).count(), 1)
         self.assertEqual(
             (
                 BusinessMembership.objects.get(business=business, user=owner).role,
@@ -45,6 +49,19 @@ class SeedDemoCommandTests(TestCase):
                 ).assigned_branch,
             ),
             (MembershipRole.CASHIER, Branch.objects.get(business=business)),
+        )
+        self.assertEqual(
+            (
+                BusinessMembership.objects.get(
+                    business=business,
+                    user=stock_employee,
+                ).role,
+                BusinessMembership.objects.get(
+                    business=business,
+                    user=stock_employee,
+                ).assigned_branch,
+            ),
+            (MembershipRole.STOCK_EMPLOYEE, Branch.objects.get(business=business)),
         )
 
     @override_settings(DEBUG=False)

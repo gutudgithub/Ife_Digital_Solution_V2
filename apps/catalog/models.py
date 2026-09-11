@@ -9,6 +9,27 @@ from django.utils.translation import gettext_lazy as _
 from apps.businesses.models import Business
 
 
+class StockUnit(models.TextChoices):
+    PIECE = "piece", _("Piece")
+    PAIR = "pair", _("Pair")
+    PACK = "pack", _("Pack")
+    KILOGRAM = "kilogram", _("Kilogram")
+    GRAM = "gram", _("Gram")
+    LITRE = "litre", _("Litre")
+    MILLILITRE = "millilitre", _("Millilitre")
+    METRE = "metre", _("Metre")
+
+
+WHOLE_STOCK_UNITS = frozenset({StockUnit.PIECE, StockUnit.PAIR, StockUnit.PACK})
+
+
+def validate_stock_quantity(quantity: Decimal, unit: str) -> None:
+    if quantity <= 0:
+        raise ValidationError(_("Quantity must be greater than zero."))
+    if unit in WHOLE_STOCK_UNITS and quantity != quantity.to_integral_value():
+        raise ValidationError(_("This stock unit requires a whole-number quantity."))
+
+
 class Category(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     business = models.ForeignKey(Business, on_delete=models.PROTECT, related_name="categories")
@@ -80,6 +101,17 @@ class ProductVariant(models.Model):
     color = models.CharField(max_length=60, blank=True)
     selling_price = models.DecimalField(max_digits=14, decimal_places=2)
     cost_price = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    stock_unit = models.CharField(
+        max_length=16,
+        choices=StockUnit.choices,
+        default=StockUnit.PIECE,
+    )
+    low_stock_threshold = models.DecimalField(
+        max_digits=18,
+        decimal_places=3,
+        null=True,
+        blank=True,
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -99,6 +131,15 @@ class ProductVariant(models.Model):
                 condition=Q(cost_price__isnull=True) | Q(cost_price__gte=Decimal("0.00")),
                 name="catalog_variant_cost_price_nonnegative",
             ),
+            models.CheckConstraint(
+                condition=Q(stock_unit__in=StockUnit.values),
+                name="catalog_variant_stock_unit_is_valid",
+            ),
+            models.CheckConstraint(
+                condition=Q(low_stock_threshold__isnull=True)
+                | Q(low_stock_threshold__gte=Decimal("0.000")),
+                name="catalog_variant_low_stock_nonnegative",
+            ),
         ]
 
     def __str__(self) -> str:
@@ -109,3 +150,15 @@ class ProductVariant(models.Model):
         super().clean()
         if self.product_id and self.product.business_id != self.business_id:
             raise ValidationError({"product": _("Product must belong to the same business.")})
+        if self.low_stock_threshold is not None:
+            if self.low_stock_threshold < 0:
+                raise ValidationError(
+                    {"low_stock_threshold": _("Low-stock threshold cannot be negative.")}
+                )
+            if (
+                self.stock_unit in WHOLE_STOCK_UNITS
+                and self.low_stock_threshold != self.low_stock_threshold.to_integral_value()
+            ):
+                raise ValidationError(
+                    {"low_stock_threshold": _("This stock unit requires a whole-number threshold.")}
+                )

@@ -10,9 +10,12 @@
       <h1>{% translate "Products" %}</h1>
       <p class="muted">{% translate "Styles and their sellable size or color variants." %}</p>
     </div>
-    {% if can_manage_catalog %}
-      <a class="button" href="{% url 'catalog:product-create' %}">{% translate "Add product" %}</a>
-    {% endif %}
+    <div class="action-row">
+      <a class="button button--secondary" href="{% url 'catalog:variant-list' %}">{% translate "Product variants" %}</a>
+      {% if can_manage_catalog %}
+        <a class="button" href="{% url 'catalog:product-create' %}">{% translate "Add product" %}</a>
+      {% endif %}
+    </div>
   </div>
   <section class="card table-wrap">
     <table>

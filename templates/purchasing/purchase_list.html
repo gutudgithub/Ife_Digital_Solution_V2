@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Purchases" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Stock sourcing" %}</p>
+      <h1>{% translate "Purchases" %}</h1>
+      <p class="muted">{% translate "Stock changes only when an approved purchase is received." %}</p>
+    </div>
+    <div class="action-row">
+      <a class="button button--secondary" href="{% url 'purchasing:supplier-list' %}">{% translate "Suppliers" %}</a>
+      {% if can_manage_purchasing %}
+        <a class="button" href="{% url 'purchasing:purchase-create' %}">{% translate "New purchase" %}</a>
+      {% endif %}
+    </div>
+  </div>
+  <section class="card">
+    <div class="table-wrap">
+      <table>
+        <caption class="visually-hidden">{% translate "Purchase records" %}</caption>
+        <thead>
+          <tr>
+            <th>{% translate "Number" %}</th>
+            <th>{% translate "Date" %}</th>
+            <th>{% translate "Supplier" %}</th>
+            <th>{% translate "Branch" %}</th>
+            <th>{% translate "Status" %}</th>
+            <th>{% translate "Total" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for purchase in purchases %}
+            <tr>
+              <td><a href="{% url 'purchasing:purchase-detail' purchase.id %}">{{ purchase.internal_number }}</a></td>
+              <td>{{ purchase.purchase_date }}</td>
+              <td>{{ purchase.supplier.name }}</td>
+              <td>{{ purchase.branch.name }}</td>
+              <td>{{ purchase.get_status_display }}</td>
+              <td>ETB {{ purchase.total_amount|floatformat:2 }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6">{% translate "No purchases yet." %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}

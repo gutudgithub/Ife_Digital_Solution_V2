@@ -60,6 +60,7 @@ class MembershipRole(models.TextChoices):
     OWNER = "owner", _("Owner")
     MANAGER = "manager", _("Manager")
     CASHIER = "cashier", _("Cashier")
+    STOCK_EMPLOYEE = "stock_employee", _("Stock employee")
 
 
 class BusinessMembership(models.Model):
@@ -126,3 +127,27 @@ class BusinessMembership(models.Model):
     @property
     def can_manage_attendance(self) -> bool:
         return self.role in {MembershipRole.OWNER, MembershipRole.MANAGER}
+
+    @property
+    def can_manage_purchasing(self) -> bool:
+        return self.role in {MembershipRole.OWNER, MembershipRole.MANAGER}
+
+    @property
+    def can_receive_inventory(self) -> bool:
+        return self.role in {
+            MembershipRole.OWNER,
+            MembershipRole.MANAGER,
+            MembershipRole.STOCK_EMPLOYEE,
+        }
+
+    @property
+    def can_manage_inventory(self) -> bool:
+        return self.role in {MembershipRole.OWNER, MembershipRole.MANAGER}
+
+    @property
+    def can_view_inventory_cost(self) -> bool:
+        return self.role in {
+            MembershipRole.OWNER,
+            MembershipRole.MANAGER,
+            MembershipRole.STOCK_EMPLOYEE,
+        }

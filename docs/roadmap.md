@@ -12,44 +12,28 @@ operational notes, and independent Claude review.
 - manager correction with immutable before-and-after history
 - dashboard, administration, CI, Docker, and documentation
 
-## Phase 2: inventory
+## Complete approved stages
 
-- inventory movement ledger
-- opening balances and authorized adjustments
-- stock-on-hand projection
-- negative-stock prevention
-- idempotency and concurrency tests
+| Stage | Deliverable | Exit evidence |
+| --- | --- | --- |
+| 2 | Suppliers, purchasing, and inventory ledger | Stock derives correctly from posted movements |
+| 3 | Sales, payments, returns, and internal receipts | Atomic and idempotent sale lifecycle passes |
+| 4 | Expenses, cash sessions, stock/cash reconciliation | A branch can close a complete business day |
+| 5 | Costing and performance intelligence | Accountant-approved formulas and reconciled reports |
+| 6 | Customers, loyalty, promotions, and consent | Points ledger and privacy flows pass |
+| 7 | Public business profile, QR storefront, and verification | Public controls pass without private-data leakage |
+| 8 | Document capture and human-confirmed digitization | Source-to-posted-record traceability passes |
+| 9 | Offline PWA and synchronization | Interruption, retry, conflict, and duplicate tests pass |
+| 10 | Multi-branch transfers and consolidated control | Branch isolation and transfer lifecycle pass |
+| 11 | SaaS plans, onboarding, support, and administration | Subscription lifecycle and safe suspension pass |
+| 12 | Localization, accessibility, security, recovery, and pilot | Real users complete normal operations safely |
+| 13 | Controlled production launch | Legal, privacy, operations, and acceptance gates pass |
 
-## Phase 3: sales and payments
+Stage 2 is split into independently reviewable vertical slices so that the inventory ledger
+is proven before purchase returns and broader controls are layered onto it.
 
-- draft and atomic posted sales
-- product and price snapshots
-- payment methods and allocations
-- internal transaction receipt
-- void, return, reversal, and refund foundations
-
-## Phase 4: cash and reconciliation
-
-- cash-session open and close
-- expected cash, physical count, variance, and explanation
-- stock counts and discrepancy workflow
-- manager approval and audit trails
-
-## Phase 5: reporting and pilot readiness
-
-- daily sales, stock, cash, exception, and employee-activity reports
-- exports with tenant and permission controls
-- Amharic and Afaan Oromoo terminology review
-- backup restoration, monitoring, support, privacy, and security evidence
-- controlled clothing and footwear pilot
-
-## Expansion gates
-
-The approved complete-package proposal adds public QR storefronts, customer loyalty,
-verification indicators, document capture with human transcription, performance intelligence,
-offline synchronization, multi-branch operations, and SaaS subscriptions through later
-reviewed stages. Customer ordering, delivery, professional services, AI, and payroll remain
-excluded.
+Customer ordering, delivery, professional services, AI, payroll, and statutory employment
+administration remain excluded.
 
 Official tax or electronic invoicing has a separate legal and regulatory gate and is not a
 routine roadmap continuation.
