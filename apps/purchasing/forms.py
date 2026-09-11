@@ -25,6 +25,18 @@ class SupplierForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 3}),
         }
 
+    def clean_name(self) -> str:
+        name = str(self.cleaned_data["name"])
+        if not self.instance.business_id:
+            return name
+        duplicate = Supplier.objects.filter(
+            business_id=self.instance.business_id,
+            name__iexact=name,
+        ).exclude(pk=self.instance.pk)
+        if duplicate.exists():
+            raise forms.ValidationError(_("A supplier with this name already exists."))
+        return name
+
 
 class PurchaseForm(forms.ModelForm):
     class Meta:

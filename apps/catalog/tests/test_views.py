@@ -84,6 +84,23 @@ class ProductViewTests(TestCase):
         self.assertEqual(product.business, self.first_business)
         self.assertEqual(product.category, self.category)
 
+    def test_product_create_rejects_duplicate_name_without_server_error(self) -> None:
+        Product.objects.create(business=self.first_business, name="Running Shoe")
+        self.client.force_login(self.owner)
+
+        response = self.client.post(
+            reverse("catalog:product-create"),
+            {
+                "name": "running shoe",
+                "category": str(self.category.id),
+                "description": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "A product with this name already exists.")
+        self.assertEqual(Product.objects.filter(business=self.first_business).count(), 1)
+
     def test_cross_business_category_is_not_accepted(self) -> None:
         other_category = Category.objects.create(
             business=self.second_business,
@@ -148,6 +165,77 @@ class ProductViewTests(TestCase):
         variant = ProductVariant.objects.get(sku="RUN-42-BLK")
         self.assertEqual(variant.business, self.first_business)
         self.assertEqual(variant.stock_unit, StockUnit.PAIR)
+
+    def test_variant_create_rejects_duplicate_sku_without_server_error(self) -> None:
+        product = Product.objects.create(
+            business=self.first_business,
+            name="Running Shoe",
+        )
+        ProductVariant.objects.create(
+            business=self.first_business,
+            product=product,
+            sku="RUN-42-BLK",
+            selling_price=Decimal("1500"),
+        )
+        self.client.force_login(self.owner)
+
+        response = self.client.post(
+            reverse("catalog:variant-create"),
+            {
+                "product": str(product.id),
+                "sku": "run-42-blk",
+                "size": "42",
+                "color": "Black",
+                "selling_price": "1500",
+                "cost_price": "",
+                "stock_unit": StockUnit.PAIR,
+                "low_stock_threshold": "",
+                "is_active": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "A product variant with this SKU already exists.")
+        self.assertEqual(ProductVariant.objects.filter(business=self.first_business).count(), 1)
+
+    def test_variant_edit_rejects_duplicate_sku_without_server_error(self) -> None:
+        product = Product.objects.create(
+            business=self.first_business,
+            name="Running Shoe",
+        )
+        ProductVariant.objects.create(
+            business=self.first_business,
+            product=product,
+            sku="RUN-42-BLK",
+            selling_price=Decimal("1500"),
+        )
+        second_variant = ProductVariant.objects.create(
+            business=self.first_business,
+            product=product,
+            sku="RUN-43-BLK",
+            selling_price=Decimal("1500"),
+        )
+        self.client.force_login(self.owner)
+
+        response = self.client.post(
+            reverse("catalog:variant-edit", args=[second_variant.id]),
+            {
+                "product": str(product.id),
+                "sku": "run-42-blk",
+                "size": "43",
+                "color": "Black",
+                "selling_price": "1500",
+                "cost_price": "",
+                "stock_unit": StockUnit.PAIR,
+                "low_stock_threshold": "",
+                "is_active": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "A product variant with this SKU already exists.")
+        second_variant.refresh_from_db()
+        self.assertEqual(second_variant.sku, "RUN-43-BLK")
 
     def test_variant_form_rejects_cross_business_product(self) -> None:
         other_product = Product.objects.create(

@@ -12,6 +12,18 @@ class ProductForm(forms.ModelForm):
         model = Product
         fields = ("name", "category", "description")
 
+    def clean_name(self) -> str:
+        name = str(self.cleaned_data["name"])
+        if not self.instance.business_id:
+            return name
+        duplicate = Product.objects.filter(
+            business_id=self.instance.business_id,
+            name__iexact=name,
+        ).exclude(pk=self.instance.pk)
+        if duplicate.exists():
+            raise forms.ValidationError(_("A product with this name already exists."))
+        return name
+
 
 class ProductVariantForm(forms.ModelForm):
     class Meta:
@@ -44,3 +56,15 @@ class ProductVariantForm(forms.ModelForm):
                 "Stock unit cannot change while an approved purchase is open or after "
                 "the first posted movement."
             )
+
+    def clean_sku(self) -> str:
+        sku = str(self.cleaned_data["sku"])
+        if not self.instance.business_id:
+            return sku
+        duplicate = ProductVariant.objects.filter(
+            business_id=self.instance.business_id,
+            sku__iexact=sku,
+        ).exclude(pk=self.instance.pk)
+        if duplicate.exists():
+            raise forms.ValidationError(_("A product variant with this SKU already exists."))
+        return sku

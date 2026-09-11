@@ -39,6 +39,7 @@ from apps.purchasing.models import (
 
 PURCHASING_CONSTRAINT_NAMES = frozenset(
     {
+        "purchasing_unique_supplier_name_per_business",
         "purchasing_unique_purchase_number_per_business",
         "purchasing_purchase_status_is_valid",
         "purchasing_purchase_approval_fields_match",

@@ -122,6 +122,49 @@ class StageTwoViewTests(TestCase):
         self.assertEqual(supplier_response.status_code, 403)
         self.assertEqual(purchase_response.status_code, 403)
 
+    def test_supplier_create_rejects_duplicate_name_without_server_error(self) -> None:
+        self.client.force_login(self.owner)
+
+        response = self.client.post(
+            reverse("purchasing:supplier-create"),
+            {
+                "name": self.supplier.name.lower(),
+                "phone": "",
+                "email": "",
+                "address": "",
+                "notes": "",
+                "is_active": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "A supplier with this name already exists.")
+        self.assertEqual(Supplier.objects.filter(business=self.business).count(), 1)
+
+    def test_supplier_edit_rejects_duplicate_name_without_server_error(self) -> None:
+        second_supplier = Supplier.objects.create(
+            business=self.business,
+            name="Second Supplier",
+        )
+        self.client.force_login(self.owner)
+
+        response = self.client.post(
+            reverse("purchasing:supplier-edit", args=[second_supplier.id]),
+            {
+                "name": self.supplier.name.lower(),
+                "phone": "",
+                "email": "",
+                "address": "",
+                "notes": "",
+                "is_active": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "A supplier with this name already exists.")
+        second_supplier.refresh_from_db()
+        self.assertEqual(second_supplier.name, "Second Supplier")
+
     def test_stock_employee_can_view_purchases_but_cannot_create_or_approve(self) -> None:
         client = Client()
         client.force_login(self.stock_employee)
