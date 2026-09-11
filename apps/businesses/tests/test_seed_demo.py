@@ -9,6 +9,7 @@ from apps.businesses.models import Branch, Business, BusinessMembership, Members
 from apps.catalog.models import Category, Product, ProductVariant
 from apps.inventory.models import InventoryBalance, InventoryMovement
 from apps.purchasing.models import GoodsReceipt, Purchase, PurchaseReturn, Supplier
+from apps.sales.models import InternalReceipt, Sale, SalePayment, SaleStatus
 
 
 @override_settings(DEBUG=True)
@@ -36,12 +37,19 @@ class SeedDemoCommandTests(TestCase):
         self.assertEqual(Purchase.objects.filter(business=business).count(), 1)
         self.assertEqual(GoodsReceipt.objects.filter(business=business).count(), 1)
         self.assertEqual(PurchaseReturn.objects.filter(business=business).count(), 1)
-        self.assertEqual(InventoryMovement.objects.filter(business=business).count(), 2)
+        self.assertEqual(Sale.objects.filter(business=business).count(), 1)
+        self.assertEqual(
+            Sale.objects.get(business=business).status,
+            SaleStatus.POSTED,
+        )
+        self.assertEqual(SalePayment.objects.filter(business=business).count(), 1)
+        self.assertEqual(InternalReceipt.objects.filter(business=business).count(), 1)
+        self.assertEqual(InventoryMovement.objects.filter(business=business).count(), 3)
         balance = InventoryBalance.objects.get(
             business=business,
             variant__sku="TSHIRT-BLK-M",
         )
-        self.assertEqual(balance.quantity_on_hand, Decimal("7.000"))
+        self.assertEqual(balance.quantity_on_hand, Decimal("6.000"))
         self.assertEqual(
             (
                 BusinessMembership.objects.get(business=business, user=owner).role,

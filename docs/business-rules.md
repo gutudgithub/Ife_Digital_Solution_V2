@@ -28,8 +28,8 @@
 
 1. Inventory balance is derived from immutable movement history.
 2. Implemented movement types include opening balance, purchase receipt, purchase return,
-   purchase-return reversal, and authorized positive/negative adjustment. Sales and transfers
-   remain later slices.
+   purchase-return reversal, sale, and authorized positive/negative adjustment. Transfers
+   remain a later slice.
 3. Negative stock is disallowed by default.
 4. Adjustments require a reason, actor, timestamp, branch, and audit event.
 5. Replayed requests must not create duplicate movements.
@@ -57,14 +57,18 @@
 
 ## Sales and payments
 
-1. Draft sales do not affect stock, cash, revenue, or receipts.
-2. Posting a sale atomically records sale lines, stock movements, payment allocation,
-   internal receipt, and audit event.
-3. Posted sales cannot be edited through normal flows.
-4. Corrections use voids, returns, refunds, or reversals with authorization and references to
-   the original event.
-5. Payment status and sale status are separate.
-6. An internal receipt must not be represented as an official tax invoice.
+1. Draft sales do not affect stock, payment evidence, or receipts.
+2. A draft copies the current catalog selling price; posting rejects a stale price rather
+   than silently repricing it.
+3. Posting atomically records immutable line cost evidence, outbound stock movements, one
+   exact full cash or manually referenced Telebirr payment, and one internal receipt.
+4. Telebirr references are normalized for business-scoped uniqueness but are not provider
+   verification or settlement confirmation.
+5. Posted sales, lines, payments, and receipts cannot be edited through normal flows.
+6. Posted-sale corrections are unavailable until Stage 3B adds authorized void, return,
+   refund, and reversal events referencing the original sale.
+7. Payment status and sale status are separate.
+8. An internal receipt must not be represented as an official tax invoice.
 
 ## Cash close
 

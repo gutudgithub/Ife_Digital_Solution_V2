@@ -28,6 +28,8 @@ from apps.purchasing.services import (
     receive_purchase,
     save_purchase_return_draft,
 )
+from apps.sales.models import Sale, SalePostingKey
+from apps.sales.services import SaleQuantity, post_sale, save_sale_draft
 
 
 class Command(BaseCommand):
@@ -86,7 +88,7 @@ class Command(BaseCommand):
                     "is_active": True,
                 },
             )
-            BusinessMembership.objects.update_or_create(
+            cashier_membership, _ = BusinessMembership.objects.update_or_create(
                 business=business,
                 user=cashier,
                 defaults={
@@ -253,13 +255,43 @@ class Command(BaseCommand):
                     purchase_return=purchase_return,
                     idempotency_key=uuid.UUID("00000000-0000-4000-8000-000000000202"),
                 )
+            sale_key = uuid.UUID("00000000-0000-4000-8000-000000000203")
+            posting_key = SalePostingKey.objects.filter(
+                business=business,
+                key=sale_key,
+            ).first()
+            if posting_key is None:
+                sale = save_sale_draft(
+                    actor=cashier_membership,
+                    branch=branch,
+                    sale_date=timezone.localdate(),
+                    quantities=[
+                        SaleQuantity(
+                            demo_variants["TSHIRT-BLK-M"].id,
+                            Decimal("1"),
+                        )
+                    ],
+                )
+                sale = post_sale(
+                    actor=cashier_membership,
+                    sale=sale,
+                    payment_method="cash",
+                    telebirr_reference="",
+                    idempotency_key=sale_key,
+                )
+            else:
+                sale = Sale.objects.get(
+                    business=business,
+                    posting_key=posting_key,
+                )
 
         self.stdout.write(self.style.SUCCESS("Local demo data is ready."))
         self.stdout.write("Owner: owner@demo.ife.local")
         self.stdout.write("Cashier: cashier@demo.ife.local")
-        self.stdout.write("Stock employee: stock@demo.ife.local")
         self.stdout.write("Posted purchase: DEMO-PUR-001")
         self.stdout.write("Posted supplier return: DEMO-RETURN-001")
+        self.stdout.write(f"Posted cash sale: {sale.internal_number}")
+        self.stdout.write(f"Internal receipt: {sale.receipt.internal_number}")
 
     @staticmethod
     def _upsert_user(*, email: str, full_name: str, password: str) -> User:

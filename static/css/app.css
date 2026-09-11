@@ -192,6 +192,41 @@ a {
   margin-top: 1rem;
 }
 
+.receipt {
+  margin: 0 auto;
+  max-width: 820px;
+}
+
+.receipt-notice {
+  background: #fff7e6;
+  border: 1px solid #f2c46d;
+  border-radius: 8px;
+  margin: 1rem 0;
+  padding: 0.85rem;
+}
+
+.receipt-meta {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.receipt-meta div {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+
+.receipt-meta dt {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.receipt-meta dd {
+  margin: 0.15rem 0 0;
+}
+
 .history-entry {
   border-top: 1px solid var(--border);
   padding-top: 1rem;
@@ -260,6 +295,28 @@ textarea {
   min-height: 42px;
   padding: 0.55rem 0.7rem;
   width: 100%;
+}
+
+@media print {
+  body {
+    background: white;
+  }
+
+  .site-header,
+  .print-hidden {
+    display: none;
+  }
+
+  .page {
+    padding: 0;
+    width: 100%;
+  }
+
+  .receipt {
+    border: 0;
+    box-shadow: none;
+    max-width: none;
+  }
 }
 
 .form-row {

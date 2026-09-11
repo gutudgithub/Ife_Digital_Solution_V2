@@ -69,6 +69,14 @@ class PurchaseReturnReversalInventoryItem:
     source_id: UUID
 
 
+@dataclass(frozen=True)
+class SaleInventoryItem:
+    variant: ProductVariant
+    quantity: Decimal
+    unit_snapshot: str
+    source_id: UUID
+
+
 def _quantity(value: Decimal) -> Decimal:
     return value.quantize(QUANTITY_QUANTUM, rounding=ROUND_HALF_UP)
 
@@ -126,6 +134,24 @@ def ensure_branch_operation_access(
     active_branches = list(actor.business.branches.filter(is_active=True)[:2])
     if len(active_branches) != 1 or active_branches[0].id != branch.id:
         raise PermissionDenied(_("Ask a manager to assign your branch before receiving stock."))
+
+
+def ensure_sale_branch_access(actor: BusinessMembership, branch: Branch) -> None:
+    _validate_actor(actor, branch.business)
+    if not branch.is_active:
+        raise PermissionDenied(_("Sales require an active branch."))
+    if not actor.can_sell:
+        raise PermissionDenied(_("Sales permission is required."))
+    if actor.can_view_sale_cost:
+        return
+    assigned_branch = actor.assigned_branch
+    if assigned_branch is not None:
+        if assigned_branch.id != branch.id:
+            raise PermissionDenied(_("You may record sales only for your assigned branch."))
+        return
+    active_branches = list(actor.business.branches.filter(is_active=True)[:2])
+    if len(active_branches) != 1 or active_branches[0].id != branch.id:
+        raise PermissionDenied(_("Ask a manager to assign your branch before recording sales."))
 
 
 def _validate_variant_scope(
@@ -419,6 +445,61 @@ def record_purchase_return_reversal_inventory(
                 source_id=item.source_id,
                 actor=actor,
                 reason=reason.strip(),
+                posted_at=posted_at,
+            )
+        movements.append(movement)
+    return movements
+
+
+@transaction.atomic
+def record_sale_inventory(
+    *,
+    actor: BusinessMembership,
+    business: Business,
+    branch: Branch,
+    items: list[SaleInventoryItem],
+    posted_at: datetime,
+) -> list[InventoryMovement]:
+    ensure_sale_branch_access(actor, branch)
+    if not items:
+        raise ValidationError(_("At least one sale line is required."))
+    seen_variants: set[UUID] = set()
+    for item in items:
+        _validate_variant_scope(business, branch, item.variant)
+        if item.variant.stock_unit != item.unit_snapshot:
+            raise ValidationError(_("The variant stock unit changed after the sale draft."))
+        validate_stock_quantity(item.quantity, item.unit_snapshot)
+        if item.variant.id in seen_variants:
+            raise ValidationError(_("A sale cannot repeat the same variant."))
+        seen_variants.add(item.variant.id)
+    _lock_variants([item.variant for item in items])
+
+    balances: dict[UUID, InventoryBalance] = {}
+    for item in sorted(items, key=lambda sale_item: str(sale_item.variant.id)):
+        balances[item.variant.id] = _locked_balance(
+            business=business,
+            branch=branch,
+            variant=item.variant,
+        )
+
+    movements: list[InventoryMovement] = []
+    for item in items:
+        assigned_cost, value_delta = _apply_outbound(
+            balance=balances[item.variant.id],
+            quantity=item.quantity,
+        )
+        with _translate_inventory_constraint_errors():
+            movement = InventoryMovement.objects.create(
+                business=business,
+                branch=branch,
+                variant=item.variant,
+                movement_type=InventoryMovementType.SALE,
+                quantity_delta=-_quantity(item.quantity),
+                unit_cost=assigned_cost,
+                value_delta=value_delta,
+                source_type=InventorySourceType.SALE_LINE,
+                source_id=item.source_id,
+                actor=actor,
                 posted_at=posted_at,
             )
         movements.append(movement)

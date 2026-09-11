@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ sale.internal_number }} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Sale" %}</p>
+      <h1>{{ sale.internal_number }}</h1>
+      <p class="muted">{{ sale.branch.name }} · {{ sale.sale_date }} · {{ sale.get_status_display }}</p>
+    </div>
+    {% if sale.status == "draft" %}
+      <div class="action-row">
+        <a class="button button--secondary" href="{% url 'sales:sale-edit' sale.id %}">{% translate "Edit draft" %}</a>
+        <a class="button" href="{% url 'sales:sale-post' sale.id %}">{% translate "Post and record payment" %}</a>
+        <a class="danger-link" href="{% url 'sales:sale-cancel' sale.id %}">{% translate "Cancel draft" %}</a>
+      </div>
+    {% elif sale.status == "posted" %}
+      <a class="button" href="{% url 'sales:receipt-detail' sale.receipt.id %}">{% translate "View internal receipt" %}</a>
+    {% endif %}
+  </div>
+
+  <section class="grid">
+    <article class="card">
+      <h2>{% translate "Sale details" %}</h2>
+      <p><strong>{% translate "Total" %}:</strong> ETB {{ sale.total_amount|floatformat:2 }}</p>
+      <p><strong>{% translate "Prepared by" %}:</strong> {{ sale.created_by.user.full_name }}</p>
+      {% if sale.posted_at %}
+        <p><strong>{% translate "Posted by" %}:</strong> {{ sale.posted_by.user.full_name }}</p>
+        <p class="muted">{{ sale.posted_at|date:"SHORT_DATETIME_FORMAT" }}</p>
+      {% endif %}
+      {% if sale.cancelled_at %}
+        <p><strong>{% translate "Cancellation reason" %}:</strong> {{ sale.cancellation_reason }}</p>
+        <p class="muted">{{ sale.cancelled_by.user.full_name }} · {{ sale.cancelled_at|date:"SHORT_DATETIME_FORMAT" }}</p>
+      {% endif %}
+    </article>
+    {% if sale.status == "posted" %}
+      <article class="card">
+        <h2>{% translate "Full payment" %}</h2>
+        <p><strong>{% translate "Method" %}:</strong> {{ sale.payment.get_method_display }}</p>
+        <p><strong>{% translate "Amount" %}:</strong> ETB {{ sale.payment.amount|floatformat:2 }}</p>
+        {% if sale.payment.telebirr_reference %}
+          <p><strong>{% translate "Telebirr reference" %}:</strong> {{ sale.payment.telebirr_reference }}</p>
+          <p class="muted">{% translate "Manually entered operational evidence; not provider verification." %}</p>
+        {% endif %}
+      </article>
+    {% endif %}
+  </section>
+
+  <section class="card section-gap">
+    <h2>{% translate "Lines" %}</h2>
+    <div class="table-wrap">
+      <table>
+        <caption class="visually-hidden">{% translate "Sale line details" %}</caption>
+        <thead>
+          <tr>
+            <th>{% translate "Product" %}</th>
+            <th>{% translate "SKU" %}</th>
+            <th>{% translate "Quantity" %}</th>
+            <th>{% translate "Unit price" %}</th>
+            <th>{% translate "Line total" %}</th>
+            {% if can_view_sale_cost and sale.status == "posted" %}
+              <th>{% translate "Assigned inventory unit cost" %}</th>
+              <th>{% translate "Inventory value reduction" %}</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for line in lines %}
+            <tr>
+              <td>{{ line.product_name_snapshot }}</td>
+              <td>{{ line.sku_snapshot }}</td>
+              <td>{{ line.quantity }} {{ line.get_unit_snapshot_display }}</td>
+              <td>ETB {{ line.selling_unit_price|floatformat:2 }}</td>
+              <td>ETB {{ line.line_total|floatformat:2 }}</td>
+              {% if can_view_sale_cost and sale.status == "posted" %}
+                <td>ETB {{ line.assigned_inventory_unit_cost|floatformat:6 }}</td>
+                <td>ETB {{ line.inventory_value_delta|floatformat:6 }}</td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}

@@ -15,10 +15,13 @@ The initial modules are:
 
 - `accounts`: custom email-based user identity;
 - `businesses`: business, branch, membership, role, and active tenant context;
-- `catalog`: category, product style, and sellable size/color variant.
+- `catalog`: category, product style, and sellable size/color variant;
+- `inventory`: immutable stock movements and moving-average balances;
+- `purchasing`: suppliers, purchases, receipts, and purchase returns;
+- `sales`: draft/posted/cancelled sales, single full payments, and internal receipts.
 
 Future modules should follow ledger boundaries rather than generic CRUD groupings:
-inventory, sales, payments, cash, reconciliation, audit, and reporting.
+cash, reconciliation, audit, and reporting.
 
 ## Tenant boundary
 
@@ -37,14 +40,18 @@ schema-per-tenant or database-per-tenant requires a separate architecture decisi
 
 Current role capabilities:
 
-| Capability | Owner | Manager | Cashier |
-| --- | --- | --- | --- |
-| View dashboard and products | Yes | Yes | Yes |
-| Create catalog products | Yes | Yes | No |
-| Platform administration | Staff permission only | Staff permission only | Staff permission only |
+| Capability | Owner | Manager | Cashier | Stock employee |
+| --- | --- | --- | --- | --- |
+| View dashboard and products | Yes | Yes | Yes | Yes |
+| Manage catalog and suppliers | Yes | Yes | No | No |
+| Post assigned-branch sales | Yes | Yes | Yes | No |
+| View sale inventory cost/value | Yes | Yes | No | No |
+| Receive purchases and prepare supplier returns | Yes | Yes | No | Yes |
+| Adjust stock or post/reverse supplier returns | Yes | Yes | No | No |
+| Platform administration | Staff permission only | Staff permission only | Staff permission only | Staff permission only |
 
-Later slices must define explicit capabilities for posting, voiding, returns, refunds,
-adjustments, cash close, employee administration, and report access.
+Later slices must define explicit capabilities for sale voids, customer returns, refunds,
+cash close, employee administration, and report access.
 
 ## Financial architecture
 
@@ -59,6 +66,12 @@ Operational documents and ledger events must be distinct:
 Money uses fixed-precision decimals. Quantities must use an explicit unit and decimal
 precision appropriate to that unit. Concurrency-sensitive stock and cash operations must
 lock or atomically update the affected records.
+
+Stage 3A sale posting locks the sale and inventory resources, rejects stale catalog prices,
+records one full cash or Telebirr payment, emits one outbound movement per line, and creates
+one internal receipt in a single transaction. The receipt is operational evidence and is
+never represented as an official tax invoice. Posted-sale corrections require later
+compensating events rather than edits.
 
 ## Localization
 

@@ -1,8 +1,9 @@
-# Ife Digital Solution — Proposed Stage 3A Feature Brief
+# Ife Digital Solution — Stage 3A Feature Brief
 
 ## Status
 
-Proposed for product-owner approval.
+Approved by the product owner on 8 September 2026. Implemented and awaiting independent
+review.
 
 ## Name
 
@@ -318,9 +319,16 @@ equality, Telebirr-reference normalization and concurrency, posting
 idempotency, atomic rollback, posted immutability, receipt labeling, cashier
 cost non-disclosure, and excluded accounting/customer claims.
 
-## Proposed product-owner decision
+## Implementation record
 
-Approve Stage 3A as written: one fully paid cash or manually referenced
-Telebirr sale, immutable stock/payment/receipt evidence, no discounts or
-customer identity, and no posted correction path until the separately reviewed
-Stage 3B.
+The implementation adds direct business- and branch-scoped sale, line, posting-key, payment,
+and receipt models. Draft, cancellation, and posting writes use service-layer transactions.
+Posting reuses the Stage 2 outbound valuation path and rolls back sale, movement, payment,
+receipt, and idempotency evidence together on failure.
+
+Server-rendered sales screens include filtering, pagination, draft editing, posting,
+cancellation, receipt lookup, and print-friendly internal receipts. Cost and inventory-value
+evidence is restricted to owners and managers. Automated coverage includes tenant and branch
+boundaries, price staleness, stock shortages, rollback, immutability, idempotency, concurrent
+overselling and Telebirr-reference reuse, role visibility, receipt labeling, accessibility,
+and filter preservation.

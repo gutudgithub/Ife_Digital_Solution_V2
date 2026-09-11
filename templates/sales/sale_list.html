@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Sales" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Counter sales" %}</p>
+      <h1>{% translate "Sales" %}</h1>
+      <p class="muted">{% translate "Stage 3A records only fully paid cash or manually referenced Telebirr sales." %}</p>
+    </div>
+    <div class="action-row">
+      <a class="button button--secondary" href="{% url 'sales:receipt-lookup' %}">{% translate "Find receipt" %}</a>
+      <a class="button" href="{% url 'sales:sale-create' %}">{% translate "New sale" %}</a>
+    </div>
+  </div>
+  <section class="card">
+    <form class="filter-form" method="get">
+      {% include "includes/form_fields.html" with form=filter_form %}
+      <button class="button button--secondary" type="submit">{% translate "Filter" %}</button>
+    </form>
+    <div class="table-wrap">
+      <table>
+        <caption class="visually-hidden">{% translate "Sales records" %}</caption>
+        <thead>
+          <tr>
+            <th>{% translate "Sale" %}</th>
+            <th>{% translate "Date" %}</th>
+            <th>{% translate "Branch" %}</th>
+            <th>{% translate "Status" %}</th>
+            <th>{% translate "Payment" %}</th>
+            <th>{% translate "Total" %}</th>
+            <th>{% translate "Receipt" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for sale in sales %}
+            <tr>
+              <td><a href="{% url 'sales:sale-detail' sale.id %}">{{ sale.internal_number }}</a></td>
+              <td>{{ sale.sale_date }}</td>
+              <td>{{ sale.branch.name }}</td>
+              <td>{{ sale.get_status_display }}</td>
+              <td>{% if sale.status == "posted" %}{{ sale.payment.get_method_display }}{% else %}—{% endif %}</td>
+              <td>ETB {{ sale.total_amount|floatformat:2 }}</td>
+              <td>
+                {% if sale.status == "posted" %}
+                  <a href="{% url 'sales:receipt-detail' sale.receipt.id %}">{{ sale.receipt.internal_number }}</a>
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="7">{% translate "No sales match these filters." %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if page_obj.paginator.num_pages > 1 %}
+      <nav class="pagination" aria-label="{% translate 'Sales pages' %}">
+        {% if page_obj.has_previous %}
+          <a href="{% querystring page=page_obj.previous_page_number %}">{% translate "Previous" %}</a>
+        {% endif %}
+        <span>{% blocktranslate trimmed with current=page_obj.number total=page_obj.paginator.num_pages %}Page {{ current }} of {{ total }}{% endblocktranslate %}</span>
+        {% if page_obj.has_next %}
+          <a href="{% querystring page=page_obj.next_page_number %}">{% translate "Next" %}</a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  </section>
+{% endblock %}

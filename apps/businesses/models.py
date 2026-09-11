@@ -145,6 +145,18 @@ class BusinessMembership(models.Model):
         return self.role in {MembershipRole.OWNER, MembershipRole.MANAGER}
 
     @property
+    def can_sell(self) -> bool:
+        return self.role in {
+            MembershipRole.OWNER,
+            MembershipRole.MANAGER,
+            MembershipRole.CASHIER,
+        }
+
+    @property
+    def can_view_sale_cost(self) -> bool:
+        return self.role in {MembershipRole.OWNER, MembershipRole.MANAGER}
+
+    @property
     def can_view_inventory_cost(self) -> bool:
         return self.role in {
             MembershipRole.OWNER,

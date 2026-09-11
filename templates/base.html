@@ -16,6 +16,9 @@
             <a href="{% url 'dashboard' %}">{% translate "Dashboard" %}</a>
             <a href="{% url 'catalog:product-list' %}">{% translate "Products" %}</a>
             <a href="{% url 'inventory:inventory-list' %}">{% translate "Inventory" %}</a>
+            {% if active_membership.can_sell %}
+              <a href="{% url 'sales:sale-list' %}">{% translate "Sales" %}</a>
+            {% endif %}
             {% if active_membership.can_manage_purchasing or active_membership.can_receive_inventory %}
               <a href="{% url 'purchasing:purchase-list' %}">{% translate "Purchases" %}</a>
               <a href="{% url 'purchasing:purchase-return-list' %}">{% translate "Purchase returns" %}</a>

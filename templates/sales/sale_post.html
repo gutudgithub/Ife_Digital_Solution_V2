@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Post sale" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Final posting" %}</p>
+      <h1>{% translate "Post fully paid sale" %}</h1>
+      <p class="muted">{{ sale.internal_number }} · {% blocktranslate trimmed with total=sale.total_amount|floatformat:2 %}Exact payment required: ETB {{ total }}{% endblocktranslate %}</p>
+    </div>
+  </div>
+  <section class="card form-card">
+    <p>{% translate "Posting is atomic and immutable. It reduces inventory, records one full payment, and issues one internal receipt." %}</p>
+    <p class="muted">{% translate "Posted-sale corrections, voids, returns, exchanges, and refunds are not available in Stage 3A." %}</p>
+    <form method="post">
+      {% csrf_token %}
+      {% include "includes/form_fields.html" %}
+      <div class="action-row">
+        <button class="button" type="submit">{% translate "Post sale" %}</button>
+        <a href="{% url 'sales:sale-detail' sale.id %}">{% translate "Back to draft" %}</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

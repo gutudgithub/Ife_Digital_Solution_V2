@@ -140,15 +140,29 @@ return lines reject normal instance edits/deletes. Service-layer transactions lo
 documents, receipt lines, variants, and balances deterministically; direct bulk ORM writes
 remain an explicitly documented bypass until production database roles/triggers are designed.
 
+## Implemented Stage 3A sales entities
+
+- `Sale`: business, branch, internal number, business date, draft/posted/cancelled state,
+  selling total, payment state, idempotency relationship, actor, and lifecycle timestamps.
+- `SaleLine`: business, sale, variant, immutable product/SKU/unit/price snapshots, quantity,
+  line selling total, assigned moving-average cost, and inventory-value reduction.
+- `SalePostingKey`: business-scoped caller UUID tied to exactly one source sale.
+- `SalePayment`: business, branch, one-to-one sale, exact full amount, cash or Telebirr
+  method, entered and normalized Telebirr evidence, actor, and posting timestamp.
+- `InternalReceipt`: business, branch, one-to-one sale, internal number, sale/payment
+  snapshots, actor, and issue timestamp.
+
+Drafts have no stock or payment effect. Posting atomically creates one outbound inventory
+movement per line, one full payment, and one internal receipt. Posted sale evidence rejects
+normal instance edits/deletes. Stage 3B will add compensating sale corrections.
+
 ## Remaining planned ledger entities
 
 Future slices should add:
 
-- sale and immutable sale line snapshots;
-- payment and payment allocation;
-- internal sales receipt;
 - cash session and cash movement;
 - customer return, refund, sale void, and reversal;
+- later payment allocation only if credit or split-tender scope is approved;
 - stock count and reconciliation;
 - generalized audit event.
 
