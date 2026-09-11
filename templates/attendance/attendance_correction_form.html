@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Correct attendance" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Audited correction" %}</p>
+      <h1>{% translate "Correct attendance" %}</h1>
+      <p class="muted">{{ attendance_record.employee.user.full_name }} · {{ attendance_record.work_date }}</p>
+    </div>
+  </div>
+  <form class="card form-card" method="post">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    {% for field in form %}
+      <div class="form-row">
+        {{ field.label_tag }}
+        {{ field }}
+        {{ field.errors }}
+      </div>
+    {% endfor %}
+    <div class="action-row">
+      <button class="button" type="submit">{% translate "Record correction" %}</button>
+      <a href="{% url 'attendance:attendance-detail' attendance_record.id %}">{% translate "Cancel" %}</a>
+    </div>
+  </form>
+{% endblock %}

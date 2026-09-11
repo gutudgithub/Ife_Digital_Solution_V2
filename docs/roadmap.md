@@ -3,11 +3,13 @@
 Each phase is a reviewed vertical slice with an approved feature brief, migrations, tests,
 operational notes, and independent Claude review.
 
-## Phase 1: foundation
+## Stage 1: foundation hardening and basic attendance
 
 - Django and PostgreSQL-compatible platform
 - custom users, businesses, branches, roles, and tenant context
 - clothing and footwear catalog
+- branch-scoped employee check-in and check-out
+- manager correction with immutable before-and-after history
 - dashboard, administration, CI, Docker, and documentation
 
 ## Phase 2: inventory
@@ -43,9 +45,11 @@ operational notes, and independent Claude review.
 
 ## Expansion gates
 
-Pilot evidence should determine whether to add public catalog and ordering, customer
-accounts, payments, multi-branch operations, delivery, services, referrals, subscriptions,
-offline synchronization, and AI.
+The approved complete-package proposal adds public QR storefronts, customer loyalty,
+verification indicators, document capture with human transcription, performance intelligence,
+offline synchronization, multi-branch operations, and SaaS subscriptions through later
+reviewed stages. Customer ordering, delivery, professional services, AI, and payroll remain
+excluded.
 
 Official tax or electronic invoicing has a separate legal and regulatory gate and is not a
 routine roadmap continuation.

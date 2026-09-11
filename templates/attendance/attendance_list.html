@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Attendance" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Employee activity" %}</p>
+      <h1>{% translate "Attendance" %}</h1>
+      <p class="muted">{% translate "Attendance uses server time in Africa/Addis_Ababa." %}</p>
+    </div>
+    {% if can_manage_attendance %}
+      <a class="button" href="{% url 'attendance:attendance-create' %}">{% translate "Add attendance" %}</a>
+    {% endif %}
+  </div>
+
+  <section class="card attendance-actions" aria-labelledby="today-attendance">
+    <div>
+      <h2 id="today-attendance">{% translate "My attendance today" %}</h2>
+      <p class="muted">{% translate "Record your own check-in or check-out at your assigned branch." %}</p>
+    </div>
+    <div class="action-row">
+      {% if not today_record %}
+        <form method="post" action="{% url 'attendance:attendance-check-in' %}">
+          {% csrf_token %}
+          <button class="button" type="submit">{% translate "Check in" %}</button>
+        </form>
+      {% elif today_record.check_in_at and not today_record.check_out_at %}
+        <form method="post" action="{% url 'attendance:attendance-check-out' %}">
+          {% csrf_token %}
+          <button class="button button--secondary" type="submit">{% translate "Check out" %}</button>
+        </form>
+      {% else %}
+        <span class="muted">
+          {% translate "Today's attendance is" %} {{ today_record.get_status_display }}.
+        </span>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>{% translate "Date" %}</th>
+            {% if can_manage_attendance %}<th>{% translate "Employee" %}</th>{% endif %}
+            <th>{% translate "Branch" %}</th>
+            <th>{% translate "Status" %}</th>
+            <th>{% translate "Check in" %}</th>
+            <th>{% translate "Check out" %}</th>
+            <th><span class="visually-hidden">{% translate "Actions" %}</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for record in attendance_records %}
+            <tr>
+              <td>{{ record.work_date }}</td>
+              {% if can_manage_attendance %}<td>{{ record.employee.user.full_name }}</td>{% endif %}
+              <td>{{ record.branch.name }}</td>
+              <td>{{ record.get_status_display }}</td>
+              <td>{{ record.check_in_at|date:"SHORT_DATETIME_FORMAT"|default:"—" }}</td>
+              <td>{{ record.check_out_at|date:"SHORT_DATETIME_FORMAT"|default:"—" }}</td>
+              <td><a href="{% url 'attendance:attendance-detail' record.id %}">{% translate "View" %}</a></td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="{% if can_manage_attendance %}7{% else %}6{% endif %}">
+                {% translate "No attendance records yet." %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}

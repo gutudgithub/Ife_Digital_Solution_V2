@@ -1,6 +1,7 @@
 import uuid
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -67,6 +68,13 @@ class BusinessMembership(models.Model):
         on_delete=models.PROTECT,
         related_name="business_memberships",
     )
+    assigned_branch = models.ForeignKey(
+        Branch,
+        on_delete=models.PROTECT,
+        related_name="assigned_memberships",
+        blank=True,
+        null=True,
+    )
     role = models.CharField(max_length=16, choices=MembershipRole.choices)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -84,6 +92,18 @@ class BusinessMembership(models.Model):
     def __str__(self) -> str:
         return f"{self.user} — {self.business} ({self.get_role_display()})"
 
+    def clean(self) -> None:
+        super().clean()
+        branch = self.assigned_branch
+        if branch is not None and branch.business_id != self.business_id:
+            raise ValidationError(
+                {"assigned_branch": _("The assigned branch must belong to this business.")}
+            )
+
     @property
     def can_manage_catalog(self) -> bool:
+        return self.role in {MembershipRole.OWNER, MembershipRole.MANAGER}
+
+    @property
+    def can_manage_attendance(self) -> bool:
         return self.role in {MembershipRole.OWNER, MembershipRole.MANAGER}

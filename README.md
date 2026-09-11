@@ -4,7 +4,7 @@ Ife Digital Solution is a business-control platform for Ethiopian small business
 foundation is reusable for inventory-based retail while the first pilot is tailored to
 clothing and footwear.
 
-This repository currently contains the Phase 1 foundation:
+This repository currently contains the Stage 1 foundation:
 
 - email-based authentication and Django administration;
 - business and branch records;
@@ -13,6 +13,8 @@ This repository currently contains the Phase 1 foundation:
 - categories, products, and size/color product variants;
 - business-scoped product names and SKUs;
 - authenticated dashboard and product creation;
+- branch-scoped employee check-in and check-out;
+- owner/manager attendance review and auditable corrections;
 - English, Amharic, and Afaan Oromoo locale configuration;
 - PostgreSQL-compatible settings, Docker Compose, CI, and pre-commit checks.
 
@@ -46,8 +48,9 @@ Open `http://localhost:8000/login/` and sign in with the password you chose:
 - owner: `owner@demo.ife.local`;
 - cashier: `cashier@demo.ife.local`.
 
-The owner can create products; the cashier can view the catalog but cannot create products.
-When finished, stop the containers with `docker compose down`.
+The owner can create products and manage attendance. The cashier can view the catalog and
+record personal attendance but cannot create products or correct another employee's
+attendance. When finished, stop the containers with `docker compose down`.
 
 ## Local setup with SQLite
 
@@ -69,7 +72,8 @@ this order:
 3. a membership connecting the superuser to the business as owner;
 4. categories and product variants as needed.
 
-The dashboard is at `/` and the product catalog is at `/catalog/`.
+The dashboard is at `/`, the product catalog is at `/catalog/`, and attendance is at
+`/attendance/`.
 
 ## Local setup with PostgreSQL and Docker
 

@@ -15,6 +15,7 @@
           <nav class="nav" aria-label="{% translate 'Primary navigation' %}">
             <a href="{% url 'dashboard' %}">{% translate "Dashboard" %}</a>
             <a href="{% url 'catalog:product-list' %}">{% translate "Products" %}</a>
+            <a href="{% url 'attendance:attendance-list' %}">{% translate "Attendance" %}</a>
             <form method="post" action="{% url 'logout' %}">
               {% csrf_token %}
               <button class="link-button" type="submit">{% translate "Sign out" %}</button>

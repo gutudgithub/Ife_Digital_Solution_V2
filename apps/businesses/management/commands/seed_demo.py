@@ -52,7 +52,7 @@ class Command(BaseCommand):
                     "is_active": True,
                 },
             )
-            Branch.objects.update_or_create(
+            branch, _ = Branch.objects.update_or_create(
                 business=business,
                 code="main",
                 defaults={"name": "Main Store", "is_active": True},
@@ -60,12 +60,20 @@ class Command(BaseCommand):
             BusinessMembership.objects.update_or_create(
                 business=business,
                 user=owner,
-                defaults={"role": MembershipRole.OWNER, "is_active": True},
+                defaults={
+                    "assigned_branch": branch,
+                    "role": MembershipRole.OWNER,
+                    "is_active": True,
+                },
             )
             BusinessMembership.objects.update_or_create(
                 business=business,
                 user=cashier,
-                defaults={"role": MembershipRole.CASHIER, "is_active": True},
+                defaults={
+                    "assigned_branch": branch,
+                    "role": MembershipRole.CASHIER,
+                    "is_active": True,
+                },
             )
             clothing, _ = Category.objects.update_or_create(
                 business=business,

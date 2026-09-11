@@ -7,6 +7,12 @@ erDiagram
     USER ||--o{ BUSINESS_MEMBERSHIP : has
     BUSINESS ||--o{ BUSINESS_MEMBERSHIP : grants
     BUSINESS ||--o{ BRANCH : operates
+    BRANCH o|--o{ BUSINESS_MEMBERSHIP : assigns
+    BUSINESS ||--o{ ATTENDANCE_RECORD : owns
+    BRANCH ||--o{ ATTENDANCE_RECORD : records
+    BUSINESS_MEMBERSHIP ||--o{ ATTENDANCE_RECORD : attends
+    ATTENDANCE_RECORD ||--o{ ATTENDANCE_CORRECTION : has
+    BUSINESS_MEMBERSHIP ||--o{ ATTENDANCE_CORRECTION : makes
     BUSINESS ||--o{ CATEGORY : owns
     BUSINESS ||--o{ PRODUCT : owns
     BUSINESS ||--o{ PRODUCT_VARIANT : owns
@@ -37,8 +43,27 @@ erDiagram
         uuid id PK
         uuid business_id FK
         bigint user_id FK
+        uuid assigned_branch_id FK
         string role
         boolean is_active
+    }
+    ATTENDANCE_RECORD {
+        uuid id PK
+        uuid business_id FK
+        uuid branch_id FK
+        uuid employee_id FK
+        date work_date
+        string status
+        datetime check_in_at
+        datetime check_out_at
+    }
+    ATTENDANCE_CORRECTION {
+        uuid id PK
+        uuid business_id FK
+        uuid attendance_id FK
+        uuid corrected_by_id FK
+        string reason
+        datetime created_at
     }
     CATEGORY {
         uuid id PK
@@ -71,12 +96,17 @@ erDiagram
 ## Constraints
 
 - one membership per user and business;
+- one attendance record per business, employee, and work date;
 - one branch code per business;
 - one category slug per business;
 - one product name per business;
 - one variant SKU per business;
 - non-negative selling and optional cost prices;
 - model validation prevents cross-business category/product relationships.
+- model validation prevents cross-business attendance, branch, employee, and correction
+  relationships;
+- attendance check-out cannot precede check-in;
+- attendance corrections preserve before-and-after values and cannot be edited normally.
 
 ## Planned ledger entities
 

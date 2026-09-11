@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Add attendance" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Manager action" %}</p>
+      <h1>{% translate "Add attendance" %}</h1>
+    </div>
+  </div>
+  <form class="card form-card" method="post">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    {% for field in form %}
+      <div class="form-row">
+        {{ field.label_tag }}
+        {{ field }}
+        {{ field.errors }}
+      </div>
+    {% endfor %}
+    <div class="action-row">
+      <button class="button" type="submit">{% translate "Save attendance" %}</button>
+      <a href="{% url 'attendance:attendance-list' %}">{% translate "Cancel" %}</a>
+    </div>
+  </form>
+{% endblock %}

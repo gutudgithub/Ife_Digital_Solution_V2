@@ -27,12 +27,24 @@ class SeedDemoCommandTests(TestCase):
         self.assertEqual(ProductVariant.objects.filter(business=business).count(), 4)
         self.assertEqual(BusinessMembership.objects.filter(business=business).count(), 2)
         self.assertEqual(
-            BusinessMembership.objects.get(business=business, user=owner).role,
-            MembershipRole.OWNER,
+            (
+                BusinessMembership.objects.get(business=business, user=owner).role,
+                BusinessMembership.objects.get(
+                    business=business,
+                    user=owner,
+                ).assigned_branch,
+            ),
+            (MembershipRole.OWNER, Branch.objects.get(business=business)),
         )
         self.assertEqual(
-            BusinessMembership.objects.get(business=business, user=cashier).role,
-            MembershipRole.CASHIER,
+            (
+                BusinessMembership.objects.get(business=business, user=cashier).role,
+                BusinessMembership.objects.get(
+                    business=business,
+                    user=cashier,
+                ).assigned_branch,
+            ),
+            (MembershipRole.CASHIER, Branch.objects.get(business=business)),
         )
 
     @override_settings(DEBUG=False)

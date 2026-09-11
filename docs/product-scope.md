@@ -20,6 +20,9 @@ The current release establishes:
 - initial dashboard, product list, and product creation;
 - translatable interfaces for future English, Amharic, and Afaan Oromoo catalogs.
 
+The approved Stage 1 continuation adds basic online attendance with branch-scoped check-in,
+check-out, status, manager corrections, and audit history.
+
 ## Pilot operational release
 
 The next vertical slices should deliver, in this order:
@@ -46,7 +49,8 @@ The following require pilot evidence and separate approval:
 - subscriptions and automated billing;
 - offline synchronization;
 - AI assistance;
-- payroll and advanced accounting.
+- payroll, wages, leave administration, and statutory employment reporting;
+- advanced accounting.
 
 ## Acceptance ownership
 

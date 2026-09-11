@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Attendance detail" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Attendance record" %}</p>
+      <h1>{{ attendance_record.employee.user.full_name }}</h1>
+      <p class="muted">{{ attendance_record.work_date }} · {{ attendance_record.branch.name }}</p>
+    </div>
+    {% if can_manage_attendance %}
+      <a class="button" href="{% url 'attendance:attendance-correct' attendance_record.id %}">
+        {% translate "Correct attendance" %}
+      </a>
+    {% endif %}
+  </div>
+  <section class="grid">
+    <article class="card">
+      <span class="muted">{% translate "Status" %}</span>
+      <p class="metric">{{ attendance_record.get_status_display }}</p>
+    </article>
+    <article class="card">
+      <span class="muted">{% translate "Check in" %}</span>
+      <p>{{ attendance_record.check_in_at|date:"SHORT_DATETIME_FORMAT"|default:"—" }}</p>
+    </article>
+    <article class="card">
+      <span class="muted">{% translate "Check out" %}</span>
+      <p>{{ attendance_record.check_out_at|date:"SHORT_DATETIME_FORMAT"|default:"—" }}</p>
+    </article>
+  </section>
+  <section class="card section-gap">
+    <h2>{% translate "Correction history" %}</h2>
+    {% for correction in corrections %}
+      <article class="history-entry">
+        <strong>{{ correction.created_at|date:"SHORT_DATETIME_FORMAT" }}</strong>
+        <span>{% translate "by" %} {{ correction.corrected_by.user.full_name }}</span>
+        <p>{{ correction.reason }}</p>
+        <p class="muted">
+          {{ correction.get_previous_status_display }} → {{ correction.get_replacement_status_display }}
+        </p>
+        <p class="muted">
+          {% translate "Check in" %}:
+          {{ correction.previous_check_in_at|date:"SHORT_DATETIME_FORMAT"|default:"—" }}
+          →
+          {{ correction.replacement_check_in_at|date:"SHORT_DATETIME_FORMAT"|default:"—" }}
+        </p>
+        <p class="muted">
+          {% translate "Check out" %}:
+          {{ correction.previous_check_out_at|date:"SHORT_DATETIME_FORMAT"|default:"—" }}
+          →
+          {{ correction.replacement_check_out_at|date:"SHORT_DATETIME_FORMAT"|default:"—" }}
+        </p>
+      </article>
+    {% empty %}
+      <p class="muted">{% translate "No corrections recorded." %}</p>
+    {% endfor %}
+  </section>
+{% endblock %}

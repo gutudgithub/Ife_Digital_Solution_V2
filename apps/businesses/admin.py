@@ -31,6 +31,11 @@ class BranchAdmin(admin.ModelAdmin):
 
 @admin.register(BusinessMembership)
 class BusinessMembershipAdmin(admin.ModelAdmin):
-    list_display = ("user", "business", "role", "is_active")
+    list_display = ("user", "business", "assigned_branch", "role", "is_active")
     list_filter = ("role", "is_active")
-    search_fields = ("user__email", "user__full_name", "business__name")
+    search_fields = (
+        "user__email",
+        "user__full_name",
+        "business__name",
+        "assigned_branch__name",
+    )
