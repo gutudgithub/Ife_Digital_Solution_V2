@@ -4,9 +4,8 @@ Ife Digital Solution is a business-control platform for Ethiopian small business
 foundation is reusable for inventory-based retail while the first pilot is tailored to
 clothing and footwear.
 
-This repository contains the approved Stage 1 foundation, the independently reviewed Stage
-2A inventory ledger, and the Stage 2B purchase-return implementation awaiting independent
-review:
+This repository contains the independently reviewed Stage 1 foundation, Stage 2A inventory
+ledger, and Stage 2B purchase-return lifecycle:
 
 - email-based authentication and Django administration;
 - business and branch records;

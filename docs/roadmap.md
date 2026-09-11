@@ -34,8 +34,8 @@ is proven before purchase returns and broader controls are layered onto it.
 
 - Stage 2A is independently approved: suppliers, purchases, partial receiving, opening
   balances, adjustments, moving-average balances, and immutable movement history.
-- Stage 2B is implemented and awaiting independent review: receipt-linked purchase returns,
-  full reversals, supplier activity, purchase-cost history, and filtered movement history.
+- Stage 2B is independently approved: receipt-linked purchase returns, full reversals,
+  supplier activity, purchase-cost history, and filtered movement history.
 
 Customer ordering, delivery, professional services, AI, payroll, and statutory employment
 administration remain excluded.

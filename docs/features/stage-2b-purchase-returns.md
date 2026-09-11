@@ -4,7 +4,8 @@
 
 Approved by the product owner on 8 September 2026.
 
-Implementation is complete and awaiting independent Claude review.
+Implementation and follow-up CRUD hardening are independently approved by Claude with no
+blocking findings.
 
 ## Name
 
