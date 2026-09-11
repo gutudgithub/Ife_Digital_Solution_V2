@@ -109,8 +109,9 @@ optional supplier reference, operational and expected dates, state, settlement-t
 creator/approver identity, approval timestamp, and timestamps.
 
 Each line carries direct business scope, purchase, product variant, immutable product/SKU/unit
-snapshots, ordered quantity, received quantity projection, unit cost, and line total.
-Approved purchase lines cannot be edited through normal flows.
+snapshots, ordered quantity, unit cost, and line total. Received progress is derived from
+immutable goods-receipt lines rather than stored on the purchase line, preventing projection
+drift. Approved purchase lines cannot be edited through normal flows.
 
 ### Goods receipt and receipt line
 
@@ -162,7 +163,7 @@ rebuild test.
 4. Lock each affected inventory balance in a deterministic order.
 5. Create one immutable receipt, receipt lines, and purchase-receipt movements.
 6. Update quantity, value, and moving average atomically.
-7. Update received projections and purchase state.
+7. Derive received progress from receipt lines and update purchase state.
 8. Roll back every effect if any line fails.
 
 ### Opening balance

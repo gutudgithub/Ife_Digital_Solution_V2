@@ -1,11 +1,13 @@
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
+from django.core.exceptions import NON_FIELD_ERRORS, PermissionDenied, ValidationError
+from django.db import IntegrityError, transaction
 from django.db.models import Sum
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -44,6 +46,31 @@ def _number(prefix: str) -> str:
 
 def new_purchase_number() -> str:
     return _number("PUR")
+
+
+@contextmanager
+def _translate_purchasing_constraint_errors() -> Iterator[None]:
+    try:
+        yield
+    except ValidationError as error:
+        if any("purchasing_" in message for message in error.messages):
+            raise ValidationError(
+                _("Posting could not be completed because a purchasing rule was violated.")
+            ) from error
+        raise
+
+
+def _is_receipt_idempotency_validation(error: ValidationError) -> bool:
+    try:
+        non_field_errors = error.error_dict.get(NON_FIELD_ERRORS, ())
+    except AttributeError:
+        return False
+    for item in non_field_errors:
+        if item.code != "unique_together" or item.params is None:
+            continue
+        if item.params.get("unique_check") == ("business", "idempotency_key"):
+            return True
+    return False
 
 
 def _validate_manager(actor: BusinessMembership, purchase: Purchase) -> None:
@@ -98,11 +125,13 @@ def approve_purchase(
         line.product_name_snapshot = line.variant.product.name
         line.sku_snapshot = line.variant.sku
         line.unit_snapshot = line.variant.stock_unit
-        line.save(update_fields=("product_name_snapshot", "sku_snapshot", "unit_snapshot"))
+        with _translate_purchasing_constraint_errors():
+            line.save(update_fields=("product_name_snapshot", "sku_snapshot", "unit_snapshot"))
     locked.status = PurchaseStatus.APPROVED
     locked.approved_by = actor
     locked.approved_at = approved_at or timezone.now()
-    locked.save(update_fields=("status", "approved_by", "approved_at", "updated_at"))
+    with _translate_purchasing_constraint_errors():
+        locked.save(update_fields=("status", "approved_by", "approved_at", "updated_at"))
     return locked
 
 
@@ -122,7 +151,8 @@ def cancel_purchase(
     if locked.receipts.exists():
         raise ValidationError(_("A received purchase cannot be cancelled."))
     locked.status = PurchaseStatus.CANCELLED
-    locked.save(update_fields=("status", "updated_at"))
+    with _translate_purchasing_constraint_errors():
+        locked.save(update_fields=("status", "updated_at"))
     return locked
 
 
@@ -180,29 +210,56 @@ def receive_purchase(
         selected.append((line_progress, item.quantity))
 
     timestamp = received_at or timezone.now()
-    receipt = GoodsReceipt.objects.create(
-        business=actor.business,
-        branch=locked.branch,
-        purchase=locked,
-        internal_number=_number("GRN"),
-        supplier_document_reference=supplier_document_reference.strip(),
-        idempotency_key=idempotency_key,
-        received_by=actor,
-        posted_at=timestamp,
-    )
+    try:
+        with transaction.atomic(), _translate_purchasing_constraint_errors():
+            receipt = GoodsReceipt.objects.create(
+                business=actor.business,
+                branch=locked.branch,
+                purchase=locked,
+                internal_number=_number("GRN"),
+                supplier_document_reference=supplier_document_reference.strip(),
+                idempotency_key=idempotency_key,
+                received_by=actor,
+                posted_at=timestamp,
+            )
+    except ValidationError as error:
+        if not _is_receipt_idempotency_validation(error):
+            raise
+        existing = GoodsReceipt.objects.filter(
+            business=actor.business,
+            idempotency_key=idempotency_key,
+        ).first()
+        if existing is None:
+            raise
+        if existing.purchase_id != locked.id:
+            raise ValidationError(_("This idempotency key belongs to another receipt.")) from error
+        return existing
+    except IntegrityError as error:
+        existing = GoodsReceipt.objects.filter(
+            business=actor.business,
+            idempotency_key=idempotency_key,
+        ).first()
+        if existing is not None:
+            if existing.purchase_id != locked.id:
+                raise ValidationError(
+                    _("This idempotency key belongs to another receipt.")
+                ) from error
+            return existing
+        raise
     inventory_items: list[PurchaseReceiptInventoryItem] = []
     newly_received: dict[UUID, Decimal] = {}
     for line_progress, quantity in selected:
         line = line_progress.line
-        receipt_line = GoodsReceiptLine.objects.create(
-            business=actor.business,
-            receipt=receipt,
-            purchase_line=line,
-            variant=line.variant,
-            received_quantity=quantity,
-            unit_snapshot=line.unit_snapshot,
-            unit_cost=line.unit_cost,
-        )
+        with _translate_purchasing_constraint_errors():
+            receipt_line = GoodsReceiptLine.objects.create(
+                business=actor.business,
+                receipt=receipt,
+                purchase_line=line,
+                variant=line.variant,
+                received_quantity=quantity,
+                unit_snapshot=line.unit_snapshot,
+                unit_cost=line.unit_cost,
+            )
         inventory_items.append(
             PurchaseReceiptInventoryItem(
                 variant=line.variant,
@@ -228,5 +285,6 @@ def receive_purchase(
         for line_progress in progress.values()
     )
     locked.status = PurchaseStatus.RECEIVED if all_received else PurchaseStatus.PARTIALLY_RECEIVED
-    locked.save(update_fields=("status", "updated_at"))
+    with _translate_purchasing_constraint_errors():
+        locked.save(update_fields=("status", "updated_at"))
     return receipt

@@ -1,5 +1,6 @@
 import uuid
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.test import TestCase
@@ -170,6 +171,90 @@ class InventoryServiceTests(TestCase):
         ).get()
         self.assertEqual(movement.unit_cost, Decimal("150.000000"))
         self.assertEqual(movement.value_delta, Decimal("-750.000000"))
+
+    def test_outbound_subtracts_value_when_average_cost_rounds_above_true_average(
+        self,
+    ) -> None:
+        measured_variant = ProductVariant.objects.create(
+            business=self.business,
+            product=self.variant.product,
+            sku="LEATHER-GRAM",
+            selling_price=Decimal("1.00"),
+            stock_unit=StockUnit.GRAM,
+        )
+        post_opening_balance(
+            actor=self.owner_membership,
+            branch=self.branch,
+            variant=measured_variant,
+            quantity=Decimal("4497.665"),
+            unit_cost=Decimal("0.000001"),
+            idempotency_key=uuid.uuid4(),
+        )
+        post_inventory_adjustment(
+            actor=self.owner_membership,
+            branch=self.branch,
+            variant=measured_variant,
+            operation_type="adjustment_in",
+            quantity=Decimal("3989.366"),
+            unit_cost=Decimal("0"),
+            reason="Free measured stock added after recount",
+            idempotency_key=uuid.uuid4(),
+        )
+
+        post_inventory_adjustment(
+            actor=self.owner_membership,
+            branch=self.branch,
+            variant=measured_variant,
+            operation_type="adjustment_out",
+            quantity=Decimal("954.806"),
+            reason="Measured stock removed after manager inspection",
+            idempotency_key=uuid.uuid4(),
+        )
+
+        balance = InventoryBalance.objects.get(variant=measured_variant)
+        self.assertEqual(balance.quantity_on_hand, Decimal("7532.225"))
+        self.assertEqual(balance.average_unit_cost, Decimal("0.000001"))
+        self.assertEqual(balance.inventory_value, Decimal("0.003543"))
+        movement = InventoryMovement.objects.filter(
+            variant=measured_variant,
+            movement_type="adjustment_out",
+        ).get()
+        self.assertEqual(movement.value_delta, Decimal("-0.000955"))
+        self.assertEqual(
+            sum(
+                InventoryMovement.objects.filter(variant=measured_variant).values_list(
+                    "value_delta",
+                    flat=True,
+                ),
+                Decimal("0.000000"),
+            ),
+            balance.inventory_value,
+        )
+
+    def test_constraint_names_are_translated_during_posting(self) -> None:
+        raw_error = ValidationError(
+            'Constraint "inventory_movement_value_direction_matches" is violated.'
+        )
+
+        with (
+            patch(
+                "apps.inventory.services.InventoryMovement.objects.create",
+                side_effect=raw_error,
+            ),
+            self.assertRaisesMessage(ValidationError, "inventory rule") as raised,
+        ):
+            post_opening_balance(
+                actor=self.owner_membership,
+                branch=self.branch,
+                variant=self.variant,
+                quantity=Decimal("1"),
+                unit_cost=Decimal("500"),
+                idempotency_key=uuid.uuid4(),
+            )
+
+        self.assertIs(raised.exception.__cause__, raw_error)
+        self.assertFalse(InventoryBalance.objects.exists())
+        self.assertFalse(StockOperation.objects.exists())
 
     def test_negative_adjustment_rolls_back_all_effects(self) -> None:
         post_opening_balance(

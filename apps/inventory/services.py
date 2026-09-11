@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
@@ -43,6 +45,21 @@ def _cost(value: Decimal) -> Decimal:
 
 def _value(value: Decimal) -> Decimal:
     return value.quantize(VALUE_QUANTUM, rounding=ROUND_HALF_UP)
+
+
+@contextmanager
+def _translate_inventory_constraint_errors() -> Iterator[None]:
+    try:
+        yield
+    except ValidationError as error:
+        if any("inventory_" in message for message in error.messages):
+            raise ValidationError(
+                _(
+                    "Inventory posting could not be completed because an inventory rule "
+                    "was violated."
+                )
+            ) from error
+        raise
 
 
 def _validate_actor(actor: BusinessMembership, business: Business) -> None:
@@ -104,11 +121,12 @@ def _locked_balance(
     except InventoryBalance.DoesNotExist:
         try:
             with transaction.atomic():
-                InventoryBalance.objects.create(
-                    business=business,
-                    branch=branch,
-                    variant=variant,
-                )
+                with _translate_inventory_constraint_errors():
+                    InventoryBalance.objects.create(
+                        business=business,
+                        branch=branch,
+                        variant=variant,
+                    )
         except IntegrityError:
             pass
         return InventoryBalance.objects.select_for_update().get(
@@ -146,9 +164,10 @@ def _apply_inbound(
     balance.quantity_on_hand = new_quantity
     balance.inventory_value = new_value
     balance.average_unit_cost = new_average
-    balance.save(
-        update_fields=("quantity_on_hand", "inventory_value", "average_unit_cost", "updated_at")
-    )
+    with _translate_inventory_constraint_errors():
+        balance.save(
+            update_fields=("quantity_on_hand", "inventory_value", "average_unit_cost", "updated_at")
+        )
     return inbound_cost, inbound_value
 
 
@@ -167,14 +186,19 @@ def _apply_outbound(
         new_average = Decimal("0.000000")
     else:
         new_average = assigned_cost
-        new_value = _value(new_quantity * new_average)
+        outbound_value = _value(outbound_quantity * assigned_cost)
+        new_value = max(
+            _value(balance.inventory_value - outbound_value),
+            Decimal("0.000000"),
+        )
     value_delta = _value(new_value - balance.inventory_value)
     balance.quantity_on_hand = new_quantity
     balance.inventory_value = new_value
     balance.average_unit_cost = new_average
-    balance.save(
-        update_fields=("quantity_on_hand", "inventory_value", "average_unit_cost", "updated_at")
-    )
+    with _translate_inventory_constraint_errors():
+        balance.save(
+            update_fields=("quantity_on_hand", "inventory_value", "average_unit_cost", "updated_at")
+        )
     return assigned_cost, value_delta
 
 
@@ -218,8 +242,8 @@ def record_purchase_receipt_inventory(
             quantity=item.quantity,
             unit_cost=item.unit_cost,
         )
-        movements.append(
-            InventoryMovement.objects.create(
+        with _translate_inventory_constraint_errors():
+            movement = InventoryMovement.objects.create(
                 business=business,
                 branch=branch,
                 variant=item.variant,
@@ -232,7 +256,7 @@ def record_purchase_receipt_inventory(
                 actor=actor,
                 posted_at=posted_at,
             )
-        )
+        movements.append(movement)
     return movements
 
 
@@ -278,32 +302,34 @@ def post_opening_balance(
     ).exists():
         raise ValidationError(_("Opening stock is allowed only before the first movement."))
     timestamp = recorded_at or timezone.now()
-    operation = StockOperation.objects.create(
-        business=business,
-        branch=branch,
-        operation_type=StockOperationType.OPENING,
-        idempotency_key=idempotency_key,
-        actor=actor,
-        posted_at=timestamp,
-    )
+    with _translate_inventory_constraint_errors():
+        operation = StockOperation.objects.create(
+            business=business,
+            branch=branch,
+            operation_type=StockOperationType.OPENING,
+            idempotency_key=idempotency_key,
+            actor=actor,
+            posted_at=timestamp,
+        )
     assigned_cost, value_delta = _apply_inbound(
         balance=balance,
         quantity=quantity,
         unit_cost=unit_cost,
     )
-    InventoryMovement.objects.create(
-        business=business,
-        branch=branch,
-        variant=variant,
-        movement_type=InventoryMovementType.OPENING,
-        quantity_delta=_quantity(quantity),
-        unit_cost=assigned_cost,
-        value_delta=value_delta,
-        source_type=InventorySourceType.STOCK_OPERATION,
-        source_id=operation.id,
-        actor=actor,
-        posted_at=timestamp,
-    )
+    with _translate_inventory_constraint_errors():
+        InventoryMovement.objects.create(
+            business=business,
+            branch=branch,
+            variant=variant,
+            movement_type=InventoryMovementType.OPENING,
+            quantity_delta=_quantity(quantity),
+            unit_cost=assigned_cost,
+            value_delta=value_delta,
+            source_type=InventorySourceType.STOCK_OPERATION,
+            source_id=operation.id,
+            actor=actor,
+            posted_at=timestamp,
+        )
     return operation
 
 
@@ -353,15 +379,16 @@ def post_inventory_adjustment(
 
     balance = _locked_balance(business=business, branch=branch, variant=variant)
     timestamp = recorded_at or timezone.now()
-    operation = StockOperation.objects.create(
-        business=business,
-        branch=branch,
-        operation_type=operation_type,
-        idempotency_key=idempotency_key,
-        actor=actor,
-        reason=reason.strip(),
-        posted_at=timestamp,
-    )
+    with _translate_inventory_constraint_errors():
+        operation = StockOperation.objects.create(
+            business=business,
+            branch=branch,
+            operation_type=operation_type,
+            idempotency_key=idempotency_key,
+            actor=actor,
+            reason=reason.strip(),
+            posted_at=timestamp,
+        )
     if operation_type == StockOperationType.ADJUSTMENT_IN:
         if unit_cost is None:
             raise ValidationError(_("Unit cost is required."))
@@ -376,18 +403,19 @@ def post_inventory_adjustment(
         assigned_cost, value_delta = _apply_outbound(balance=balance, quantity=quantity)
         quantity_delta = -_quantity(quantity)
         movement_type = InventoryMovementType.ADJUSTMENT_OUT
-    InventoryMovement.objects.create(
-        business=business,
-        branch=branch,
-        variant=variant,
-        movement_type=movement_type,
-        quantity_delta=quantity_delta,
-        unit_cost=assigned_cost,
-        value_delta=value_delta,
-        source_type=InventorySourceType.STOCK_OPERATION,
-        source_id=operation.id,
-        actor=actor,
-        reason=operation.reason,
-        posted_at=timestamp,
-    )
+    with _translate_inventory_constraint_errors():
+        InventoryMovement.objects.create(
+            business=business,
+            branch=branch,
+            variant=variant,
+            movement_type=movement_type,
+            quantity_delta=quantity_delta,
+            unit_cost=assigned_cost,
+            value_delta=value_delta,
+            source_type=InventorySourceType.STOCK_OPERATION,
+            source_id=operation.id,
+            actor=actor,
+            reason=operation.reason,
+            posted_at=timestamp,
+        )
     return operation

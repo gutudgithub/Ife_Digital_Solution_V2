@@ -187,6 +187,33 @@ class StageTwoViewTests(TestCase):
         self.assertNotContains(response, "Recent movements")
         self.assertNotContains(response, self.owner.full_name)
 
+    def test_inventory_balances_are_paginated(self) -> None:
+        for index in range(51):
+            variant = ProductVariant.objects.create(
+                business=self.business,
+                product=self.variant.product,
+                sku=f"PAGE-{index:02d}",
+                selling_price=Decimal("100"),
+            )
+            InventoryBalance.objects.create(
+                business=self.business,
+                branch=self.branch,
+                variant=variant,
+            )
+        self.client.force_login(self.owner)
+
+        first_page = self.client.get(reverse("inventory:inventory-list"))
+        second_page = self.client.get(
+            reverse("inventory:inventory-list"),
+            {"page": "2"},
+        )
+
+        self.assertEqual(first_page.status_code, 200)
+        self.assertEqual(len(first_page.context["balances"]), 50)
+        self.assertContains(first_page, "?page=2")
+        self.assertEqual(second_page.status_code, 200)
+        self.assertEqual(len(second_page.context["balances"]), 1)
+
     def test_owner_can_post_opening_balance_from_scoped_form(self) -> None:
         self.client.force_login(self.owner)
 

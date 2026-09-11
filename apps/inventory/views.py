@@ -4,6 +4,7 @@ from typing import cast
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.paginator import Paginator
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils.translation import gettext as _
@@ -53,15 +54,17 @@ def inventory_list(request: HttpRequest) -> HttpResponse:
     if not can_view_movement_history:
         balances = balances.filter(branch__is_active=True, variant__is_active=True)
         movements = movements.none()
+    page_obj = Paginator(balances, 50).get_page(request.GET.get("page"))
     return render(
         request,
         "inventory/inventory_list.html",
         {
-            "balances": balances,
+            "balances": page_obj.object_list,
             "movements": movements[:50],
             "can_manage_inventory": membership.can_manage_inventory,
             "can_view_inventory_cost": membership.can_view_inventory_cost,
             "can_view_movement_history": can_view_movement_history,
+            "page_obj": page_obj,
         },
     )
 
