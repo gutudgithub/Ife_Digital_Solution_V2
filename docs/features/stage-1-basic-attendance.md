@@ -116,6 +116,7 @@ snapshot are written in one transaction.
 
 - Add an Attendance item to authenticated primary navigation.
 - Show today's status with check-in or check-out action when available.
+- When an earlier business date remains open, name that date before offering check-out.
 - Show an accessible attendance table.
 - Owners/managers see employee, branch, status, times, and correction action.
 - Other roles see only their own entries.

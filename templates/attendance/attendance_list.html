@@ -17,8 +17,17 @@
 
   <section class="card attendance-actions" aria-labelledby="today-attendance">
     <div>
-      <h2 id="today-attendance">{% translate "My attendance today" %}</h2>
-      <p class="muted">{% translate "Record your own check-in or check-out at your assigned branch." %}</p>
+      {% if open_record and open_record.work_date != today %}
+        <h2 id="today-attendance">
+          {% blocktranslate trimmed with day=open_record.work_date %}
+            Shift from {{ day }} is still open
+          {% endblocktranslate %}
+        </h2>
+        <p class="muted">{% translate "Checking out will close this earlier attendance record." %}</p>
+      {% else %}
+        <h2 id="today-attendance">{% translate "My attendance today" %}</h2>
+        <p class="muted">{% translate "Record your own check-in or check-out at your assigned branch." %}</p>
+      {% endif %}
     </div>
     <div class="action-row">
       {% if not open_record %}
@@ -33,7 +42,7 @@
         </form>
       {% else %}
         <span class="muted">
-          {% blocktranslate with status=open_record.get_status_display %}
+          {% blocktranslate trimmed with status=open_record.get_status_display %}
             Today's attendance is {{ status }}.
           {% endblocktranslate %}
         </span>
@@ -100,7 +109,7 @@
           <a href="{% querystring page=page_obj.previous_page_number %}">{% translate "Previous" %}</a>
         {% endif %}
         <span>
-          {% blocktranslate with current=page_obj.number total=page_obj.paginator.num_pages %}
+          {% blocktranslate trimmed with current=page_obj.number total=page_obj.paginator.num_pages %}
             Page {{ current }} of {{ total }}
           {% endblocktranslate %}
         </span>

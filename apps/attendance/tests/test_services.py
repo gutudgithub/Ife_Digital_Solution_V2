@@ -163,7 +163,10 @@ class AttendanceServiceTests(TestCase):
         )
         check_in(membership=self.cashier_membership, recorded_at=check_in_time)
 
-        with self.assertRaisesMessage(ValidationError, "Check out before checking in"):
+        with self.assertRaisesMessage(
+            ValidationError,
+            "Attendance for 2026-09-08 is still open",
+        ):
             check_in(
                 membership=self.cashier_membership,
                 recorded_at=check_in_time + timedelta(minutes=20),

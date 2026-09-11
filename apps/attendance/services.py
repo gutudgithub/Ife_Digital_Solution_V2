@@ -73,7 +73,10 @@ def check_in(
     existing = open_shift_for(membership, at=timestamp, lock=True)
     if existing is not None:
         if existing.work_date != work_date:
-            raise ValidationError(_("Check out before checking in again."))
+            raise ValidationError(
+                _("Attendance for %(date)s is still open. Check out before checking in again.")
+                % {"date": existing.work_date}
+            )
         if existing.check_in_at is not None:
             raise ValidationError(_("You have already checked in today."))
         raise ValidationError(

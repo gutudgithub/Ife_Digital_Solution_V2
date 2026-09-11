@@ -8,6 +8,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_POST
 
@@ -52,7 +53,9 @@ def attendance_list(request: HttpRequest) -> HttpResponse:
             records = records.filter(work_date=work_date)
     add_accessible_error_attributes(filter_form)
     page_obj = Paginator(records, 50).get_page(request.GET.get("page"))
-    open_record = open_shift_for(membership)
+    timestamp = timezone.now()
+    today = timezone.localdate(timestamp)
+    open_record = open_shift_for(membership, at=timestamp)
     return render(
         request,
         "attendance/attendance_list.html",
@@ -62,6 +65,7 @@ def attendance_list(request: HttpRequest) -> HttpResponse:
             "filter_form": filter_form,
             "open_record": open_record,
             "page_obj": page_obj,
+            "today": today,
         },
     )
 

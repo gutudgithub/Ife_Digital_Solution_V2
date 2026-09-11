@@ -1,8 +1,10 @@
 from datetime import date, datetime
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from django.test import Client, TestCase
 from django.urls import reverse
+from django.utils.formats import date_format
 
 from apps.accounts.models import User
 from apps.attendance.forms import AttendanceCorrectionForm, add_accessible_error_attributes
@@ -148,6 +150,43 @@ class AttendanceViewTests(TestCase):
         self.assertContains(success_response, 'role="status" aria-live="polite"')
         self.assertContains(error_response, 'role="alert"')
         self.assertNotContains(error_response, 'class="messages" role=')
+
+    def test_overnight_attendance_section_discloses_the_open_work_date(self) -> None:
+        work_date = date(2026, 9, 8)
+        AttendanceRecord.objects.create(
+            business=self.business,
+            branch=self.branch,
+            employee=self.cashier_membership,
+            work_date=work_date,
+            status=AttendanceStatus.PRESENT,
+            check_in_at=datetime(
+                2026,
+                9,
+                8,
+                20,
+                tzinfo=ZoneInfo("Africa/Addis_Ababa"),
+            ),
+        )
+        self.client.force_login(self.cashier)
+        viewed_at = datetime(
+            2026,
+            9,
+            9,
+            9,
+            tzinfo=ZoneInfo("Africa/Addis_Ababa"),
+        )
+
+        with patch("apps.attendance.views.timezone.now", return_value=viewed_at):
+            response = self.client.get(reverse("attendance:attendance-list"))
+
+        self.assertContains(
+            response,
+            f"Shift from {date_format(work_date)} is still open",
+        )
+        self.assertContains(
+            response,
+            "Checking out will close this earlier attendance record.",
+        )
 
     def test_cross_business_attendance_detail_is_not_found(self) -> None:
         record = AttendanceRecord.objects.create(

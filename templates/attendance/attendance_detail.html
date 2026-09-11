@@ -35,7 +35,7 @@
     {% for correction in corrections %}
       <article class="history-entry">
         <strong>
-          {% blocktranslate with corrected_at=correction.created_at|date:"SHORT_DATETIME_FORMAT" name=correction.corrected_by.user.full_name %}
+          {% blocktranslate trimmed with corrected_at=correction.created_at|date:"SHORT_DATETIME_FORMAT" name=correction.corrected_by.user.full_name %}
             Corrected {{ corrected_at }} by {{ name }}
           {% endblocktranslate %}
         </strong>
@@ -45,7 +45,7 @@
             {{ correction.get_previous_status_display }} → {{ correction.get_replacement_status_display }}
           </span>
           <span class="visually-hidden">
-            {% blocktranslate with previous=correction.get_previous_status_display replacement=correction.get_replacement_status_display %}
+            {% blocktranslate trimmed with previous=correction.get_previous_status_display replacement=correction.get_replacement_status_display %}
               Status changed from {{ previous }} to {{ replacement }}
             {% endblocktranslate %}
           </span>
