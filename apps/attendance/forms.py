@@ -9,6 +9,23 @@ from apps.attendance.models import AttendanceRecord, AttendanceStatus
 from apps.businesses.models import Branch, Business, BusinessMembership
 
 
+def add_accessible_error_attributes(form: forms.BaseForm) -> None:
+    for field_name in form.errors:
+        if field_name not in form.fields:
+            continue
+        field = form.fields[field_name]
+        field.widget.attrs["aria-invalid"] = "true"
+        field.widget.attrs["aria-describedby"] = f"id_{field_name}_errors"
+
+
+class AttendanceFilterForm(forms.Form):
+    work_date = forms.DateField(
+        required=False,
+        label=_("Date"),
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+
+
 class AttendanceCreateForm(forms.ModelForm):
     class Meta:
         model = AttendanceRecord

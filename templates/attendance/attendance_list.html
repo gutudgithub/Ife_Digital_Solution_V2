@@ -21,27 +21,47 @@
       <p class="muted">{% translate "Record your own check-in or check-out at your assigned branch." %}</p>
     </div>
     <div class="action-row">
-      {% if not today_record %}
+      {% if not open_record %}
         <form method="post" action="{% url 'attendance:attendance-check-in' %}">
           {% csrf_token %}
           <button class="button" type="submit">{% translate "Check in" %}</button>
         </form>
-      {% elif today_record.check_in_at and not today_record.check_out_at %}
+      {% elif open_record.check_in_at and not open_record.check_out_at %}
         <form method="post" action="{% url 'attendance:attendance-check-out' %}">
           {% csrf_token %}
           <button class="button button--secondary" type="submit">{% translate "Check out" %}</button>
         </form>
       {% else %}
         <span class="muted">
-          {% translate "Today's attendance is" %} {{ today_record.get_status_display }}.
+          {% blocktranslate with status=open_record.get_status_display %}
+            Today's attendance is {{ status }}.
+          {% endblocktranslate %}
         </span>
       {% endif %}
     </div>
   </section>
 
   <section class="card">
+    <form class="filter-form" method="get">
+      <div class="form-row">
+        {{ filter_form.work_date.label_tag }}
+        {{ filter_form.work_date }}
+        {% if filter_form.work_date.errors %}
+          <ul class="errorlist" id="{{ filter_form.work_date.auto_id }}_errors" role="alert">
+            {% for error in filter_form.work_date.errors %}<li>{{ error }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+      <div class="action-row">
+        <button class="button" type="submit">{% translate "Filter" %}</button>
+        {% if filter_form.work_date.value %}
+          <a href="{% url 'attendance:attendance-list' %}">{% translate "Clear" %}</a>
+        {% endif %}
+      </div>
+    </form>
     <div class="table-wrap">
       <table>
+        <caption class="visually-hidden">{% translate "Attendance records" %}</caption>
         <thead>
           <tr>
             <th>{% translate "Date" %}</th>
@@ -74,5 +94,20 @@
         </tbody>
       </table>
     </div>
+    {% if page_obj.paginator.num_pages > 1 %}
+      <nav class="pagination" aria-label="{% translate 'Attendance pages' %}">
+        {% if page_obj.has_previous %}
+          <a href="{% querystring page=page_obj.previous_page_number %}">{% translate "Previous" %}</a>
+        {% endif %}
+        <span>
+          {% blocktranslate with current=page_obj.number total=page_obj.paginator.num_pages %}
+            Page {{ current }} of {{ total }}
+          {% endblocktranslate %}
+        </span>
+        {% if page_obj.has_next %}
+          <a href="{% querystring page=page_obj.next_page_number %}">{% translate "Next" %}</a>
+        {% endif %}
+      </nav>
+    {% endif %}
   </section>
 {% endblock %}

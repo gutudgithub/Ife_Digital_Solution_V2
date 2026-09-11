@@ -168,6 +168,26 @@ a {
   max-width: 680px;
 }
 
+.filter-form {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.filter-form .form-row {
+  margin: 0;
+}
+
+.pagination {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
 .section-gap {
   margin-top: 1rem;
 }

@@ -53,6 +53,16 @@ class ActiveBusinessMiddlewareTests(TestCase):
         self.assertContains(response, self.first_business.name)
         self.assertNotContains(response, unavailable_business.name)
 
+    def test_malformed_session_business_falls_back_to_first_membership(self) -> None:
+        session = self.client.session
+        session["active_business_id"] = "not-a-uuid"
+        session.save()
+
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.first_business.name)
+
 
 class BusinessAccessTests(TestCase):
     def test_authenticated_user_without_membership_is_denied(self) -> None:

@@ -60,6 +60,12 @@ class AttendanceModelTests(TestCase):
         with self.assertRaises(ValidationError):
             self.cashier_membership.full_clean()
 
+    def test_membership_save_rejects_branch_from_another_business(self) -> None:
+        self.cashier_membership.assigned_branch = self.other_branch
+
+        with self.assertRaises(ValidationError):
+            self.cashier_membership.save()
+
     def test_attendance_rejects_cross_business_branch(self) -> None:
         record = AttendanceRecord(
             business=self.business,
@@ -71,6 +77,18 @@ class AttendanceModelTests(TestCase):
 
         with self.assertRaises(ValidationError):
             record.full_clean()
+
+    def test_attendance_save_rejects_cross_business_branch(self) -> None:
+        record = AttendanceRecord(
+            business=self.business,
+            branch=self.other_branch,
+            employee=self.cashier_membership,
+            work_date=date(2026, 9, 8),
+            status=AttendanceStatus.ABSENT,
+        )
+
+        with self.assertRaises(ValidationError):
+            record.save()
 
     def test_attendance_rejects_checkout_before_checkin(self) -> None:
         check_in = datetime(2026, 9, 8, 9, tzinfo=ZoneInfo("Africa/Addis_Ababa"))
@@ -97,12 +115,44 @@ class AttendanceModelTests(TestCase):
         )
 
         with self.assertRaises(IntegrityError), transaction.atomic():
-            AttendanceRecord.objects.create(
-                business=self.business,
-                branch=self.branch,
-                employee=self.cashier_membership,
-                work_date=date(2026, 9, 8),
-                status=AttendanceStatus.EXCUSED,
+            AttendanceRecord.objects.bulk_create(
+                [
+                    AttendanceRecord(
+                        business=self.business,
+                        branch=self.branch,
+                        employee=self.cashier_membership,
+                        work_date=date(2026, 9, 8),
+                        status=AttendanceStatus.EXCUSED,
+                    )
+                ]
+            )
+
+    def test_database_rejects_unknown_attendance_status(self) -> None:
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            AttendanceRecord.objects.bulk_create(
+                [
+                    AttendanceRecord(
+                        business=self.business,
+                        branch=self.branch,
+                        employee=self.cashier_membership,
+                        work_date=date(2026, 9, 8),
+                        status="unknown",
+                    )
+                ]
+            )
+
+    def test_database_rejects_present_attendance_without_check_in(self) -> None:
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            AttendanceRecord.objects.bulk_create(
+                [
+                    AttendanceRecord(
+                        business=self.business,
+                        branch=self.branch,
+                        employee=self.cashier_membership,
+                        work_date=date(2026, 9, 8),
+                        status=AttendanceStatus.PRESENT,
+                    )
+                ]
             )
 
     def test_correction_rejects_non_manager_actor(self) -> None:
@@ -124,3 +174,26 @@ class AttendanceModelTests(TestCase):
 
         with self.assertRaises(ValidationError):
             correction.full_clean()
+
+    def test_saved_correction_cannot_be_changed_or_deleted(self) -> None:
+        record = AttendanceRecord.objects.create(
+            business=self.business,
+            branch=self.branch,
+            employee=self.cashier_membership,
+            work_date=date(2026, 9, 8),
+            status=AttendanceStatus.ABSENT,
+        )
+        correction = AttendanceCorrection.objects.create(
+            business=self.business,
+            attendance=record,
+            corrected_by=self.owner_membership,
+            reason="Approved absence",
+            previous_status=AttendanceStatus.ABSENT,
+            replacement_status=AttendanceStatus.EXCUSED,
+        )
+        correction.reason = "Changed reason"
+
+        with self.assertRaisesMessage(ValidationError, "cannot be modified"):
+            correction.save()
+        with self.assertRaisesMessage(ValidationError, "cannot be deleted"):
+            correction.delete()

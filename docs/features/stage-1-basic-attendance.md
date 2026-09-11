@@ -15,9 +15,10 @@ introducing payroll or employment-compliance calculations.
 
 - optional primary-branch assignment on a business membership;
 - self-service check-in and check-out for active members;
+- check-out of an open attendance record for up to 18 hours, including across midnight;
 - one attendance record per member and business date;
 - present, absent, and excused statuses;
-- owner/manager attendance overview by date;
+- owner/manager attendance overview with date filtering and pagination;
 - employee view restricted to the signed-in member's records;
 - owner/manager corrections with a mandatory reason;
 - immutable before-and-after correction history;
@@ -39,6 +40,8 @@ Attendance is online-only in this stage.
 - Owners and managers may view all attendance in the active business.
 - Owners and managers may create or correct attendance for active members of the active
   business.
+- Owners and managers may correct existing attendance for deactivated members of the active
+  business, while creating new attendance still requires an active member.
 - Cashiers may not view or correct another member's attendance.
 - A member assigned to a branch records self-service attendance only in that branch.
 - An unassigned member may use self-service attendance only when the business has exactly one

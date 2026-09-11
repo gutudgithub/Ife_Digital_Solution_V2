@@ -5,19 +5,25 @@ from uuid import UUID
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.paginator import Paginator
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_POST
 
-from apps.attendance.forms import AttendanceCorrectionForm, AttendanceCreateForm
+from apps.attendance.forms import (
+    AttendanceCorrectionForm,
+    AttendanceCreateForm,
+    AttendanceFilterForm,
+    add_accessible_error_attributes,
+)
 from apps.attendance.models import AttendanceRecord
 from apps.attendance.services import (
     check_in,
     check_out,
     correct_attendance,
     create_attendance,
+    open_shift_for,
 )
 from apps.businesses.models import Branch, Business, BusinessMembership
 from apps.businesses.types import TenantRequest
@@ -33,23 +39,29 @@ def _tenant_context(request: HttpRequest) -> tuple[Business, BusinessMembership]
 @login_required
 def attendance_list(request: HttpRequest) -> HttpResponse:
     business, membership = _tenant_context(request)
+    filter_form = AttendanceFilterForm(request.GET or None)
     records = AttendanceRecord.objects.filter(business=business).select_related(
         "branch",
         "employee__user",
     )
     if not membership.can_manage_attendance:
         records = records.filter(employee=membership)
-    today_record = records.filter(
-        employee=membership,
-        work_date=timezone.localdate(),
-    ).first()
+    if filter_form.is_valid():
+        work_date = filter_form.cleaned_data.get("work_date")
+        if isinstance(work_date, date):
+            records = records.filter(work_date=work_date)
+    add_accessible_error_attributes(filter_form)
+    page_obj = Paginator(records, 50).get_page(request.GET.get("page"))
+    open_record = open_shift_for(membership)
     return render(
         request,
         "attendance/attendance_list.html",
         {
-            "attendance_records": records[:100],
+            "attendance_records": page_obj.object_list,
             "can_manage_attendance": membership.can_manage_attendance,
-            "today_record": today_record,
+            "filter_form": filter_form,
+            "open_record": open_record,
+            "page_obj": page_obj,
         },
     )
 
@@ -110,6 +122,7 @@ def attendance_create(request: HttpRequest) -> HttpResponse:
         else:
             messages.success(request, _("Attendance record created."))
             return redirect("attendance:attendance-list")
+    add_accessible_error_attributes(form)
     return render(request, "attendance/attendance_form.html", {"form": form})
 
 
@@ -166,6 +179,7 @@ def attendance_correct(request: HttpRequest, attendance_id: UUID) -> HttpRespons
         else:
             messages.success(request, _("Attendance correction recorded."))
             return redirect("attendance:attendance-detail", attendance_id=record.id)
+    add_accessible_error_attributes(form)
     return render(
         request,
         "attendance/attendance_correction_form.html",

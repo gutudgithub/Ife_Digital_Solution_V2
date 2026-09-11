@@ -1,8 +1,10 @@
 import uuid
+from collections.abc import Iterable
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.base import ModelBase
 from django.utils.translation import gettext_lazy as _
 
 
@@ -91,6 +93,22 @@ class BusinessMembership(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user} — {self.business} ({self.get_role_display()})"
+
+    def save(
+        self,
+        *,
+        force_insert: bool | tuple[ModelBase, ...] = False,
+        force_update: bool = False,
+        using: str | None = None,
+        update_fields: Iterable[str] | None = None,
+    ) -> None:
+        self.full_clean()
+        super().save(
+            force_insert=force_insert,
+            force_update=force_update,
+            using=using,
+            update_fields=update_fields,
+        )
 
     def clean(self) -> None:
         super().clean()

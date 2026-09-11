@@ -1,8 +1,10 @@
 import uuid
+from collections.abc import Iterable
 
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
+from django.db.models.base import ModelBase
 from django.utils.translation import gettext_lazy as _
 
 from apps.businesses.models import Branch, Business, BusinessMembership
@@ -58,10 +60,42 @@ class AttendanceRecord(models.Model):
                 | Q(check_out_at__gte=models.F("check_in_at")),
                 name="attendance_checkout_not_before_checkin",
             ),
+            models.CheckConstraint(
+                condition=Q(status__in=AttendanceStatus.values),
+                name="attendance_status_is_valid",
+            ),
+            models.CheckConstraint(
+                condition=Q(
+                    status=AttendanceStatus.PRESENT,
+                    check_in_at__isnull=False,
+                )
+                | Q(
+                    status__in=(AttendanceStatus.ABSENT, AttendanceStatus.EXCUSED),
+                    check_in_at__isnull=True,
+                    check_out_at__isnull=True,
+                ),
+                name="attendance_status_matches_timestamps",
+            ),
         ]
 
     def __str__(self) -> str:
         return f"{self.employee.user} — {self.work_date}"
+
+    def save(
+        self,
+        *,
+        force_insert: bool | tuple[ModelBase, ...] = False,
+        force_update: bool = False,
+        using: str | None = None,
+        update_fields: Iterable[str] | None = None,
+    ) -> None:
+        self.full_clean()
+        super().save(
+            force_insert=force_insert,
+            force_update=force_update,
+            using=using,
+            update_fields=update_fields,
+        )
 
     def clean(self) -> None:
         super().clean()
@@ -125,6 +159,31 @@ class AttendanceCorrection(models.Model):
 
     def __str__(self) -> str:
         return f"{self.attendance} corrected by {self.corrected_by.user}"
+
+    def save(
+        self,
+        *,
+        force_insert: bool | tuple[ModelBase, ...] = False,
+        force_update: bool = False,
+        using: str | None = None,
+        update_fields: Iterable[str] | None = None,
+    ) -> None:
+        if not self._state.adding:
+            raise ValidationError(_("Attendance corrections cannot be modified."))
+        self.full_clean()
+        super().save(
+            force_insert=force_insert,
+            force_update=force_update,
+            using=using,
+            update_fields=update_fields,
+        )
+
+    def delete(
+        self,
+        using: str | None = None,
+        keep_parents: bool = False,
+    ) -> tuple[int, dict[str, int]]:
+        raise ValidationError(_("Attendance corrections cannot be deleted."))
 
     def clean(self) -> None:
         super().clean()

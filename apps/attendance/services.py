@@ -1,12 +1,14 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.attendance.models import AttendanceCorrection, AttendanceRecord, AttendanceStatus
 from apps.businesses.models import Branch, BusinessMembership
+
+OPEN_SHIFT_WINDOW = timedelta(hours=18)
 
 
 def resolve_self_service_branch(membership: BusinessMembership) -> Branch:
@@ -25,6 +27,34 @@ def resolve_self_service_branch(membership: BusinessMembership) -> Branch:
     return branches[0]
 
 
+def open_shift_for(
+    membership: BusinessMembership,
+    *,
+    at: datetime | None = None,
+    lock: bool = False,
+) -> AttendanceRecord | None:
+    timestamp = at or timezone.now()
+    scoped = AttendanceRecord.objects.filter(
+        business=membership.business,
+        employee=membership,
+    )
+    if lock:
+        scoped = scoped.select_for_update()
+    today = scoped.filter(work_date=timezone.localdate(timestamp)).first()
+    if today is not None:
+        return today
+    return (
+        scoped.filter(
+            check_in_at__isnull=False,
+            check_out_at__isnull=True,
+            check_in_at__gte=timestamp - OPEN_SHIFT_WINDOW,
+            check_in_at__lte=timestamp,
+        )
+        .order_by("-check_in_at")
+        .first()
+    )
+
+
 @transaction.atomic
 def check_in(
     *,
@@ -33,19 +63,29 @@ def check_in(
 ) -> AttendanceRecord:
     timestamp = recorded_at or timezone.now()
     branch = resolve_self_service_branch(membership)
-    record, created = AttendanceRecord.objects.get_or_create(
-        business=membership.business,
-        employee=membership,
-        work_date=timezone.localdate(timestamp),
-        defaults={
-            "branch": branch,
-            "status": AttendanceStatus.PRESENT,
-            "check_in_at": timestamp,
-        },
-    )
-    if created:
-        return record
-    raise ValidationError(_("An attendance record already exists for today."))
+    work_date = timezone.localdate(timestamp)
+    existing = open_shift_for(membership, at=timestamp, lock=True)
+    if existing is not None:
+        if existing.work_date != work_date:
+            raise ValidationError(_("Check out before checking in again."))
+        if existing.check_in_at is not None:
+            raise ValidationError(_("You have already checked in today."))
+        raise ValidationError(
+            _("Today's attendance was recorded as %(status)s. Ask a manager to correct it.")
+            % {"status": existing.get_status_display()}
+        )
+    try:
+        with transaction.atomic():
+            return AttendanceRecord.objects.create(
+                business=membership.business,
+                employee=membership,
+                branch=branch,
+                work_date=work_date,
+                status=AttendanceStatus.PRESENT,
+                check_in_at=timestamp,
+            )
+    except IntegrityError as error:
+        raise ValidationError(_("You have already checked in today.")) from error
 
 
 @transaction.atomic
@@ -55,19 +95,11 @@ def check_out(
     recorded_at: datetime | None = None,
 ) -> AttendanceRecord:
     timestamp = recorded_at or timezone.now()
-    record = (
-        AttendanceRecord.objects.select_for_update()
-        .filter(
-            business=membership.business,
-            employee=membership,
-            work_date=timezone.localdate(timestamp),
-        )
-        .first()
-    )
+    record = open_shift_for(membership, at=timestamp, lock=True)
     if record is None or record.check_in_at is None:
         raise ValidationError(_("Check in before checking out."))
     if record.check_out_at is not None:
-        raise ValidationError(_("Attendance has already been checked out for today."))
+        raise ValidationError(_("Attendance has already been checked out."))
     record.check_out_at = timestamp
     record.full_clean()
     record.save()

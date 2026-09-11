@@ -166,6 +166,76 @@ class AttendanceViewTests(TestCase):
         self.assertEqual(record.business, self.business)
         self.assertEqual(record.status, AttendanceStatus.ABSENT)
 
+    def test_owner_can_filter_attendance_by_work_date(self) -> None:
+        first = AttendanceRecord.objects.create(
+            business=self.business,
+            branch=self.branch,
+            employee=self.cashier_membership,
+            work_date=date(2026, 9, 8),
+            status=AttendanceStatus.ABSENT,
+        )
+        AttendanceRecord.objects.create(
+            business=self.business,
+            branch=self.branch,
+            employee=self.owner_membership,
+            work_date=date(2026, 9, 9),
+            status=AttendanceStatus.EXCUSED,
+        )
+        self.client.force_login(self.owner)
+
+        response = self.client.get(
+            reverse("attendance:attendance-list"),
+            {"work_date": "2026-09-08"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(list(response.context["attendance_records"]), [first])
+
+    def test_attendance_list_is_paginated_without_dropping_filter(self) -> None:
+        work_date = date(2026, 1, 1)
+        users = User.objects.bulk_create(
+            [
+                User(
+                    email=f"cashier-{offset}@example.com",
+                    full_name=f"Cashier {offset}",
+                )
+                for offset in range(51)
+            ]
+        )
+        memberships = BusinessMembership.objects.bulk_create(
+            [
+                BusinessMembership(
+                    business=self.business,
+                    user=user,
+                    assigned_branch=self.branch,
+                    role=MembershipRole.CASHIER,
+                )
+                for user in users
+            ]
+        )
+        AttendanceRecord.objects.bulk_create(
+            [
+                AttendanceRecord(
+                    business=self.business,
+                    branch=self.branch,
+                    employee=membership,
+                    work_date=work_date,
+                    status=AttendanceStatus.ABSENT,
+                )
+                for membership in memberships
+            ]
+        )
+        self.client.force_login(self.owner)
+
+        response = self.client.get(
+            reverse("attendance:attendance-list"),
+            {"work_date": work_date.isoformat()},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["attendance_records"]), 50)
+        self.assertContains(response, "work_date=2026-01-01&amp;page=2")
+
     def test_owner_correction_requires_reason_and_preserves_history(self) -> None:
         record = AttendanceRecord.objects.create(
             business=self.business,
@@ -197,6 +267,9 @@ class AttendanceViewTests(TestCase):
         )
 
         self.assertEqual(invalid_response.status_code, 200)
+        self.assertContains(invalid_response, 'aria-invalid="true"')
+        self.assertContains(invalid_response, 'aria-describedby="id_reason_errors"')
+        self.assertContains(invalid_response, 'id="id_reason_errors"')
         self.assertEqual(AttendanceCorrection.objects.count(), 1)
         self.assertRedirects(
             valid_response,

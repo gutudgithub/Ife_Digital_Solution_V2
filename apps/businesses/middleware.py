@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from typing import cast
+from uuid import UUID
 
 from django.http import HttpRequest, HttpResponse
 
@@ -22,13 +23,13 @@ class ActiveBusinessMiddleware:
                 is_active=True,
                 business__is_active=True,
             )
-            session_business_id = request.session.get("active_business_id")
-            active_business_id = session_business_id if isinstance(session_business_id, str) else ""
-            membership = (
-                memberships.filter(business_id=active_business_id).first()
-                if active_business_id
-                else None
-            )
+            raw_business_id = request.session.get("active_business_id")
+            membership = None
+            if isinstance(raw_business_id, str):
+                try:
+                    membership = memberships.filter(business_id=UUID(raw_business_id)).first()
+                except ValueError:
+                    membership = None
             if membership is None:
                 membership = memberships.first()
             if membership:

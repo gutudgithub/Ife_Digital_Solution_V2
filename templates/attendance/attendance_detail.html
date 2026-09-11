@@ -34,22 +34,34 @@
     <h2>{% translate "Correction history" %}</h2>
     {% for correction in corrections %}
       <article class="history-entry">
-        <strong>{{ correction.created_at|date:"SHORT_DATETIME_FORMAT" }}</strong>
-        <span>{% translate "by" %} {{ correction.corrected_by.user.full_name }}</span>
+        <strong>
+          {% blocktranslate with corrected_at=correction.created_at|date:"SHORT_DATETIME_FORMAT" name=correction.corrected_by.user.full_name %}
+            Corrected {{ corrected_at }} by {{ name }}
+          {% endblocktranslate %}
+        </strong>
         <p>{{ correction.reason }}</p>
         <p class="muted">
-          {{ correction.get_previous_status_display }} → {{ correction.get_replacement_status_display }}
+          <span aria-hidden="true">
+            {{ correction.get_previous_status_display }} → {{ correction.get_replacement_status_display }}
+          </span>
+          <span class="visually-hidden">
+            {% blocktranslate with previous=correction.get_previous_status_display replacement=correction.get_replacement_status_display %}
+              Status changed from {{ previous }} to {{ replacement }}
+            {% endblocktranslate %}
+          </span>
         </p>
         <p class="muted">
           {% translate "Check in" %}:
           {{ correction.previous_check_in_at|date:"SHORT_DATETIME_FORMAT"|default:"—" }}
-          →
+          <span aria-hidden="true">→</span>
+          <span class="visually-hidden">{% translate "changed to" %}</span>
           {{ correction.replacement_check_in_at|date:"SHORT_DATETIME_FORMAT"|default:"—" }}
         </p>
         <p class="muted">
           {% translate "Check out" %}:
           {{ correction.previous_check_out_at|date:"SHORT_DATETIME_FORMAT"|default:"—" }}
-          →
+          <span aria-hidden="true">→</span>
+          <span class="visually-hidden">{% translate "changed to" %}</span>
           {{ correction.replacement_check_out_at|date:"SHORT_DATETIME_FORMAT"|default:"—" }}
         </p>
       </article>
