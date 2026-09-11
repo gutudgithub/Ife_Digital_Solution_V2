@@ -89,6 +89,7 @@ class AttendanceRecord(models.Model):
         using: str | None = None,
         update_fields: Iterable[str] | None = None,
     ) -> None:
+        # Normal instance writes validate model and cross-business invariants here.
         self.full_clean()
         super().save(
             force_insert=force_insert,
@@ -170,6 +171,7 @@ class AttendanceCorrection(models.Model):
     ) -> None:
         if not self._state.adding:
             raise ValidationError(_("Attendance corrections cannot be modified."))
+        # Normal instance writes validate the append-only correction snapshot here.
         self.full_clean()
         super().save(
             force_insert=force_insert,

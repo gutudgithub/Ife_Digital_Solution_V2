@@ -1,6 +1,7 @@
 from datetime import date, datetime, timedelta
 from queue import Queue
 from threading import Barrier, Thread
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from django.core.exceptions import ValidationError
@@ -95,6 +96,25 @@ class AttendanceServiceTests(TestCase):
 
         record = AttendanceRecord.objects.get()
         self.assertEqual(record.check_in_at, self.check_in_time)
+
+    def test_duplicate_race_uses_the_standard_check_in_message(self) -> None:
+        AttendanceRecord.objects.create(
+            business=self.business,
+            employee=self.cashier_membership,
+            branch=self.branch,
+            work_date=date(2026, 9, 8),
+            status=AttendanceStatus.PRESENT,
+            check_in_at=self.check_in_time,
+        )
+
+        with (
+            patch("apps.attendance.services.open_shift_for", return_value=None),
+            self.assertRaisesMessage(ValidationError, "already checked in"),
+        ):
+            check_in(
+                membership=self.cashier_membership,
+                recorded_at=self.check_in_time,
+            )
 
     def test_overnight_check_out_closes_previous_business_date(self) -> None:
         check_in_time = datetime(

@@ -102,6 +102,7 @@ class BusinessMembership(models.Model):
         using: str | None = None,
         update_fields: Iterable[str] | None = None,
     ) -> None:
+        # Normal instance writes validate model and cross-business invariants here.
         self.full_clean()
         super().save(
             force_insert=force_insert,

@@ -21,7 +21,7 @@ introducing payroll or employment-compliance calculations.
 - owner/manager attendance overview with date filtering and pagination;
 - employee view restricted to the signed-in member's records;
 - owner/manager corrections with a mandatory reason;
-- immutable before-and-after correction history;
+- append-only before-and-after correction history through normal application/admin flows;
 - translation-ready server-rendered interfaces;
 - branch, tenant, permission, concurrency, and validation tests.
 
@@ -68,8 +68,11 @@ Each record carries:
 - optional check-in and check-out timestamps;
 - creation and update timestamps.
 
-The database enforces one record per business, employee, and business date. Model validation
-requires matching business scope and requires check-out to be at or after check-in.
+The database enforces one record per business, employee, and business date. Normal instance
+writes run model validation for matching business scope and require check-out to be at or
+after check-in. Django bulk writes and raw SQL bypass that application-level validation;
+database-level cross-table triggers remain deferred until the production database-role and
+migration policy is designed.
 
 ### Attendance correction
 
@@ -79,10 +82,12 @@ Each correction carries:
 - correcting owner/manager membership;
 - required reason;
 - previous and replacement status, check-in, and check-out values;
-- immutable creation timestamp.
+- creation timestamp.
 
-Corrections are append-only. The current attendance record and its correction snapshot are
-written in one transaction.
+Corrections are append-only through normal instance, application, and admin flows. Django
+queryset updates/deletes and raw SQL can bypass the instance guard until production database
+privileges or triggers are introduced. The current attendance record and its correction
+snapshot are written in one transaction.
 
 ## Workflows
 

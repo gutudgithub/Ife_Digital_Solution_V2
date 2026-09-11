@@ -1,6 +1,6 @@
 from datetime import date, datetime, timedelta
 
-from django.core.exceptions import ValidationError
+from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -9,6 +9,12 @@ from apps.attendance.models import AttendanceCorrection, AttendanceRecord, Atten
 from apps.businesses.models import Branch, BusinessMembership
 
 OPEN_SHIFT_WINDOW = timedelta(hours=18)
+
+
+def _is_duplicate_attendance(error: ValidationError) -> bool:
+    return any(
+        item.code == "unique_together" for item in error.error_dict.get(NON_FIELD_ERRORS, ())
+    )
 
 
 def resolve_self_service_branch(membership: BusinessMembership) -> Branch:
@@ -84,6 +90,10 @@ def check_in(
                 status=AttendanceStatus.PRESENT,
                 check_in_at=timestamp,
             )
+    except ValidationError as error:
+        if not _is_duplicate_attendance(error):
+            raise
+        raise ValidationError(_("You have already checked in today.")) from error
     except IntegrityError as error:
         raise ValidationError(_("You have already checked in today.")) from error
 
@@ -101,7 +111,6 @@ def check_out(
     if record.check_out_at is not None:
         raise ValidationError(_("Attendance has already been checked out."))
     record.check_out_at = timestamp
-    record.full_clean()
     record.save()
     return record
 
@@ -132,7 +141,6 @@ def create_attendance(
         check_in_at=check_in_at,
         check_out_at=check_out_at,
     )
-    record.full_clean()
     record.save()
     return record
 
@@ -159,7 +167,6 @@ def correct_attendance(
     locked.status = status
     locked.check_in_at = check_in_at
     locked.check_out_at = check_out_at
-    locked.full_clean()
     correction = AttendanceCorrection(
         business=locked.business,
         attendance=locked,
@@ -172,7 +179,6 @@ def correct_attendance(
         previous_check_out_at=previous_check_out_at,
         replacement_check_out_at=check_out_at,
     )
-    correction.full_clean()
     correction.save()
     locked.save()
     return locked

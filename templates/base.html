@@ -25,9 +25,10 @@
       </div>
     </header>
     <main class="page">
-      <div class="messages" role="status" aria-live="polite">
+      <div class="messages">
         {% for message in messages %}
-          <div class="card" {% if "error" in message.tags %}role="alert"{% endif %}>{{ message }}</div>
+          <div class="card"
+               {% if "error" in message.tags %}role="alert"{% else %}role="status" aria-live="polite"{% endif %}>{{ message }}</div>
         {% endfor %}
       </div>
       {% block content %}{% endblock %}

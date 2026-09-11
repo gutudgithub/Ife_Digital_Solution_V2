@@ -5,6 +5,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 from apps.accounts.models import User
+from apps.attendance.forms import AttendanceCorrectionForm, add_accessible_error_attributes
 from apps.attendance.models import AttendanceCorrection, AttendanceRecord, AttendanceStatus
 from apps.businesses.models import Branch, Business, BusinessMembership, MembershipRole
 
@@ -131,6 +132,22 @@ class AttendanceViewTests(TestCase):
         record = AttendanceRecord.objects.get(employee=self.cashier_membership)
         self.assertIsNotNone(record.check_in_at)
         self.assertIsNotNone(record.check_out_at)
+
+    def test_attendance_messages_do_not_nest_live_regions(self) -> None:
+        self.client.force_login(self.cashier)
+
+        success_response = self.client.post(
+            reverse("attendance:attendance-check-in"),
+            follow=True,
+        )
+        error_response = self.client.post(
+            reverse("attendance:attendance-check-in"),
+            follow=True,
+        )
+
+        self.assertContains(success_response, 'role="status" aria-live="polite"')
+        self.assertContains(error_response, 'role="alert"')
+        self.assertNotContains(error_response, 'class="messages" role=')
 
     def test_cross_business_attendance_detail_is_not_found(self) -> None:
         record = AttendanceRecord.objects.create(
@@ -280,3 +297,22 @@ class AttendanceViewTests(TestCase):
         self.assertEqual(record.status, AttendanceStatus.EXCUSED)
         self.assertEqual(correction.previous_status, AttendanceStatus.ABSENT)
         self.assertEqual(correction.replacement_status, AttendanceStatus.EXCUSED)
+
+    def test_accessible_error_id_uses_the_form_auto_id(self) -> None:
+        form = AttendanceCorrectionForm(
+            data={
+                "status": AttendanceStatus.EXCUSED,
+                "check_in_at": "",
+                "check_out_at": "",
+                "reason": "",
+            },
+            auto_id="field_%s",
+        )
+        self.assertFalse(form.is_valid())
+
+        add_accessible_error_attributes(form)
+
+        self.assertEqual(
+            form.fields["reason"].widget.attrs["aria-describedby"],
+            "field_reason_errors",
+        )
