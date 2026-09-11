@@ -24,7 +24,8 @@ Runtime configuration is supplied through environment variables:
 4. Run migrations as a controlled one-off release step.
 5. Start Gunicorn application instances as a non-root user.
 6. Verify health, authentication, tenant isolation, static assets, and database access.
-7. Run a smoke transaction only after the relevant ledger slice exists.
+7. In an isolated staging tenant, smoke-test purchase approval, receiving, a purchase return,
+   its full reversal, and movement/balance reconciliation. Never use `seed_demo` in production.
 
 The development Compose command runs migrations automatically for convenience. Production
 must not let every replica race to run migrations.

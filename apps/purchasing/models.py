@@ -20,6 +20,18 @@ class PurchaseStatus(models.TextChoices):
     CANCELLED = "cancelled", _("Cancelled")
 
 
+class PurchaseReturnStatus(models.TextChoices):
+    DRAFT = "draft", _("Draft")
+    POSTED = "posted", _("Posted")
+    REVERSED = "reversed", _("Reversed")
+    CANCELLED = "cancelled", _("Cancelled")
+
+
+class PurchaseReturnOperationType(models.TextChoices):
+    RETURN = "return", _("Purchase return")
+    REVERSAL = "reversal", _("Purchase return reversal")
+
+
 class Supplier(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     business = models.ForeignKey(Business, on_delete=models.PROTECT, related_name="suppliers")
@@ -493,3 +505,549 @@ class GoodsReceiptLine(models.Model):
     @property
     def line_total(self) -> Decimal:
         return self.received_quantity * self.unit_cost
+
+
+class PurchaseReturnPostingKey(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    business = models.ForeignKey(
+        Business,
+        on_delete=models.PROTECT,
+        related_name="purchase_return_posting_keys",
+    )
+    key = models.UUIDField()
+    operation_type = models.CharField(
+        max_length=16,
+        choices=PurchaseReturnOperationType.choices,
+    )
+    source_id = models.UUIDField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("business", "key"),
+                name="purchasing_unique_return_posting_key_per_business",
+            ),
+            models.CheckConstraint(
+                condition=Q(operation_type__in=PurchaseReturnOperationType.values),
+                name="purchasing_return_posting_key_type_is_valid",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.get_operation_type_display()} — {self.key}"
+
+    def save(
+        self,
+        *,
+        force_insert: bool | tuple[ModelBase, ...] = False,
+        force_update: bool = False,
+        using: str | None = None,
+        update_fields: Iterable[str] | None = None,
+    ) -> None:
+        if not self._state.adding:
+            raise ValidationError(_("Purchase return posting keys cannot be modified."))
+        self.full_clean()
+        super().save(
+            force_insert=force_insert,
+            force_update=force_update,
+            using=using,
+            update_fields=update_fields,
+        )
+
+    def delete(
+        self,
+        using: str | None = None,
+        keep_parents: bool = False,
+    ) -> tuple[int, dict[str, int]]:
+        raise ValidationError(_("Purchase return posting keys cannot be deleted."))
+
+
+class PurchaseReturn(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    business = models.ForeignKey(
+        Business,
+        on_delete=models.PROTECT,
+        related_name="purchase_returns",
+    )
+    branch = models.ForeignKey(
+        Branch,
+        on_delete=models.PROTECT,
+        related_name="purchase_returns",
+    )
+    supplier = models.ForeignKey(
+        Supplier,
+        on_delete=models.PROTECT,
+        related_name="purchase_returns",
+    )
+    purchase = models.ForeignKey(
+        Purchase,
+        on_delete=models.PROTECT,
+        related_name="purchase_returns",
+    )
+    internal_number = models.CharField(max_length=40)
+    return_date = models.DateField()
+    reason = models.TextField()
+    supplier_document_reference = models.CharField(max_length=120, blank=True)
+    status = models.CharField(
+        max_length=16,
+        choices=PurchaseReturnStatus.choices,
+        default=PurchaseReturnStatus.DRAFT,
+    )
+    created_by = models.ForeignKey(
+        BusinessMembership,
+        on_delete=models.PROTECT,
+        related_name="purchase_returns_created",
+    )
+    posting_key = models.OneToOneField(
+        PurchaseReturnPostingKey,
+        on_delete=models.PROTECT,
+        related_name="posted_return",
+        null=True,
+        blank=True,
+    )
+    posted_by = models.ForeignKey(
+        BusinessMembership,
+        on_delete=models.PROTECT,
+        related_name="purchase_returns_posted",
+        null=True,
+        blank=True,
+    )
+    posted_at = models.DateTimeField(null=True, blank=True)
+    cancelled_by = models.ForeignKey(
+        BusinessMembership,
+        on_delete=models.PROTECT,
+        related_name="purchase_returns_cancelled",
+        null=True,
+        blank=True,
+    )
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-return_date", "-created_at")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("business", "internal_number"),
+                name="purchasing_unique_return_number_per_business",
+            ),
+            models.CheckConstraint(
+                condition=Q(status__in=PurchaseReturnStatus.values),
+                name="purchasing_return_status_is_valid",
+            ),
+            models.CheckConstraint(
+                condition=Q(
+                    posting_key__isnull=True,
+                    posted_by__isnull=True,
+                    posted_at__isnull=True,
+                )
+                | Q(
+                    posting_key__isnull=False,
+                    posted_by__isnull=False,
+                    posted_at__isnull=False,
+                ),
+                name="purchasing_return_posting_fields_match",
+            ),
+            models.CheckConstraint(
+                condition=Q(cancelled_by__isnull=True, cancelled_at__isnull=True)
+                | Q(cancelled_by__isnull=False, cancelled_at__isnull=False),
+                name="purchasing_return_cancellation_fields_match",
+            ),
+            models.CheckConstraint(
+                condition=Q(
+                    status=PurchaseReturnStatus.DRAFT,
+                    posting_key__isnull=True,
+                    cancelled_by__isnull=True,
+                )
+                | Q(
+                    status=PurchaseReturnStatus.CANCELLED,
+                    posting_key__isnull=True,
+                    cancelled_by__isnull=False,
+                )
+                | Q(
+                    status__in=(
+                        PurchaseReturnStatus.POSTED,
+                        PurchaseReturnStatus.REVERSED,
+                    ),
+                    posting_key__isnull=False,
+                    cancelled_by__isnull=True,
+                ),
+                name="purchasing_return_status_has_audit",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.internal_number
+
+    def save(
+        self,
+        *,
+        force_insert: bool | tuple[ModelBase, ...] = False,
+        force_update: bool = False,
+        using: str | None = None,
+        update_fields: Iterable[str] | None = None,
+    ) -> None:
+        if not self._state.adding:
+            stored = PurchaseReturn.objects.get(pk=self.pk)
+            if stored.status != PurchaseReturnStatus.DRAFT:
+                immutable_values = (
+                    self.business_id,
+                    self.branch_id,
+                    self.supplier_id,
+                    self.purchase_id,
+                    self.internal_number,
+                    self.return_date,
+                    self.reason,
+                    self.supplier_document_reference,
+                    self.created_by_id,
+                    self.posting_key_id,
+                    self.posted_by_id,
+                    self.posted_at,
+                    self.cancelled_by_id,
+                    self.cancelled_at,
+                )
+                stored_values = (
+                    stored.business_id,
+                    stored.branch_id,
+                    stored.supplier_id,
+                    stored.purchase_id,
+                    stored.internal_number,
+                    stored.return_date,
+                    stored.reason,
+                    stored.supplier_document_reference,
+                    stored.created_by_id,
+                    stored.posting_key_id,
+                    stored.posted_by_id,
+                    stored.posted_at,
+                    stored.cancelled_by_id,
+                    stored.cancelled_at,
+                )
+                if immutable_values != stored_values:
+                    raise ValidationError(_("Posted purchase returns cannot be modified."))
+                if not (
+                    stored.status == PurchaseReturnStatus.POSTED
+                    and self.status == PurchaseReturnStatus.REVERSED
+                ):
+                    raise ValidationError(_("Posted purchase returns cannot be modified."))
+        self.full_clean()
+        super().save(
+            force_insert=force_insert,
+            force_update=force_update,
+            using=using,
+            update_fields=update_fields,
+        )
+
+    def delete(
+        self,
+        using: str | None = None,
+        keep_parents: bool = False,
+    ) -> tuple[int, dict[str, int]]:
+        stored_status = (
+            PurchaseReturn.objects.filter(pk=self.pk).values_list("status", flat=True).first()
+        )
+        if stored_status != PurchaseReturnStatus.DRAFT:
+            raise ValidationError(_("Posted purchase returns cannot be deleted."))
+        return super().delete(using=using, keep_parents=keep_parents)
+
+    def clean(self) -> None:
+        super().clean()
+        errors: dict[str, ValidationError] = {}
+        if self.branch_id and self.branch.business_id != self.business_id:
+            errors["branch"] = ValidationError(_("Branch must belong to this business."))
+        if self.supplier_id and self.supplier.business_id != self.business_id:
+            errors["supplier"] = ValidationError(_("Supplier must belong to this business."))
+        if self.purchase_id:
+            if self.purchase.business_id != self.business_id:
+                errors["purchase"] = ValidationError(_("Purchase must belong to this business."))
+            elif self.purchase.branch_id != self.branch_id:
+                errors["purchase"] = ValidationError(_("Purchase must belong to this branch."))
+            elif self.purchase.supplier_id != self.supplier_id:
+                errors["purchase"] = ValidationError(_("Purchase must belong to this supplier."))
+        for field_name, actor_label, membership in (
+            ("created_by", _("Creator"), self.created_by),
+            ("posted_by", _("Posting actor"), self.posted_by),
+            ("cancelled_by", _("Cancelling actor"), self.cancelled_by),
+        ):
+            if membership is not None and membership.business_id != self.business_id:
+                errors[field_name] = ValidationError(
+                    _("%(actor)s must belong to this business.") % {"actor": actor_label}
+                )
+        posting_key = self.posting_key
+        if posting_key is not None:
+            if posting_key.business_id != self.business_id:
+                errors["posting_key"] = ValidationError(
+                    _("Posting key must belong to this business.")
+                )
+            elif (
+                posting_key.operation_type != PurchaseReturnOperationType.RETURN
+                or posting_key.source_id != self.id
+            ):
+                errors["posting_key"] = ValidationError(
+                    _("Posting key must identify this purchase return.")
+                )
+        if not self.reason.strip():
+            errors["reason"] = ValidationError(_("A return reason is required."))
+        if errors:
+            raise ValidationError(errors)
+
+    @property
+    def supplier_reference_total(self) -> Decimal:
+        return sum((line.supplier_reference_total for line in self.lines.all()), Decimal("0.00"))
+
+    @property
+    def inventory_value_reduction(self) -> Decimal:
+        return -sum((line.inventory_value_delta for line in self.lines.all()), Decimal("0.000000"))
+
+
+class PurchaseReturnLine(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    business = models.ForeignKey(
+        Business,
+        on_delete=models.PROTECT,
+        related_name="purchase_return_lines",
+    )
+    purchase_return = models.ForeignKey(
+        PurchaseReturn,
+        on_delete=models.PROTECT,
+        related_name="lines",
+    )
+    receipt_line = models.ForeignKey(
+        GoodsReceiptLine,
+        on_delete=models.PROTECT,
+        related_name="purchase_return_lines",
+    )
+    variant = models.ForeignKey(
+        ProductVariant,
+        on_delete=models.PROTECT,
+        related_name="purchase_return_lines",
+    )
+    returned_quantity = models.DecimalField(max_digits=18, decimal_places=3)
+    product_name_snapshot = models.CharField(max_length=180, blank=True)
+    sku_snapshot = models.CharField(max_length=80, blank=True)
+    unit_snapshot = models.CharField(max_length=16, choices=StockUnit.choices, blank=True)
+    supplier_name_snapshot = models.CharField(max_length=180, blank=True)
+    receipt_unit_cost = models.DecimalField(
+        max_digits=18,
+        decimal_places=6,
+        default=Decimal("0.000000"),
+    )
+    supplier_reference_total = models.DecimalField(
+        max_digits=24,
+        decimal_places=6,
+        default=Decimal("0.000000"),
+    )
+    assigned_inventory_unit_cost = models.DecimalField(
+        max_digits=18,
+        decimal_places=6,
+        default=Decimal("0.000000"),
+    )
+    inventory_value_delta = models.DecimalField(
+        max_digits=24,
+        decimal_places=6,
+        default=Decimal("0.000000"),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("created_at",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("purchase_return", "receipt_line"),
+                name="purchasing_unique_receipt_line_per_return",
+            ),
+            models.CheckConstraint(
+                condition=Q(returned_quantity__gt=Decimal("0.000")),
+                name="purchasing_return_line_quantity_positive",
+            ),
+            models.CheckConstraint(
+                condition=Q(receipt_unit_cost__gte=Decimal("0.000000")),
+                name="purchasing_return_receipt_cost_nonnegative",
+            ),
+            models.CheckConstraint(
+                condition=Q(supplier_reference_total__gte=Decimal("0.000000")),
+                name="purchasing_return_supplier_total_nonnegative",
+            ),
+            models.CheckConstraint(
+                condition=Q(assigned_inventory_unit_cost__gte=Decimal("0.000000")),
+                name="purchasing_return_inventory_cost_nonnegative",
+            ),
+            models.CheckConstraint(
+                condition=Q(inventory_value_delta__lte=Decimal("0.000000")),
+                name="purchasing_return_inventory_value_nonpositive",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.purchase_return} — {self.variant}"
+
+    def save(
+        self,
+        *,
+        force_insert: bool | tuple[ModelBase, ...] = False,
+        force_update: bool = False,
+        using: str | None = None,
+        update_fields: Iterable[str] | None = None,
+    ) -> None:
+        return_status = (
+            PurchaseReturn.objects.filter(pk=self.purchase_return_id)
+            .values_list("status", flat=True)
+            .first()
+        )
+        if return_status != PurchaseReturnStatus.DRAFT:
+            raise ValidationError(_("Posted purchase return lines cannot be modified."))
+        self.full_clean()
+        super().save(
+            force_insert=force_insert,
+            force_update=force_update,
+            using=using,
+            update_fields=update_fields,
+        )
+
+    def delete(
+        self,
+        using: str | None = None,
+        keep_parents: bool = False,
+    ) -> tuple[int, dict[str, int]]:
+        return_status = (
+            PurchaseReturn.objects.filter(pk=self.purchase_return_id)
+            .values_list("status", flat=True)
+            .first()
+        )
+        if return_status != PurchaseReturnStatus.DRAFT:
+            raise ValidationError(_("Posted purchase return lines cannot be deleted."))
+        return super().delete(using=using, keep_parents=keep_parents)
+
+    def clean(self) -> None:
+        super().clean()
+        errors: dict[str, ValidationError] = {}
+        if self.purchase_return_id and self.purchase_return.business_id != self.business_id:
+            errors["purchase_return"] = ValidationError(
+                _("Purchase return must belong to this business.")
+            )
+        if self.receipt_line_id:
+            if self.receipt_line.business_id != self.business_id:
+                errors["receipt_line"] = ValidationError(
+                    _("Receipt line must belong to this business.")
+                )
+            elif self.purchase_return_id:
+                if self.receipt_line.receipt.purchase_id != self.purchase_return.purchase_id:
+                    errors["receipt_line"] = ValidationError(
+                        _("Receipt line must belong to the return purchase.")
+                    )
+                elif self.receipt_line.receipt.branch_id != self.purchase_return.branch_id:
+                    errors["receipt_line"] = ValidationError(
+                        _("Receipt line must belong to the return branch.")
+                    )
+        if self.variant_id and self.variant.business_id != self.business_id:
+            errors["variant"] = ValidationError(_("Variant must belong to this business."))
+        if self.receipt_line_id and self.variant_id:
+            if self.receipt_line.variant_id != self.variant_id:
+                errors["variant"] = ValidationError(_("Variant must match the receipt line."))
+            try:
+                validate_stock_quantity(
+                    self.returned_quantity,
+                    self.receipt_line.unit_snapshot,
+                )
+            except ValidationError as error:
+                errors["returned_quantity"] = error
+        if errors:
+            raise ValidationError(errors)
+
+
+class PurchaseReturnReversal(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    business = models.ForeignKey(
+        Business,
+        on_delete=models.PROTECT,
+        related_name="purchase_return_reversals",
+    )
+    branch = models.ForeignKey(
+        Branch,
+        on_delete=models.PROTECT,
+        related_name="purchase_return_reversals",
+    )
+    purchase_return = models.OneToOneField(
+        PurchaseReturn,
+        on_delete=models.PROTECT,
+        related_name="reversal",
+    )
+    posting_key = models.OneToOneField(
+        PurchaseReturnPostingKey,
+        on_delete=models.PROTECT,
+        related_name="return_reversal",
+    )
+    reason = models.TextField()
+    reversed_by = models.ForeignKey(
+        BusinessMembership,
+        on_delete=models.PROTECT,
+        related_name="purchase_returns_reversed",
+    )
+    posted_at = models.DateTimeField()
+
+    class Meta:
+        ordering = ("-posted_at",)
+
+    def __str__(self) -> str:
+        return f"{self.purchase_return} — {self.posted_at}"
+
+    def save(
+        self,
+        *,
+        force_insert: bool | tuple[ModelBase, ...] = False,
+        force_update: bool = False,
+        using: str | None = None,
+        update_fields: Iterable[str] | None = None,
+    ) -> None:
+        if not self._state.adding:
+            raise ValidationError(_("Purchase return reversals cannot be modified."))
+        self.full_clean()
+        super().save(
+            force_insert=force_insert,
+            force_update=force_update,
+            using=using,
+            update_fields=update_fields,
+        )
+
+    def delete(
+        self,
+        using: str | None = None,
+        keep_parents: bool = False,
+    ) -> tuple[int, dict[str, int]]:
+        raise ValidationError(_("Purchase return reversals cannot be deleted."))
+
+    def clean(self) -> None:
+        super().clean()
+        errors: dict[str, ValidationError] = {}
+        if self.branch_id and self.branch.business_id != self.business_id:
+            errors["branch"] = ValidationError(_("Branch must belong to this business."))
+        if self.purchase_return_id:
+            if self.purchase_return.business_id != self.business_id:
+                errors["purchase_return"] = ValidationError(
+                    _("Purchase return must belong to this business.")
+                )
+            elif self.purchase_return.branch_id != self.branch_id:
+                errors["purchase_return"] = ValidationError(
+                    _("Purchase return must belong to this branch.")
+                )
+        if self.posting_key_id:
+            if self.posting_key.business_id != self.business_id:
+                errors["posting_key"] = ValidationError(
+                    _("Posting key must belong to this business.")
+                )
+            elif self.purchase_return_id and (
+                self.posting_key.operation_type != PurchaseReturnOperationType.REVERSAL
+                or self.posting_key.source_id != self.purchase_return_id
+            ):
+                errors["posting_key"] = ValidationError(
+                    _("Posting key must identify this purchase return reversal.")
+                )
+        if self.reversed_by_id and self.reversed_by.business_id != self.business_id:
+            errors["reversed_by"] = ValidationError(
+                _("Reversing actor must belong to this business.")
+            )
+        if not self.reason.strip():
+            errors["reason"] = ValidationError(_("A reversal reason is required."))
+        if errors:
+            raise ValidationError(errors)

@@ -1,8 +1,10 @@
+import uuid
 from decimal import Decimal
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 from django.db import transaction
+from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.businesses.models import (
@@ -13,7 +15,19 @@ from apps.businesses.models import (
     MembershipRole,
 )
 from apps.catalog.models import Category, Product, ProductVariant, StockUnit
-from apps.purchasing.models import Supplier
+from apps.purchasing.models import (
+    Purchase,
+    PurchaseLine,
+    Supplier,
+)
+from apps.purchasing.services import (
+    ReceiptQuantity,
+    ReturnQuantity,
+    approve_purchase,
+    post_purchase_return,
+    receive_purchase,
+    save_purchase_return_draft,
+)
 
 
 class Command(BaseCommand):
@@ -63,7 +77,7 @@ class Command(BaseCommand):
                 code="main",
                 defaults={"name": "Main Store", "is_active": True},
             )
-            BusinessMembership.objects.update_or_create(
+            owner_membership, _ = BusinessMembership.objects.update_or_create(
                 business=business,
                 user=owner,
                 defaults={
@@ -90,7 +104,7 @@ class Command(BaseCommand):
                     "is_active": True,
                 },
             )
-            Supplier.objects.update_or_create(
+            supplier, _ = Supplier.objects.update_or_create(
                 business=business,
                 name="Demo Addis Wholesale",
                 defaults={
@@ -169,6 +183,7 @@ class Command(BaseCommand):
                     Decimal("3"),
                 ),
             )
+            demo_variants: dict[str, ProductVariant] = {}
             for (
                 product,
                 sku,
@@ -179,7 +194,7 @@ class Command(BaseCommand):
                 stock_unit,
                 low_stock_threshold,
             ) in variants:
-                ProductVariant.objects.update_or_create(
+                variant, _ = ProductVariant.objects.update_or_create(
                     business=business,
                     sku=sku,
                     defaults={
@@ -193,11 +208,58 @@ class Command(BaseCommand):
                         "is_active": True,
                     },
                 )
+                demo_variants[sku] = variant
+
+            purchase = Purchase.objects.filter(
+                business=business,
+                internal_number="DEMO-PUR-001",
+            ).first()
+            if purchase is None:
+                purchase = Purchase.objects.create(
+                    business=business,
+                    branch=branch,
+                    supplier=supplier,
+                    internal_number="DEMO-PUR-001",
+                    purchase_date=timezone.localdate(),
+                    supplier_reference="DEMO-SUPPLIER-INVOICE-001",
+                    settlement_terms="Local demonstration only; no payable is recorded.",
+                    created_by=owner_membership,
+                )
+                purchase_line = PurchaseLine.objects.create(
+                    business=business,
+                    purchase=purchase,
+                    variant=demo_variants["TSHIRT-BLK-M"],
+                    ordered_quantity=Decimal("8"),
+                    unit_cost=Decimal("500"),
+                )
+                approve_purchase(actor=owner_membership, purchase=purchase)
+                receipt = receive_purchase(
+                    actor=owner_membership,
+                    purchase=purchase,
+                    quantities=[ReceiptQuantity(purchase_line.id, Decimal("8"))],
+                    idempotency_key=uuid.UUID("00000000-0000-4000-8000-000000000201"),
+                )
+                receipt_line = receipt.lines.get()
+                purchase_return = save_purchase_return_draft(
+                    actor=owner_membership,
+                    purchase=purchase,
+                    return_date=timezone.localdate(),
+                    reason="One damaged shirt returned in the local demo.",
+                    supplier_document_reference="DEMO-RETURN-001",
+                    quantities=[ReturnQuantity(receipt_line.id, Decimal("1"))],
+                )
+                post_purchase_return(
+                    actor=owner_membership,
+                    purchase_return=purchase_return,
+                    idempotency_key=uuid.UUID("00000000-0000-4000-8000-000000000202"),
+                )
 
         self.stdout.write(self.style.SUCCESS("Local demo data is ready."))
         self.stdout.write("Owner: owner@demo.ife.local")
         self.stdout.write("Cashier: cashier@demo.ife.local")
         self.stdout.write("Stock employee: stock@demo.ife.local")
+        self.stdout.write("Posted purchase: DEMO-PUR-001")
+        self.stdout.write("Posted supplier return: DEMO-RETURN-001")
 
     @staticmethod
     def _upsert_user(*, email: str, full_name: str, password: str) -> User:

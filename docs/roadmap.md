@@ -16,7 +16,7 @@ operational notes, and independent Claude review.
 
 | Stage | Deliverable | Exit evidence |
 | --- | --- | --- |
-| 2 | Suppliers, purchasing, and inventory ledger | Stock derives correctly from posted movements |
+| 2 | Suppliers, purchasing, inventory, and purchase returns | Stock and returns derive correctly from posted movements |
 | 3 | Sales, payments, returns, and internal receipts | Atomic and idempotent sale lifecycle passes |
 | 4 | Expenses, cash sessions, stock/cash reconciliation | A branch can close a complete business day |
 | 5 | Costing and performance intelligence | Accountant-approved formulas and reconciled reports |
@@ -31,6 +31,11 @@ operational notes, and independent Claude review.
 
 Stage 2 is split into independently reviewable vertical slices so that the inventory ledger
 is proven before purchase returns and broader controls are layered onto it.
+
+- Stage 2A is independently approved: suppliers, purchases, partial receiving, opening
+  balances, adjustments, moving-average balances, and immutable movement history.
+- Stage 2B is implemented and awaiting independent review: receipt-linked purchase returns,
+  full reversals, supplier activity, purchase-cost history, and filtered movement history.
 
 Customer ordering, delivery, professional services, AI, payroll, and statutory employment
 administration remain excluded.

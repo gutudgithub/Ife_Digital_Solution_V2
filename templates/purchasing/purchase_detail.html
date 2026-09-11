@@ -21,6 +21,9 @@
       {% if can_receive_inventory and purchase.status == "approved" or can_receive_inventory and purchase.status == "partially_received" %}
         <a class="button" href="{% url 'purchasing:purchase-receive' purchase.id %}">{% translate "Receive stock" %}</a>
       {% endif %}
+      {% if can_receive_inventory and has_receipts %}
+        <a class="button button--secondary" href="{% url 'purchasing:purchase-return-create' purchase.id %}">{% translate "Prepare return" %}</a>
+      {% endif %}
     </div>
   </div>
 
@@ -60,8 +63,10 @@
             <th>{% translate "Product" %}</th>
             <th>{% translate "SKU" %}</th>
             <th>{% translate "Ordered" %}</th>
-            <th>{% translate "Received" %}</th>
-            <th>{% translate "Remaining" %}</th>
+            <th>{% translate "Gross received" %}</th>
+            <th>{% translate "Returned" %}</th>
+            <th>{% translate "Net received" %}</th>
+            <th>{% translate "Remaining to receive" %}</th>
             <th>{% translate "Unit cost" %}</th>
           </tr>
         </thead>
@@ -72,6 +77,8 @@
               <td>{{ item.line.sku_snapshot|default:item.line.variant.sku }}</td>
               <td>{{ item.line.ordered_quantity }} {{ item.line.get_unit_snapshot_display|default:item.line.variant.get_stock_unit_display }}</td>
               <td>{{ item.received_quantity }}</td>
+              <td>{{ item.returned_quantity }}</td>
+              <td>{{ item.net_received_quantity }}</td>
               <td>{{ item.remaining_quantity }}</td>
               <td>ETB {{ item.line.unit_cost|floatformat:2 }}</td>
             </tr>
@@ -104,6 +111,35 @@
             </tr>
           {% empty %}
             <tr><td colspan="4">{% translate "No stock has been received for this purchase." %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card section-gap">
+    <h2>{% translate "Return history" %}</h2>
+    <div class="table-wrap">
+      <table>
+        <caption class="visually-hidden">{% translate "Purchase return history" %}</caption>
+        <thead>
+          <tr>
+            <th>{% translate "Return" %}</th>
+            <th>{% translate "Return date" %}</th>
+            <th>{% translate "Status" %}</th>
+            <th>{% translate "Prepared by" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for purchase_return in purchase_returns %}
+            <tr>
+              <td><a href="{% url 'purchasing:purchase-return-detail' purchase_return.id %}">{{ purchase_return.internal_number }}</a></td>
+              <td>{{ purchase_return.return_date }}</td>
+              <td>{{ purchase_return.get_status_display }}</td>
+              <td>{{ purchase_return.created_by.user.full_name }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4">{% translate "No returns have been prepared for this purchase." %}</td></tr>
           {% endfor %}
         </tbody>
       </table>

@@ -4,7 +4,9 @@ Ife Digital Solution is a business-control platform for Ethiopian small business
 foundation is reusable for inventory-based retail while the first pilot is tailored to
 clothing and footwear.
 
-This repository currently contains the Stage 1 foundation:
+This repository contains the approved Stage 1 foundation, the independently reviewed Stage
+2A inventory ledger, and the Stage 2B purchase-return implementation awaiting independent
+review:
 
 - email-based authentication and Django administration;
 - business and branch records;
@@ -15,11 +17,16 @@ This repository currently contains the Stage 1 foundation:
 - authenticated dashboard and product creation;
 - branch-scoped employee check-in and check-out;
 - owner/manager attendance review and auditable corrections;
+- business-scoped suppliers, purchases, partial receiving, and immutable goods receipts;
+- branch stock balances derived from immutable inventory movements;
+- perpetual moving weighted-average cost, opening balances, and controlled adjustments;
+- purchase returns traced to exact receipt lines with full compensating reversals;
+- supplier activity, purchase-cost history, and filtered movement history;
 - English, Amharic, and Afaan Oromoo locale configuration;
 - PostgreSQL-compatible settings, Docker Compose, CI, and pre-commit checks.
 
-Inventory movements, sales, payments, internal receipts, cash close, reconciliation, and
-reports are intentionally separate reviewed delivery slices.
+Sales, payments, internal receipts, cash close, reconciliation, and later reports remain
+separate reviewed delivery slices.
 
 ## Requirements
 
@@ -49,11 +56,15 @@ Open `http://localhost:8000/login/` and sign in with the password you chose:
 - cashier: `cashier@demo.ife.local`;
 - stock employee: `stock@demo.ife.local`.
 
-The owner can manage products, suppliers, purchases, opening stock, adjustments, and
-attendance. The stock employee can receive approved purchases but cannot approve purchases or
-adjust stock. The cashier can view stock quantities and record personal attendance but cannot
-see suppliers, purchase costs, average costs, or inventory values. When finished, stop the
-containers with `docker compose down`.
+The owner can manage products, suppliers, purchases, receiving, purchase returns and
+reversals, opening stock, adjustments, history, and attendance. The seeded purchase
+`DEMO-PUR-001` includes a posted receipt and one posted supplier return, so inventory,
+supplier activity, cost history, and return screens have evidence immediately. The stock
+employee can receive approved purchases and prepare return drafts for the assigned branch,
+but cannot approve purchases, post/reverse returns, adjust stock, or view inventory values.
+The cashier can view branch stock quantities and record personal attendance but cannot see
+suppliers, returns, purchase costs, movement history, average costs, or inventory values.
+When finished, stop the containers with `docker compose down`.
 
 ## Local setup with SQLite
 
@@ -75,8 +86,9 @@ this order:
 3. a membership connecting the superuser to the business as owner;
 4. categories and product variants as needed.
 
-The dashboard is at `/`, the product catalog is at `/catalog/`, and attendance is at
-`/attendance/`.
+The dashboard is at `/`, the product catalog at `/catalog/`, inventory and movement history
+at `/inventory/`, purchasing at `/purchasing/`, purchase returns at
+`/purchasing/returns/`, and attendance at `/attendance/`.
 
 ## Local setup with PostgreSQL and Docker
 

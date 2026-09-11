@@ -1,13 +1,16 @@
+from datetime import date, datetime, time, timedelta
 from typing import cast
 from uuid import UUID
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
@@ -16,19 +19,37 @@ from apps.businesses.types import TenantRequest
 from apps.forms import add_accessible_error_attributes
 from apps.purchasing.forms import (
     BasePurchaseLineFormSet,
+    PurchaseCostHistoryFilterForm,
     PurchaseForm,
     PurchaseLineFormSet,
     PurchaseReceiptForm,
+    PurchaseReturnDraftForm,
+    PurchaseReturnPostForm,
+    PurchaseReturnReversalForm,
     SupplierForm,
 )
-from apps.purchasing.models import Purchase, PurchaseStatus, Supplier
+from apps.purchasing.models import (
+    GoodsReceiptLine,
+    Purchase,
+    PurchaseReturn,
+    PurchaseReturnStatus,
+    PurchaseStatus,
+    Supplier,
+)
 from apps.purchasing.services import (
     ReceiptQuantity,
+    ReturnQuantity,
     approve_purchase,
     cancel_purchase,
+    cancel_purchase_return,
     new_purchase_number,
+    post_purchase_return,
     purchase_line_progress,
+    purchase_return_source_progress,
     receive_purchase,
+    reverse_purchase_return,
+    save_purchase_return_draft,
+    supplier_activity_summaries,
 )
 
 
@@ -56,6 +77,25 @@ def _tenant(request: HttpRequest) -> TenantRequest:
     return tenant_request
 
 
+def _visible_purchase_returns(
+    *,
+    business: Business,
+    membership: BusinessMembership,
+) -> QuerySet[PurchaseReturn]:
+    purchase_returns = PurchaseReturn.objects.filter(business=business)
+    if membership.can_manage_purchasing:
+        return purchase_returns
+    assigned_branch = membership.assigned_branch
+    if assigned_branch is not None and assigned_branch.business_id == business.id:
+        return purchase_returns.filter(branch=assigned_branch)
+    active_branch_ids = list(
+        business.branches.filter(is_active=True).values_list("id", flat=True)[:2]
+    )
+    if len(active_branch_ids) == 1:
+        return purchase_returns.filter(branch_id=active_branch_ids[0])
+    return purchase_returns.none()
+
+
 def _require_purchasing_view(request: HttpRequest) -> TenantRequest:
     tenant_request = _tenant(request)
     membership = tenant_request.active_membership
@@ -77,14 +117,13 @@ def _require_purchasing_manager(request: HttpRequest) -> TenantRequest:
 @login_required
 def supplier_list(request: HttpRequest) -> HttpResponse:
     tenant_request = _require_purchasing_view(request)
-    business = cast(Business, tenant_request.active_business)
     membership = cast(BusinessMembership, tenant_request.active_membership)
-    suppliers = Supplier.objects.filter(business=business)
+    supplier_summaries = supplier_activity_summaries(actor=membership)
     return render(
         request,
         "purchasing/supplier_list.html",
         {
-            "suppliers": suppliers,
+            "supplier_summaries": supplier_summaries,
             "can_manage_purchasing": membership.can_manage_purchasing,
         },
     )
@@ -146,6 +185,70 @@ def purchase_list(request: HttpRequest) -> HttpResponse:
         {
             "purchases": purchases,
             "can_manage_purchasing": membership.can_manage_purchasing,
+        },
+    )
+
+
+@login_required
+def purchase_cost_history(request: HttpRequest) -> HttpResponse:
+    tenant_request = _require_purchasing_view(request)
+    business = cast(Business, tenant_request.active_business)
+    membership = cast(BusinessMembership, tenant_request.active_membership)
+    lines = GoodsReceiptLine.objects.filter(
+        business=business,
+    ).select_related(
+        "receipt",
+        "receipt__purchase",
+        "receipt__purchase__supplier",
+        "receipt__branch",
+        "variant",
+        "variant__product",
+    )
+    if not membership.can_manage_purchasing:
+        assigned_branch = membership.assigned_branch
+        if assigned_branch is not None and assigned_branch.business_id == business.id:
+            lines = lines.filter(receipt__branch=assigned_branch)
+        else:
+            active_branch_ids = list(
+                business.branches.filter(is_active=True).values_list("id", flat=True)[:2]
+            )
+            if len(active_branch_ids) == 1:
+                lines = lines.filter(receipt__branch_id=active_branch_ids[0])
+            else:
+                lines = lines.none()
+    filter_form = PurchaseCostHistoryFilterForm(request.GET or None)
+    filter_form.scope_to_business(business)
+    if filter_form.is_valid():
+        supplier = filter_form.cleaned_data.get("supplier")
+        variant = filter_form.cleaned_data.get("variant")
+        date_from = filter_form.cleaned_data.get("date_from")
+        date_to = filter_form.cleaned_data.get("date_to")
+        if supplier is not None:
+            lines = lines.filter(receipt__purchase__supplier=supplier)
+        if variant is not None:
+            lines = lines.filter(variant=variant)
+        default_timezone = timezone.get_default_timezone()
+        if isinstance(date_from, date):
+            start = timezone.make_aware(
+                datetime.combine(date_from, time.min),
+                default_timezone,
+            )
+            lines = lines.filter(receipt__posted_at__gte=start)
+        if isinstance(date_to, date):
+            end = timezone.make_aware(
+                datetime.combine(date_to + timedelta(days=1), time.min),
+                default_timezone,
+            )
+            lines = lines.filter(receipt__posted_at__lt=end)
+    page_obj = Paginator(lines, 50).get_page(request.GET.get("page"))
+    add_accessible_error_attributes(filter_form)
+    return render(
+        request,
+        "purchasing/purchase_cost_history.html",
+        {
+            "filter_form": filter_form,
+            "receipt_lines": page_obj.object_list,
+            "page_obj": page_obj,
         },
     )
 
@@ -244,8 +347,15 @@ def purchase_detail(request: HttpRequest, purchase_id: UUID) -> HttpResponse:
             "purchase": purchase,
             "line_progress": purchase_line_progress(purchase),
             "receipts": purchase.receipts.select_related("received_by__user"),
+            "purchase_returns": _visible_purchase_returns(
+                business=business,
+                membership=membership,
+            )
+            .filter(purchase=purchase)
+            .select_related("created_by__user", "posted_by__user"),
             "can_manage_purchasing": membership.can_manage_purchasing,
             "can_receive_inventory": membership.can_receive_inventory,
+            "has_receipts": purchase.receipts.exists(),
         },
     )
 
@@ -339,4 +449,235 @@ def purchase_receive(request: HttpRequest, purchase_id: UUID) -> HttpResponse:
         request,
         "purchasing/purchase_receive.html",
         {"form": form, "purchase": purchase},
+    )
+
+
+@login_required
+def purchase_return_list(request: HttpRequest) -> HttpResponse:
+    tenant_request = _require_purchasing_view(request)
+    business = cast(Business, tenant_request.active_business)
+    membership = cast(BusinessMembership, tenant_request.active_membership)
+    purchase_returns = _visible_purchase_returns(
+        business=business,
+        membership=membership,
+    ).select_related("purchase", "supplier", "branch")
+    return render(
+        request,
+        "purchasing/purchase_return_list.html",
+        {
+            "purchase_returns": purchase_returns,
+            "can_manage_purchasing": membership.can_manage_purchasing,
+        },
+    )
+
+
+def _purchase_return_form_response(
+    request: HttpRequest,
+    *,
+    purchase: Purchase,
+    membership: BusinessMembership,
+    purchase_return: PurchaseReturn | None = None,
+) -> HttpResponse:
+    progress = purchase_return_source_progress(purchase)
+    form = PurchaseReturnDraftForm(
+        request.POST or None,
+        progress=progress,
+        purchase_return=purchase_return,
+    )
+    if request.method == "POST" and form.is_valid():
+        quantities = [
+            ReturnQuantity(receipt_line_id=line_id, quantity=quantity)
+            for line_id, quantity in form.return_quantities().items()
+        ]
+        try:
+            saved_return = save_purchase_return_draft(
+                actor=membership,
+                purchase=purchase,
+                purchase_return=purchase_return,
+                return_date=cast(date, form.cleaned_data["return_date"]),
+                reason=cast(str, form.cleaned_data["reason"]),
+                supplier_document_reference=cast(
+                    str,
+                    form.cleaned_data["supplier_document_reference"],
+                ),
+                quantities=quantities,
+            )
+        except (PermissionDenied, ValidationError) as error:
+            form.add_error(None, str(error))
+        else:
+            messages.success(request, _("Purchase return draft saved."))
+            return redirect(
+                "purchasing:purchase-return-detail",
+                return_id=saved_return.id,
+            )
+    add_accessible_error_attributes(form)
+    return render(
+        request,
+        "purchasing/purchase_return_form.html",
+        {
+            "form": form,
+            "purchase": purchase,
+            "purchase_return": purchase_return,
+        },
+    )
+
+
+@login_required
+def purchase_return_create(request: HttpRequest, purchase_id: UUID) -> HttpResponse:
+    tenant_request = _require_purchasing_view(request)
+    business = cast(Business, tenant_request.active_business)
+    membership = cast(BusinessMembership, tenant_request.active_membership)
+    purchase = get_object_or_404(
+        _visible_purchases(
+            business=business,
+            membership=membership,
+        ).select_related("branch", "supplier"),
+        pk=purchase_id,
+    )
+    if not purchase.receipts.exists():
+        raise PermissionDenied(_("A purchase return requires posted goods receipts."))
+    return _purchase_return_form_response(
+        request,
+        purchase=purchase,
+        membership=membership,
+    )
+
+
+@login_required
+def purchase_return_edit(request: HttpRequest, return_id: UUID) -> HttpResponse:
+    tenant_request = _require_purchasing_view(request)
+    business = cast(Business, tenant_request.active_business)
+    membership = cast(BusinessMembership, tenant_request.active_membership)
+    purchase_return = get_object_or_404(
+        _visible_purchase_returns(
+            business=business,
+            membership=membership,
+        ).select_related("purchase", "purchase__branch", "purchase__supplier"),
+        pk=return_id,
+        status=PurchaseReturnStatus.DRAFT,
+    )
+    return _purchase_return_form_response(
+        request,
+        purchase=purchase_return.purchase,
+        membership=membership,
+        purchase_return=purchase_return,
+    )
+
+
+@login_required
+def purchase_return_detail(request: HttpRequest, return_id: UUID) -> HttpResponse:
+    tenant_request = _require_purchasing_view(request)
+    business = cast(Business, tenant_request.active_business)
+    membership = cast(BusinessMembership, tenant_request.active_membership)
+    purchase_return = get_object_or_404(
+        _visible_purchase_returns(
+            business=business,
+            membership=membership,
+        ).select_related(
+            "purchase",
+            "supplier",
+            "branch",
+            "created_by__user",
+            "posted_by__user",
+            "cancelled_by__user",
+        ),
+        pk=return_id,
+    )
+    return render(
+        request,
+        "purchasing/purchase_return_detail.html",
+        {
+            "purchase_return": purchase_return,
+            "return_lines": purchase_return.lines.select_related(
+                "receipt_line__receipt",
+                "variant",
+            ),
+            "can_manage_purchasing": membership.can_manage_purchasing,
+            "can_view_inventory_value": membership.can_manage_purchasing,
+        },
+    )
+
+
+@login_required
+def purchase_return_post(request: HttpRequest, return_id: UUID) -> HttpResponse:
+    tenant_request = _require_purchasing_manager(request)
+    business = cast(Business, tenant_request.active_business)
+    membership = cast(BusinessMembership, tenant_request.active_membership)
+    purchase_return = get_object_or_404(
+        PurchaseReturn.objects.select_related("purchase", "supplier", "branch"),
+        pk=return_id,
+        business=business,
+        status=PurchaseReturnStatus.DRAFT,
+    )
+    form = PurchaseReturnPostForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            post_purchase_return(
+                actor=membership,
+                purchase_return=purchase_return,
+                idempotency_key=cast(UUID, form.cleaned_data["idempotency_key"]),
+            )
+        except (PermissionDenied, ValidationError) as error:
+            form.add_error(None, str(error))
+        else:
+            messages.success(request, _("Purchase return posted."))
+            return redirect("purchasing:purchase-return-detail", return_id=purchase_return.id)
+    add_accessible_error_attributes(form)
+    return render(
+        request,
+        "purchasing/purchase_return_post.html",
+        {"form": form, "purchase_return": purchase_return},
+    )
+
+
+@login_required
+@require_POST
+def purchase_return_cancel(request: HttpRequest, return_id: UUID) -> HttpResponse:
+    tenant_request = _require_purchasing_manager(request)
+    business = cast(Business, tenant_request.active_business)
+    membership = cast(BusinessMembership, tenant_request.active_membership)
+    purchase_return = get_object_or_404(
+        PurchaseReturn.objects.select_related("purchase"),
+        pk=return_id,
+        business=business,
+    )
+    try:
+        cancel_purchase_return(actor=membership, purchase_return=purchase_return)
+    except ValidationError as error:
+        messages.error(request, "; ".join(error.messages))
+    else:
+        messages.success(request, _("Purchase return cancelled."))
+    return redirect("purchasing:purchase-return-detail", return_id=purchase_return.id)
+
+
+@login_required
+def purchase_return_reverse(request: HttpRequest, return_id: UUID) -> HttpResponse:
+    tenant_request = _require_purchasing_manager(request)
+    business = cast(Business, tenant_request.active_business)
+    membership = cast(BusinessMembership, tenant_request.active_membership)
+    purchase_return = get_object_or_404(
+        PurchaseReturn.objects.select_related("purchase", "supplier", "branch"),
+        pk=return_id,
+        business=business,
+        status=PurchaseReturnStatus.POSTED,
+    )
+    form = PurchaseReturnReversalForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            reverse_purchase_return(
+                actor=membership,
+                purchase_return=purchase_return,
+                reason=cast(str, form.cleaned_data["reason"]),
+                idempotency_key=cast(UUID, form.cleaned_data["idempotency_key"]),
+            )
+        except (PermissionDenied, ValidationError) as error:
+            form.add_error(None, str(error))
+        else:
+            messages.success(request, _("Purchase return reversed."))
+            return redirect("purchasing:purchase-return-detail", return_id=purchase_return.id)
+    add_accessible_error_attributes(form)
+    return render(
+        request,
+        "purchasing/purchase_return_reverse.html",
+        {"form": form, "purchase_return": purchase_return},
     )

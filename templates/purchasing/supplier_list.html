@@ -24,22 +24,51 @@
             <th>{% translate "Phone" %}</th>
             <th>{% translate "Email" %}</th>
             <th>{% translate "Status" %}</th>
+            <th>{% translate "Approved purchases" %}</th>
+            <th>{% translate "Receipts" %}</th>
+            <th>{% translate "Posted returns" %}</th>
+            <th>{% translate "Return reference total" %}</th>
+            <th>{% translate "Latest activity" %}</th>
             {% if can_manage_purchasing %}<th><span class="visually-hidden">{% translate "Actions" %}</span></th>{% endif %}
           </tr>
         </thead>
         <tbody>
-          {% for supplier in suppliers %}
+          {% for summary in supplier_summaries %}
             <tr>
-              <td>{{ supplier.name }}</td>
-              <td>{{ supplier.phone|default:"—" }}</td>
-              <td>{{ supplier.email|default:"—" }}</td>
-              <td>{% if supplier.is_active %}{% translate "Active" %}{% else %}{% translate "Inactive" %}{% endif %}</td>
+              <td>{{ summary.supplier.name }}</td>
+              <td>{{ summary.supplier.phone|default:"—" }}</td>
+              <td>{{ summary.supplier.email|default:"—" }}</td>
+              <td>{% if summary.supplier.is_active %}{% translate "Active" %}{% else %}{% translate "Inactive" %}{% endif %}</td>
+              <td>{{ summary.purchase_count }}</td>
+              <td>{{ summary.receipt_count }}</td>
+              <td>{{ summary.posted_return_count }}</td>
+              <td>ETB {{ summary.return_reference_total|floatformat:2 }}</td>
+              <td>
+                {% if summary.latest_purchase_date %}
+                  {% blocktranslate trimmed with day=summary.latest_purchase_date %}
+                    Purchase: {{ day }}
+                  {% endblocktranslate %}
+                {% endif %}
+                {% if summary.latest_receipt_at %}
+                  <br>
+                  {% blocktranslate trimmed with day=summary.latest_receipt_at|date:"SHORT_DATE_FORMAT" %}
+                    Receipt: {{ day }}
+                  {% endblocktranslate %}
+                {% endif %}
+                {% if summary.latest_return_date %}
+                  <br>
+                  {% blocktranslate trimmed with day=summary.latest_return_date %}
+                    Return: {{ day }}
+                  {% endblocktranslate %}
+                {% endif %}
+                {% if not summary.latest_purchase_date and not summary.latest_receipt_at and not summary.latest_return_date %}—{% endif %}
+              </td>
               {% if can_manage_purchasing %}
-                <td><a href="{% url 'purchasing:supplier-edit' supplier.id %}">{% translate "Edit" %}</a></td>
+                <td><a href="{% url 'purchasing:supplier-edit' summary.supplier.id %}">{% translate "Edit" %}</a></td>
               {% endif %}
             </tr>
           {% empty %}
-            <tr><td colspan="{% if can_manage_purchasing %}5{% else %}4{% endif %}">{% translate "No suppliers yet." %}</td></tr>
+            <tr><td colspan="{% if can_manage_purchasing %}10{% else %}9{% endif %}">{% translate "No suppliers yet." %}</td></tr>
           {% endfor %}
         </tbody>
       </table>

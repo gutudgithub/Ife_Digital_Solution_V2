@@ -12,6 +12,8 @@
     </div>
     <div class="action-row">
       <a class="button button--secondary" href="{% url 'purchasing:supplier-list' %}">{% translate "Suppliers" %}</a>
+      <a class="button button--secondary" href="{% url 'purchasing:purchase-cost-history' %}">{% translate "Purchase cost history" %}</a>
+      <a class="button button--secondary" href="{% url 'purchasing:purchase-return-list' %}">{% translate "Purchase returns" %}</a>
       {% if can_manage_purchasing %}
         <a class="button" href="{% url 'purchasing:purchase-create' %}">{% translate "New purchase" %}</a>
       {% endif %}

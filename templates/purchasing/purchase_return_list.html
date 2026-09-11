@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Purchase returns" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Purchasing" %}</p>
+      <h1>{% translate "Purchase returns" %}</h1>
+      <p class="muted">{% translate "Draft, posted, reversed, and cancelled supplier return records." %}</p>
+    </div>
+  </div>
+  <section class="card">
+    <div class="table-wrap">
+      <table>
+        <caption class="visually-hidden">{% translate "Purchase return records" %}</caption>
+        <thead>
+          <tr>
+            <th>{% translate "Return" %}</th>
+            <th>{% translate "Purchase" %}</th>
+            <th>{% translate "Supplier" %}</th>
+            <th>{% translate "Branch" %}</th>
+            <th>{% translate "Return date" %}</th>
+            <th>{% translate "Status" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for purchase_return in purchase_returns %}
+            <tr>
+              <td><a href="{% url 'purchasing:purchase-return-detail' purchase_return.id %}">{{ purchase_return.internal_number }}</a></td>
+              <td><a href="{% url 'purchasing:purchase-detail' purchase_return.purchase.id %}">{{ purchase_return.purchase.internal_number }}</a></td>
+              <td>{{ purchase_return.supplier.name }}</td>
+              <td>{{ purchase_return.branch.name }}</td>
+              <td>{{ purchase_return.return_date }}</td>
+              <td>{{ purchase_return.get_status_display }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6">{% translate "No purchase returns are available." %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}

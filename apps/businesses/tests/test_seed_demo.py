@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
@@ -5,7 +7,8 @@ from django.test import TestCase, override_settings
 from apps.accounts.models import User
 from apps.businesses.models import Branch, Business, BusinessMembership, MembershipRole
 from apps.catalog.models import Category, Product, ProductVariant
-from apps.purchasing.models import Supplier
+from apps.inventory.models import InventoryBalance, InventoryMovement
+from apps.purchasing.models import GoodsReceipt, Purchase, PurchaseReturn, Supplier
 
 
 @override_settings(DEBUG=True)
@@ -30,6 +33,15 @@ class SeedDemoCommandTests(TestCase):
         self.assertEqual(ProductVariant.objects.filter(business=business).count(), 4)
         self.assertEqual(BusinessMembership.objects.filter(business=business).count(), 3)
         self.assertEqual(Supplier.objects.filter(business=business).count(), 1)
+        self.assertEqual(Purchase.objects.filter(business=business).count(), 1)
+        self.assertEqual(GoodsReceipt.objects.filter(business=business).count(), 1)
+        self.assertEqual(PurchaseReturn.objects.filter(business=business).count(), 1)
+        self.assertEqual(InventoryMovement.objects.filter(business=business).count(), 2)
+        balance = InventoryBalance.objects.get(
+            business=business,
+            variant__sku="TSHIRT-BLK-M",
+        )
+        self.assertEqual(balance.quantity_on_hand, Decimal("7.000"))
         self.assertEqual(
             (
                 BusinessMembership.objects.get(business=business, user=owner).role,

@@ -21,6 +21,8 @@ class StockOperationType(models.TextChoices):
 class InventoryMovementType(models.TextChoices):
     OPENING = "opening", _("Opening balance")
     PURCHASE_RECEIPT = "purchase_receipt", _("Purchase receipt")
+    PURCHASE_RETURN = "purchase_return", _("Purchase return")
+    PURCHASE_RETURN_REVERSAL = "purchase_return_reversal", _("Purchase return reversal")
     ADJUSTMENT_IN = "adjustment_in", _("Positive adjustment")
     ADJUSTMENT_OUT = "adjustment_out", _("Negative adjustment")
 
@@ -28,6 +30,8 @@ class InventoryMovementType(models.TextChoices):
 class InventorySourceType(models.TextChoices):
     STOCK_OPERATION = "stock_operation", _("Stock operation")
     GOODS_RECEIPT_LINE = "goods_receipt_line", _("Goods receipt line")
+    PURCHASE_RETURN_LINE = "purchase_return_line", _("Purchase return line")
+    PURCHASE_RETURN_REVERSAL = "purchase_return_reversal", _("Purchase return reversal")
 
 
 class StockOperation(models.Model):

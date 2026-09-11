@@ -8,10 +8,29 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.businesses.models import Branch, Business, BusinessMembership, MembershipRole
 from apps.catalog.models import Product, ProductVariant
-from apps.inventory.models import InventoryBalance
-from apps.inventory.services import post_opening_balance
-from apps.purchasing.models import Purchase, PurchaseLine, Supplier
-from apps.purchasing.services import approve_purchase
+from apps.inventory.models import (
+    InventoryBalance,
+    InventoryMovement,
+    InventoryMovementType,
+    InventorySourceType,
+)
+from apps.inventory.services import post_inventory_adjustment, post_opening_balance
+from apps.purchasing.models import (
+    GoodsReceiptLine,
+    Purchase,
+    PurchaseLine,
+    PurchaseReturn,
+    PurchaseReturnStatus,
+    Supplier,
+)
+from apps.purchasing.services import (
+    ReceiptQuantity,
+    ReturnQuantity,
+    approve_purchase,
+    post_purchase_return,
+    receive_purchase,
+    save_purchase_return_draft,
+)
 
 
 class StageTwoViewTests(TestCase):
@@ -316,3 +335,274 @@ class StageTwoViewTests(TestCase):
             InventoryBalance.objects.get(variant=self.variant).quantity_on_hand,
             Decimal("2.000"),
         )
+
+    def _receive_return_source(
+        self,
+        quantity: Decimal = Decimal("2"),
+    ) -> GoodsReceiptLine:
+        approve_purchase(actor=self.owner_membership, purchase=self.purchase)
+        purchase_line = self.purchase.lines.get()
+        receipt = receive_purchase(
+            actor=self.owner_membership,
+            purchase=self.purchase,
+            quantities=[ReceiptQuantity(purchase_line.id, quantity)],
+            idempotency_key=uuid.uuid4(),
+        )
+        return receipt.lines.get()
+
+    def test_owner_can_create_post_and_reverse_purchase_return(self) -> None:
+        receipt_line = self._receive_return_source()
+        self.client.force_login(self.owner)
+
+        create_response = self.client.post(
+            reverse("purchasing:purchase-return-create", args=[self.purchase.id]),
+            {
+                "return_date": str(timezone.localdate()),
+                "reason": "Wrong size delivered",
+                "supplier_document_reference": "SUP-RMA-7",
+                f"quantity_{receipt_line.id.hex}": "1",
+            },
+        )
+
+        purchase_return = PurchaseReturn.objects.get()
+        self.assertRedirects(
+            create_response,
+            reverse("purchasing:purchase-return-detail", args=[purchase_return.id]),
+        )
+        post_response = self.client.post(
+            reverse("purchasing:purchase-return-post", args=[purchase_return.id]),
+            {"idempotency_key": str(uuid.uuid4())},
+        )
+        self.assertRedirects(
+            post_response,
+            reverse("purchasing:purchase-return-detail", args=[purchase_return.id]),
+        )
+        purchase_return.refresh_from_db()
+        self.assertEqual(purchase_return.status, PurchaseReturnStatus.POSTED)
+        detail_response = self.client.get(
+            reverse("purchasing:purchase-return-detail", args=[purchase_return.id])
+        )
+        self.assertContains(detail_response, "Supplier reference amount")
+        self.assertContains(detail_response, "Assigned inventory cost")
+        self.assertContains(detail_response, "Inventory value reduction")
+        reverse_response = self.client.post(
+            reverse("purchasing:purchase-return-reverse", args=[purchase_return.id]),
+            {
+                "reason": "Return entered against wrong delivery",
+                "idempotency_key": str(uuid.uuid4()),
+            },
+        )
+        self.assertRedirects(
+            reverse_response,
+            reverse("purchasing:purchase-return-detail", args=[purchase_return.id]),
+        )
+        purchase_return.refresh_from_db()
+        self.assertEqual(purchase_return.status, PurchaseReturnStatus.REVERSED)
+        self.assertEqual(
+            InventoryBalance.objects.get(variant=self.variant).quantity_on_hand,
+            Decimal("2.000"),
+        )
+
+    def test_stock_employee_can_prepare_but_not_post_and_inventory_values_are_hidden(
+        self,
+    ) -> None:
+        receipt_line = self._receive_return_source()
+        purchase_return = save_purchase_return_draft(
+            actor=BusinessMembership.objects.get(user=self.stock_employee),
+            purchase=self.purchase,
+            return_date=timezone.localdate(),
+            reason="Supplier return prepared by stock employee",
+            quantities=[ReturnQuantity(receipt_line.id, Decimal("1"))],
+        )
+        post_purchase_return(
+            actor=self.owner_membership,
+            purchase_return=purchase_return,
+            idempotency_key=uuid.uuid4(),
+        )
+        client = Client()
+        client.force_login(self.stock_employee)
+
+        detail_response = client.get(
+            reverse("purchasing:purchase-return-detail", args=[purchase_return.id])
+        )
+
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertContains(detail_response, "Supplier reference amount")
+        self.assertContains(detail_response, "Receipt unit cost")
+        self.assertNotContains(detail_response, "<th>Assigned inventory cost</th>", html=True)
+        self.assertNotContains(
+            detail_response,
+            "<th>Inventory value reduction</th>",
+            html=True,
+        )
+        self.assertEqual(
+            client.post(
+                reverse("purchasing:purchase-return-post", args=[purchase_return.id]),
+                {"idempotency_key": str(uuid.uuid4())},
+            ).status_code,
+            403,
+        )
+        self.assertEqual(
+            client.post(
+                reverse("purchasing:purchase-return-reverse", args=[purchase_return.id]),
+                {
+                    "reason": "Unauthorized",
+                    "idempotency_key": str(uuid.uuid4()),
+                },
+            ).status_code,
+            403,
+        )
+
+    def test_cashier_cannot_access_purchase_return_or_cost_history_pages(self) -> None:
+        receipt_line = self._receive_return_source()
+        purchase_return = save_purchase_return_draft(
+            actor=self.owner_membership,
+            purchase=self.purchase,
+            return_date=timezone.localdate(),
+            reason="Private supplier return",
+            quantities=[ReturnQuantity(receipt_line.id, Decimal("1"))],
+        )
+        client = Client()
+        client.force_login(self.cashier)
+
+        for url in (
+            reverse("purchasing:purchase-return-list"),
+            reverse("purchasing:purchase-return-detail", args=[purchase_return.id]),
+            reverse("purchasing:purchase-return-create", args=[self.purchase.id]),
+            reverse("purchasing:purchase-cost-history"),
+        ):
+            self.assertEqual(client.get(url).status_code, 403)
+
+    def test_purchase_return_detail_is_tenant_scoped(self) -> None:
+        receipt_line = self._receive_return_source()
+        purchase_return = save_purchase_return_draft(
+            actor=self.owner_membership,
+            purchase=self.purchase,
+            return_date=timezone.localdate(),
+            reason="Tenant-private supplier return",
+            quantities=[ReturnQuantity(receipt_line.id, Decimal("1"))],
+        )
+        other_business = Business.objects.create(name="Other View", slug="other-view")
+        other_owner = User.objects.create_user(
+            email="other-view-owner@example.com",
+            password="strong-test-password",
+            full_name="Other View Owner",
+        )
+        BusinessMembership.objects.create(
+            business=other_business,
+            user=other_owner,
+            role=MembershipRole.OWNER,
+        )
+        client = Client()
+        client.force_login(other_owner)
+
+        response = client.get(
+            reverse("purchasing:purchase-return-detail", args=[purchase_return.id])
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertNotContains(response, purchase_return.internal_number, status_code=404)
+
+    def test_supplier_activity_and_purchase_cost_history_render_posted_evidence(
+        self,
+    ) -> None:
+        receipt_line = self._receive_return_source()
+        purchase_return = save_purchase_return_draft(
+            actor=self.owner_membership,
+            purchase=self.purchase,
+            return_date=timezone.localdate(),
+            reason="Activity summary return",
+            quantities=[ReturnQuantity(receipt_line.id, Decimal("1"))],
+        )
+        post_purchase_return(
+            actor=self.owner_membership,
+            purchase_return=purchase_return,
+            idempotency_key=uuid.uuid4(),
+        )
+        self.client.force_login(self.owner)
+
+        supplier_response = self.client.get(reverse("purchasing:supplier-list"))
+        cost_response = self.client.get(
+            reverse("purchasing:purchase-cost-history"),
+            {
+                "supplier": str(self.supplier.id),
+                "variant": str(self.variant.id),
+                "date_from": str(timezone.localdate()),
+                "date_to": str(timezone.localdate()),
+            },
+        )
+
+        self.assertContains(supplier_response, "Posted returns")
+        self.assertContains(supplier_response, "Return reference total")
+        self.assertContains(supplier_response, "700.00")
+        self.assertContains(cost_response, "Purchase cost history")
+        self.assertContains(cost_response, self.variant.sku)
+        self.assertContains(cost_response, "700.000000")
+        self.assertContains(cost_response, "1400.00")
+
+    def test_inventory_movement_history_filters_and_paginates_independently(self) -> None:
+        for index in range(51):
+            InventoryMovement.objects.create(
+                business=self.business,
+                branch=self.branch,
+                variant=self.variant,
+                movement_type=InventoryMovementType.ADJUSTMENT_IN,
+                quantity_delta=Decimal("1"),
+                unit_cost=Decimal("1"),
+                value_delta=Decimal("1"),
+                source_type=InventorySourceType.STOCK_OPERATION,
+                source_id=uuid.uuid4(),
+                actor=self.owner_membership,
+                reason=f"History entry {index}",
+                posted_at=timezone.now(),
+            )
+        self.client.force_login(self.owner)
+
+        response = self.client.get(
+            reverse("inventory:inventory-list"),
+            {
+                "movement_type": InventoryMovementType.ADJUSTMENT_IN,
+                "variant": str(self.variant.id),
+                "date_from": str(timezone.localdate()),
+                "date_to": str(timezone.localdate()),
+                "movement_page": "2",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["movements"]), 1)
+        self.assertEqual(
+            response.context["movements"][0].reason,
+            "History entry 0",
+        )
+        self.assertContains(response, "Movement history")
+        self.assertContains(response, "movement_page=1")
+        self.assertContains(response, f"variant={self.variant.id}")
+
+    def test_stock_employee_movement_history_hides_inventory_values(self) -> None:
+        post_opening_balance(
+            actor=self.owner_membership,
+            branch=self.branch,
+            variant=self.variant,
+            quantity=Decimal("2"),
+            unit_cost=Decimal("700"),
+            idempotency_key=uuid.uuid4(),
+        )
+        post_inventory_adjustment(
+            actor=self.owner_membership,
+            branch=self.branch,
+            variant=self.variant,
+            operation_type="adjustment_out",
+            quantity=Decimal("1"),
+            reason="Movement history permission test",
+            idempotency_key=uuid.uuid4(),
+        )
+        client = Client()
+        client.force_login(self.stock_employee)
+
+        response = client.get(reverse("inventory:inventory-list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Movement history")
+        self.assertNotContains(response, "Assigned unit cost")
+        self.assertNotContains(response, "Value change")

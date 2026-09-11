@@ -27,11 +27,33 @@
 ## Inventory
 
 1. Inventory balance is derived from immutable movement history.
-2. Movement types include opening balance, purchase receipt, sale, return, transfer, and
-   authorized adjustment.
+2. Implemented movement types include opening balance, purchase receipt, purchase return,
+   purchase-return reversal, and authorized positive/negative adjustment. Sales and transfers
+   remain later slices.
 3. Negative stock is disallowed by default.
 4. Adjustments require a reason, actor, timestamp, branch, and audit event.
 5. Replayed requests must not create duplicate movements.
+6. A purchase return references the exact posted receipt line and cannot exceed either its
+   unreturned received quantity or current branch stock.
+7. Supplier reference amounts retain receipt cost while inventory reductions use the current
+   branch/variant moving-average cost assigned at return posting.
+8. Outbound value is subtracted from stored value and clamped at zero; it is never recomputed
+   as remaining quantity multiplied by a rounded average.
+9. Posted returns are corrected only by a full linked reversal. The reversal restores
+   quantity using the original return movement's assigned inventory cost.
+10. Supplier reference totals and inventory-value reductions are operational disclosures,
+    not profit, loss, payable, receivable, refund, or purchase-price variance.
+
+## Purchasing
+
+1. Draft purchases and purchase returns have no inventory effect.
+2. Approved purchases receive stock only through immutable goods receipts.
+3. Received progress and returned progress are derived from immutable receipt and return
+   lines rather than editable projection fields.
+4. Inactive historical suppliers and variants remain usable for a receipt-linked return when
+   tenant, branch, source receipt, and current-stock validations still pass.
+5. Supplier payments, refunds, credits, payables, tax, and statutory accounting are not
+   represented by the current purchasing records.
 
 ## Sales and payments
 

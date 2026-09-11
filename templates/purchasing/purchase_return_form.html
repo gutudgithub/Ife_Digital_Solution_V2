@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Prepare purchase return" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Draft — no inventory effect" %}</p>
+      <h1>
+        {% if purchase_return %}
+          {% translate "Edit purchase return" %} {{ purchase_return.internal_number }}
+        {% else %}
+          {% translate "Prepare purchase return" %}
+        {% endif %}
+      </h1>
+      <p class="muted">{{ purchase.internal_number }} · {{ purchase.supplier.name }} · {{ purchase.branch.name }}</p>
+    </div>
+  </div>
+  <form class="card form-card" method="post">
+    {% csrf_token %}
+    {% include "includes/form_fields.html" %}
+    <p class="muted">{% translate "Return quantities are tied to exact posted receipt lines. Saving this draft does not change stock." %}</p>
+    <div class="action-row">
+      <button class="button" type="submit">{% translate "Save return draft" %}</button>
+      <a href="{% url 'purchasing:purchase-detail' purchase.id %}">{% translate "Cancel" %}</a>
+    </div>
+  </form>
+{% endblock %}

@@ -86,10 +86,17 @@
 
   {% if can_view_movement_history %}
     <section class="card section-gap">
-      <h2>{% translate "Recent movements" %}</h2>
+      <h2>{% translate "Movement history" %}</h2>
+      <form class="filter-form" method="get">
+        {% include "includes/form_fields.html" with form=movement_filter %}
+        <div class="action-row">
+          <button class="button button--secondary" type="submit">{% translate "Apply movement filters" %}</button>
+          <a href="{% url 'inventory:inventory-list' %}">{% translate "Clear" %}</a>
+        </div>
+      </form>
       <div class="table-wrap">
         <table>
-          <caption class="visually-hidden">{% translate "Recent inventory movements" %}</caption>
+          <caption class="visually-hidden">{% translate "Filtered inventory movements" %}</caption>
           <thead>
             <tr>
               <th>{% translate "Posted" %}</th>
@@ -97,6 +104,10 @@
               <th>{% translate "Branch" %}</th>
               <th>{% translate "Movement" %}</th>
               <th>{% translate "Quantity" %}</th>
+              {% if can_manage_inventory %}
+                <th>{% translate "Assigned unit cost" %}</th>
+                <th>{% translate "Value change" %}</th>
+              {% endif %}
               <th>{% translate "Actor" %}</th>
             </tr>
           </thead>
@@ -108,14 +119,33 @@
                 <td>{{ movement.branch.name }}</td>
                 <td>{{ movement.get_movement_type_display }}</td>
                 <td>{{ movement.quantity_delta }} {{ movement.variant.get_stock_unit_display }}</td>
+                {% if can_manage_inventory %}
+                  <td>ETB {{ movement.unit_cost|floatformat:6 }}</td>
+                  <td>ETB {{ movement.value_delta|floatformat:6 }}</td>
+                {% endif %}
                 <td>{{ movement.actor.user.full_name }}</td>
               </tr>
             {% empty %}
-              <tr><td colspan="6">{% translate "No inventory movements yet." %}</td></tr>
+              <tr><td colspan="{% if can_manage_inventory %}8{% else %}6{% endif %}">{% translate "No inventory movements match these filters." %}</td></tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
+      {% if movement_page_obj.paginator.num_pages > 1 %}
+        <nav class="pagination" aria-label="{% translate 'Movement history pages' %}">
+          {% if movement_page_obj.has_previous %}
+            <a href="{% querystring movement_page=movement_page_obj.previous_page_number %}">{% translate "Previous" %}</a>
+          {% endif %}
+          <span>
+            {% blocktranslate trimmed with current=movement_page_obj.number total=movement_page_obj.paginator.num_pages %}
+              Page {{ current }} of {{ total }}
+            {% endblocktranslate %}
+          </span>
+          {% if movement_page_obj.has_next %}
+            <a href="{% querystring movement_page=movement_page_obj.next_page_number %}">{% translate "Next" %}</a>
+          {% endif %}
+        </nav>
+      {% endif %}
     </section>
   {% endif %}
 {% endblock %}

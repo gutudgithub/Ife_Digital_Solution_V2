@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Purchase cost history" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Supplier cost evidence" %}</p>
+      <h1>{% translate "Purchase cost history" %}</h1>
+      <p class="muted">{% translate "Posted receipt lines preserve the supplier cost recorded when stock was received." %}</p>
+    </div>
+    <a href="{% url 'purchasing:purchase-list' %}">{% translate "Back to purchases" %}</a>
+  </div>
+
+  <section class="card">
+    <form class="filter-form" method="get">
+      {% include "includes/form_fields.html" with form=filter_form %}
+      <div class="action-row">
+        <button class="button button--secondary" type="submit">{% translate "Apply filters" %}</button>
+        <a href="{% url 'purchasing:purchase-cost-history' %}">{% translate "Clear" %}</a>
+      </div>
+    </form>
+
+    <div class="table-wrap section-gap">
+      <table>
+        <caption class="visually-hidden">{% translate "Filtered posted purchase cost history" %}</caption>
+        <thead>
+          <tr>
+            <th>{% translate "Posted" %}</th>
+            <th>{% translate "Supplier" %}</th>
+            <th>{% translate "Product" %}</th>
+            <th>{% translate "SKU" %}</th>
+            <th>{% translate "Branch" %}</th>
+            <th>{% translate "Quantity received" %}</th>
+            <th>{% translate "Supplier unit cost" %}</th>
+            <th>{% translate "Supplier line amount" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for line in receipt_lines %}
+            <tr>
+              <td>{{ line.receipt.posted_at|date:"SHORT_DATETIME_FORMAT" }}</td>
+              <td>{{ line.receipt.purchase.supplier.name }}</td>
+              <td>{{ line.product_name_snapshot }}</td>
+              <td>{{ line.sku_snapshot }}</td>
+              <td>{{ line.receipt.branch.name }}</td>
+              <td>{{ line.received_quantity }} {{ line.unit_snapshot }}</td>
+              <td>ETB {{ line.unit_cost|floatformat:6 }}</td>
+              <td>ETB {{ line.line_total|floatformat:2 }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="8">{% translate "No posted receipt lines match these filters." %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+      <nav class="pagination" aria-label="{% translate 'Purchase cost history pages' %}">
+        {% if page_obj.has_previous %}
+          <a href="{% querystring page=page_obj.previous_page_number %}">{% translate "Previous" %}</a>
+        {% endif %}
+        <span>
+          {% blocktranslate trimmed with current=page_obj.number total=page_obj.paginator.num_pages %}
+            Page {{ current }} of {{ total }}
+          {% endblocktranslate %}
+        </span>
+        {% if page_obj.has_next %}
+          <a href="{% querystring page=page_obj.next_page_number %}">{% translate "Next" %}</a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  </section>
+{% endblock %}

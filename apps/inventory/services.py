@@ -52,6 +52,23 @@ class PurchaseReceiptInventoryItem:
     source_id: UUID
 
 
+@dataclass(frozen=True)
+class PurchaseReturnInventoryItem:
+    variant: ProductVariant
+    quantity: Decimal
+    unit_snapshot: str
+    source_id: UUID
+
+
+@dataclass(frozen=True)
+class PurchaseReturnReversalInventoryItem:
+    variant: ProductVariant
+    quantity: Decimal
+    unit_cost: Decimal
+    unit_snapshot: str
+    source_id: UUID
+
+
 def _quantity(value: Decimal) -> Decimal:
     return value.quantize(QUANTITY_QUANTUM, rounding=ROUND_HALF_UP)
 
@@ -121,6 +138,20 @@ def _validate_variant_scope(
         errors["branch"] = ValidationError(_("Branch must be active in this business."))
     if variant.business_id != business.id or not variant.is_active:
         errors["variant"] = ValidationError(_("Variant must be active in this business."))
+    if errors:
+        raise ValidationError(errors)
+
+
+def _validate_historical_variant_scope(
+    business: Business,
+    branch: Branch,
+    variant: ProductVariant,
+) -> None:
+    errors: dict[str, ValidationError] = {}
+    if branch.business_id != business.id or not branch.is_active:
+        errors["branch"] = ValidationError(_("Branch must be active in this business."))
+    if variant.business_id != business.id:
+        errors["variant"] = ValidationError(_("Variant must belong to this business."))
     if errors:
         raise ValidationError(errors)
 
@@ -273,6 +304,121 @@ def record_purchase_receipt_inventory(
                 source_type=InventorySourceType.GOODS_RECEIPT_LINE,
                 source_id=item.source_id,
                 actor=actor,
+                posted_at=posted_at,
+            )
+        movements.append(movement)
+    return movements
+
+
+@transaction.atomic
+def record_purchase_return_inventory(
+    *,
+    actor: BusinessMembership,
+    business: Business,
+    branch: Branch,
+    items: list[PurchaseReturnInventoryItem],
+    reason: str,
+    posted_at: datetime,
+) -> list[InventoryMovement]:
+    ensure_branch_operation_access(actor, branch, management_required=True)
+    if not items:
+        raise ValidationError(_("At least one purchase return line is required."))
+    if not reason.strip():
+        raise ValidationError(_("A purchase return reason is required."))
+    for item in items:
+        _validate_historical_variant_scope(business, branch, item.variant)
+        if item.variant.stock_unit != item.unit_snapshot:
+            raise ValidationError(_("The variant stock unit changed after purchase approval."))
+        validate_stock_quantity(item.quantity, item.unit_snapshot)
+    _lock_variants([item.variant for item in items])
+
+    balances: dict[UUID, InventoryBalance] = {}
+    for item in sorted(items, key=lambda return_item: str(return_item.variant.id)):
+        if item.variant.id not in balances:
+            balances[item.variant.id] = _locked_balance(
+                business=business,
+                branch=branch,
+                variant=item.variant,
+            )
+
+    movements: list[InventoryMovement] = []
+    for item in items:
+        assigned_cost, value_delta = _apply_outbound(
+            balance=balances[item.variant.id],
+            quantity=item.quantity,
+        )
+        with _translate_inventory_constraint_errors():
+            movement = InventoryMovement.objects.create(
+                business=business,
+                branch=branch,
+                variant=item.variant,
+                movement_type=InventoryMovementType.PURCHASE_RETURN,
+                quantity_delta=-_quantity(item.quantity),
+                unit_cost=assigned_cost,
+                value_delta=value_delta,
+                source_type=InventorySourceType.PURCHASE_RETURN_LINE,
+                source_id=item.source_id,
+                actor=actor,
+                reason=reason.strip(),
+                posted_at=posted_at,
+            )
+        movements.append(movement)
+    return movements
+
+
+@transaction.atomic
+def record_purchase_return_reversal_inventory(
+    *,
+    actor: BusinessMembership,
+    business: Business,
+    branch: Branch,
+    items: list[PurchaseReturnReversalInventoryItem],
+    reason: str,
+    posted_at: datetime,
+) -> list[InventoryMovement]:
+    ensure_branch_operation_access(actor, branch, management_required=True)
+    if not items:
+        raise ValidationError(_("At least one purchase return line is required."))
+    if not reason.strip():
+        raise ValidationError(_("A purchase return reversal reason is required."))
+    for item in items:
+        _validate_historical_variant_scope(business, branch, item.variant)
+        if item.variant.stock_unit != item.unit_snapshot:
+            raise ValidationError(_("The variant stock unit changed after purchase approval."))
+        validate_stock_quantity(item.quantity, item.unit_snapshot)
+        if item.unit_cost < 0:
+            raise ValidationError(_("Unit cost cannot be negative."))
+    _lock_variants([item.variant for item in items])
+
+    balances: dict[UUID, InventoryBalance] = {}
+    for item in sorted(items, key=lambda reversal_item: str(reversal_item.variant.id)):
+        if item.variant.id not in balances:
+            balances[item.variant.id] = _locked_balance(
+                business=business,
+                branch=branch,
+                variant=item.variant,
+            )
+
+    movements: list[InventoryMovement] = []
+    for item in items:
+        assigned_cost, value_delta = _apply_inbound(
+            balance=balances[item.variant.id],
+            quantity=item.quantity,
+            unit_cost=item.unit_cost,
+        )
+        with _translate_inventory_constraint_errors():
+            movement = InventoryMovement.objects.create(
+                business=business,
+                branch=branch,
+                variant=item.variant,
+                movement_type=InventoryMovementType.PURCHASE_RETURN_REVERSAL,
+                quantity_delta=_quantity(item.quantity),
+                unit_cost=assigned_cost,
+                value_delta=value_delta,
+                source_type=InventorySourceType.PURCHASE_RETURN_REVERSAL,
+                source_id=item.source_id,
+                actor=actor,
+                reason=reason.strip(),
                 posted_at=posted_at,
             )
         movements.append(movement)

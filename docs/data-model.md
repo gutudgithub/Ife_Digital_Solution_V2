@@ -108,18 +108,49 @@ erDiagram
 - attendance check-out cannot precede check-in;
 - attendance corrections preserve before-and-after values and cannot be edited normally.
 
-## Planned ledger entities
+## Implemented purchasing and inventory entities
+
+- `Supplier`: business-scoped identity, optional contact data, notes, and active state.
+- `Purchase`: business, branch, supplier, internal number, date, supplier reference, state,
+  creator, approval/cancellation audit fields, and timestamps.
+- `PurchaseLine`: business, purchase, variant, immutable product/SKU/unit snapshots, ordered
+  quantity, supplier unit cost, and line amount.
+- `GoodsReceipt`: business, branch, purchase, generated receipt number, idempotency key,
+  posting actor, and timestamp.
+- `GoodsReceiptLine`: business, receipt, exact purchase line, immutable product/SKU/unit
+  snapshots, received quantity, supplier unit cost, and line amount.
+- `InventoryMovement`: business, branch, variant, movement type, signed quantity/value deltas,
+  assigned unit cost, source type/identifier, actor, reason, and posted timestamp.
+- `InventoryBalance`: business, branch, variant, quantity on hand, moving-average unit cost,
+  stored inventory value, and update timestamp.
+- `StockOperation`: business, branch, variant, operation type, quantity/cost, reason,
+  idempotency key, actor, and posting timestamp.
+- `PurchaseReturn`: business, branch, supplier, purchase, internal number, return date,
+  supplier document reference, reason, state, idempotency link, and lifecycle audit fields.
+- `PurchaseReturnLine`: business, return, exact goods-receipt line, variant, immutable
+  product/SKU/unit/supplier snapshots, returned quantity, receipt cost, supplier-reference
+  amount, assigned inventory cost, and inventory-value delta.
+- `PurchaseReturnPostingKey`: business-wide idempotency claim shared by return and reversal
+  operations.
+- `PurchaseReturnReversal`: immutable one-to-one compensating document with business, branch,
+  source return, idempotency key, reason, actor, and posting timestamp.
+
+Purchases, receipts, posted returns, reversals, inventory movements, posting keys, and posted
+return lines reject normal instance edits/deletes. Service-layer transactions lock source
+documents, receipt lines, variants, and balances deterministically; direct bulk ORM writes
+remain an explicitly documented bypass until production database roles/triggers are designed.
+
+## Remaining planned ledger entities
 
 Future slices should add:
 
-- inventory movement and balance projection;
 - sale and immutable sale line snapshots;
 - payment and payment allocation;
-- receipt;
+- internal sales receipt;
 - cash session and cash movement;
-- return, refund, void, and reversal;
+- customer return, refund, sale void, and reversal;
 - stock count and reconciliation;
-- audit event.
+- generalized audit event.
 
 Operational records must carry both `business_id` and `branch_id`, immutable posted
 timestamps, actor identity, status, and idempotency identifiers where requests can be
