@@ -12,9 +12,11 @@ OPEN_SHIFT_WINDOW = timedelta(hours=18)
 
 
 def _is_duplicate_attendance(error: ValidationError) -> bool:
-    return any(
-        item.code == "unique_together" for item in error.error_dict.get(NON_FIELD_ERRORS, ())
-    )
+    try:
+        non_field_errors = error.error_dict.get(NON_FIELD_ERRORS, ())
+    except AttributeError:
+        return False
+    return any(item.code == "unique_together" for item in non_field_errors)
 
 
 def resolve_self_service_branch(membership: BusinessMembership) -> Branch:

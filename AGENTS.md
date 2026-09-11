@@ -26,6 +26,8 @@
 - Inventory is derived from movement history.
 - Negative stock is disallowed by default.
 - Posting must be atomic, idempotent, auditable, and safe under concurrency.
+- Application code must write business-scoped operational records through their service layer;
+  do not bypass validation and audit flows with bulk ORM creates, updates, or deletes.
 - Never modify tests solely to make an implementation pass.
 
 ## Development

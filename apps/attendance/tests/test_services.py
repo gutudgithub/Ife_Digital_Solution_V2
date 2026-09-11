@@ -116,6 +116,19 @@ class AttendanceServiceTests(TestCase):
                 recorded_at=self.check_in_time,
             )
 
+    def test_plain_validation_error_is_preserved_during_check_in(self) -> None:
+        with (
+            patch(
+                "apps.attendance.services.AttendanceRecord.objects.create",
+                side_effect=ValidationError("Invalid attendance"),
+            ),
+            self.assertRaisesMessage(ValidationError, "Invalid attendance"),
+        ):
+            check_in(
+                membership=self.cashier_membership,
+                recorded_at=self.check_in_time,
+            )
+
     def test_overnight_check_out_closes_previous_business_date(self) -> None:
         check_in_time = datetime(
             2026,
