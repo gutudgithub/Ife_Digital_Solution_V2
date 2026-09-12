@@ -5,8 +5,8 @@ foundation is reusable for inventory-based retail while the first pilot is tailo
 clothing and footwear.
 
 This repository contains the independently reviewed Stage 1 foundation, Stage 2A inventory
-ledger, Stage 2B purchase-return lifecycle, Stage 3A normal sales path, and implemented
-Stage 3B controlled sale corrections awaiting independent review:
+ledger, Stage 2B purchase-return lifecycle, Stage 3A normal sales path, and Stage 3B
+controlled sale corrections:
 
 - email-based authentication and Django administration;
 - business and branch records;

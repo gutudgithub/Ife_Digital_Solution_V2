@@ -38,9 +38,8 @@ is proven before purchase returns and broader controls are layered onto it.
   supplier activity, purchase-cost history, and filtered movement history.
 - Stage 3A is independently approved: fully paid single-tender cash or manually referenced
   Telebirr sales, inventory posting, and internal receipts.
-- Stage 3B is product-owner approved and implemented pending independent review: posted-sale
-  reversals, customer returns, refund evidence, return reversals, and exchanges represented
-  as return plus a new sale.
+- Stage 3B is independently approved: posted-sale reversals, customer returns, refund
+  evidence, return reversals, and exchanges represented as return plus a new sale.
 
 Customer ordering, delivery, professional services, AI, payroll, and statutory employment
 administration remain excluded.
