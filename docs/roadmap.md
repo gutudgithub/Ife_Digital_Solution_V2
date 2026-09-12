@@ -45,7 +45,8 @@ Stage 4 is split into independently reviewable controls:
 
 - Stage 4A is independently approved: shared branch cash sessions, immutable physical-cash
   movements, drawer counting, variance, and controlled reopening.
-- Stage 4B remains separately gated for operating expenses and supplier settlement evidence.
+- Stage 4B has a proposed brief awaiting product-owner approval for paid operating expenses,
+  purchase-linked supplier payments, and supplier-return credit/refund evidence.
 - Stage 4C remains separately gated for stock count and inventory reconciliation.
 
 Customer ordering, delivery, professional services, AI, payroll, and statutory employment
