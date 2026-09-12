@@ -14,6 +14,12 @@ from apps.businesses.models import (
     BusinessType,
     MembershipRole,
 )
+from apps.cash.models import CashMovementType
+from apps.cash.services import (
+    close_cash_session,
+    open_cash_session,
+    post_manual_cash_movement,
+)
 from apps.catalog.models import Category, Product, ProductVariant, StockUnit
 from apps.purchasing.models import (
     Purchase,
@@ -223,6 +229,12 @@ class Command(BaseCommand):
                 )
                 demo_variants[sku] = variant
 
+            cash_session = open_cash_session(
+                actor=owner_membership,
+                branch=branch,
+                opening_float=Decimal("500.00"),
+                idempotency_key=uuid.UUID("00000000-0000-4000-8000-000000000205"),
+            )
             purchase = Purchase.objects.filter(
                 business=business,
                 internal_number="DEMO-PUR-001",
@@ -318,6 +330,29 @@ class Command(BaseCommand):
                 )
             else:
                 sale_return = sale.returns.get(posting_key__key=return_key)
+            post_manual_cash_movement(
+                actor=owner_membership,
+                session=cash_session,
+                movement_type=CashMovementType.CASH_ADDED,
+                amount=Decimal("25.00"),
+                reason="Added change to the local demo drawer.",
+                idempotency_key=uuid.UUID("00000000-0000-4000-8000-000000000207"),
+            )
+            post_manual_cash_movement(
+                actor=owner_membership,
+                session=cash_session,
+                movement_type=CashMovementType.CASH_REMOVED,
+                amount=Decimal("25.00"),
+                reason="Removed the demonstration change from the drawer.",
+                idempotency_key=uuid.UUID("00000000-0000-4000-8000-000000000208"),
+            )
+            closure = close_cash_session(
+                actor=cashier_membership,
+                session=cash_session,
+                actual_cash=Decimal("500.00"),
+                explanation="",
+                idempotency_key=uuid.UUID("00000000-0000-4000-8000-000000000206"),
+            )
 
         self.stdout.write(self.style.SUCCESS("Local demo data is ready."))
         self.stdout.write("Owner: owner@demo.ife.local")
@@ -328,6 +363,7 @@ class Command(BaseCommand):
         self.stdout.write(f"Internal receipt: {sale.receipt.internal_number}")
         self.stdout.write(f"Posted customer return: {sale_return.internal_number}")
         self.stdout.write(f"Internal return receipt: {sale_return.receipt.internal_number}")
+        self.stdout.write(f"Closed cash session: {closure.session.business_date}")
 
     @staticmethod
     def _upsert_user(*, email: str, full_name: str, password: str) -> User:

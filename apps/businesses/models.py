@@ -167,3 +167,19 @@ class BusinessMembership(models.Model):
             MembershipRole.MANAGER,
             MembershipRole.STOCK_EMPLOYEE,
         }
+
+    @property
+    def can_use_cash_sessions(self) -> bool:
+        return self.role in {
+            MembershipRole.OWNER,
+            MembershipRole.MANAGER,
+            MembershipRole.CASHIER,
+        }
+
+    @property
+    def can_manage_cash_movements(self) -> bool:
+        return self.role in {MembershipRole.OWNER, MembershipRole.MANAGER}
+
+    @property
+    def can_reopen_cash_sessions(self) -> bool:
+        return self.role in {MembershipRole.OWNER, MembershipRole.MANAGER}

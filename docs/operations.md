@@ -27,7 +27,9 @@ Runtime configuration is supplied through environment variables:
 7. In an isolated staging tenant, smoke-test purchase approval, receiving, a purchase return,
    its full reversal, one cash sale, one manually referenced Telebirr sale, internal receipt
    printing, a partial customer return, a full sale reversal, a return reversal, refund
-   evidence, and movement/balance reconciliation. Never use `seed_demo` in production.
+   evidence, one cash-session opening, linked cash sale/refund movements, a manual drawer
+   movement, physical count, variance handling, closure report, authorized reopening, and
+   movement/balance reconciliation. Never use `seed_demo` in production.
 
 The development Compose command runs migrations automatically for convenience. Production
 must not let every replica race to run migrations.

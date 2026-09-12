@@ -72,12 +72,19 @@
 
 ## Cash close
 
-1. Expected cash is calculated from posted movements.
-2. Physical cash count is entered separately.
-3. Variance is stored explicitly rather than hidden by editing transactions.
-4. A non-zero variance requires an explanation.
-5. Reopening or correcting a closed session requires elevated authorization and an audit
-   event.
+1. A branch has at most one open session and one session for each Addis Ababa business date.
+2. Opening float is physical drawer evidence, not revenue or accounting.
+3. Cash sales and refunds require an open session; Telebirr does not affect drawer cash.
+4. Expected cash is calculated from immutable opening, sale, refund, added, and removed
+   movements.
+5. Manual cash added or removed requires an owner or manager and a physical-movement reason.
+6. A refund or removal cannot make expected cash negative.
+7. Physical cash count is entered separately.
+8. Variance is stored explicitly rather than hidden by editing transactions.
+9. A non-zero variance requires an explanation.
+10. Only an owner or manager may reopen the latest branch session, through an immutable
+    event.
+11. A return reversal never asserts automatic physical cash recovery.
 
 ## Time, currency, and audit
 

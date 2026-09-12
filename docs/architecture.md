@@ -20,9 +20,11 @@ The initial modules are:
 - `purchasing`: suppliers, purchases, receipts, and purchase returns;
 - `sales`: sales, single full payments, exact-line returns, refund evidence, correction
   reversals, and internal receipts.
+- `cash`: branch cash sessions, signed physical-cash movements, closure counts, variance,
+  and controlled reopening.
 
 Future modules should follow ledger boundaries rather than generic CRUD groupings:
-cash, reconciliation, audit, and reporting.
+reconciliation, audit, and reporting.
 
 ## Tenant boundary
 
@@ -51,10 +53,11 @@ Current role capabilities:
 | View sale inventory cost/value | Yes | Yes | No | No |
 | Receive purchases and prepare supplier returns | Yes | Yes | No | Yes |
 | Adjust stock or post/reverse supplier returns | Yes | Yes | No | No |
+| Open and close assigned-branch cash sessions | Yes | Yes | Yes | No |
+| Post manual cash movements or reopen sessions | Yes | Yes | No | No |
 | Platform administration | Staff permission only | Staff permission only | Staff permission only | Staff permission only |
 
-Later slices must define explicit capabilities for cash close, employee administration, and
-report access.
+Later slices must define explicit capabilities for employee administration and report access.
 
 ## Financial architecture
 
@@ -78,6 +81,11 @@ return receipts. Return posting restores stock at the original sale-line assigne
 reversing a return removes the same quantity and inventory value at that assigned cost, then
 recalculates the remaining moving average. Neither receipt is an official tax invoice or tax
 credit note.
+
+Stage 4A cash posting locks the open branch session for physical-cash sales, refunds, manual
+drawer movements, closure, and reopening. Expected cash is the exact signed movement sum;
+the separately entered physical count and immutable variance snapshot never rewrite source
+transactions. Telebirr and historical pre-Stage-4A evidence are not assigned drawer effects.
 
 ## Localization
 

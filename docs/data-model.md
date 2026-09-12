@@ -178,11 +178,29 @@ not edit the sale or return, and make the quantities returnable again. Service t
 lock source sales, lines, variants, and
 balances deterministically.
 
+## Implemented Stage 4A cash-control entities
+
+- `CashSession`: business, branch, Addis Ababa business date, open/closed state, opening
+  float, opening actor, timestamp, and lifecycle timestamps.
+- `CashMovement`: business, branch, session, signed movement type and amount, optional
+  immutable sale-payment or refund source, optional manual posting key, actor, reason, and
+  timestamp.
+- `CashPostingKey`: business-wide caller UUID tied to one open, manual movement, close, or
+  reopen operation and source session/branch.
+- `CashSessionClosure`: immutable sequence, expected-cash snapshot, physical count, variance,
+  explanation, actor, timestamp, and posting key.
+- `CashSessionReopening`: immutable link to one closure with reason, actor, timestamp, and
+  posting key.
+
+One branch/date has at most one session and one business/branch has at most one open session.
+Generated sale and refund sources each create at most one cash movement. Expected cash is
+derived from signed movements; closure and reopening events preserve every prior count and
+reason rather than editing history.
+
 ## Remaining planned ledger entities
 
 Future slices should add:
 
-- cash session and cash movement;
 - later payment allocation only if credit or split-tender scope is approved;
 - stock count and reconciliation;
 - generalized audit event.

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Cash sessions" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Physical cash control" %}</p>
+      <h1>{% translate "Cash sessions" %}</h1>
+      <p class="muted">{% translate "Expected drawer cash is derived from immutable cash movements." %}</p>
+    </div>
+    <a class="button" href="{% url 'cash:session-open' %}">{% translate "Open cash session" %}</a>
+  </div>
+
+  <section class="card">
+    <form class="filter-form" method="get">
+      {% include "includes/form_fields.html" with form=filter_form %}
+      <div class="action-row">
+        <button class="button button--secondary" type="submit">{% translate "Apply filters" %}</button>
+        <a href="{% url 'cash:session-list' %}">{% translate "Clear" %}</a>
+      </div>
+    </form>
+    <div class="table-wrap">
+      <table>
+        <caption class="visually-hidden">{% translate "Filtered branch cash sessions" %}</caption>
+        <thead>
+          <tr>
+            <th>{% translate "Business date" %}</th>
+            <th>{% translate "Branch" %}</th>
+            <th>{% translate "Status" %}</th>
+            <th>{% translate "Opening float" %}</th>
+            <th>{% translate "Expected cash" %}</th>
+            <th>{% translate "Latest actual cash" %}</th>
+            <th>{% translate "Latest variance" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <td><a href="{% url 'cash:session-detail' row.session.id %}">{{ row.session.business_date }}</a></td>
+              <td>{{ row.session.branch.name }}</td>
+              <td>{{ row.session.get_status_display }}</td>
+              <td>ETB {{ row.session.opening_float|floatformat:2 }}</td>
+              <td>ETB {{ row.expected_cash|floatformat:2 }}</td>
+              <td>
+                {% if row.latest_closure %}
+                  ETB {{ row.latest_closure.actual_cash|floatformat:2 }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td>
+                {% if row.latest_closure %}
+                  ETB {{ row.latest_closure.variance|floatformat:2 }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="7">{% translate "No cash sessions match these filters." %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if page_obj.paginator.num_pages > 1 %}
+      <nav class="pagination" aria-label="{% translate 'Cash session pages' %}">
+        {% if page_obj.has_previous %}
+          <a href="{% querystring page=page_obj.previous_page_number %}">{% translate "Previous" %}</a>
+        {% endif %}
+        <span>
+          {% blocktranslate trimmed with current=page_obj.number total=page_obj.paginator.num_pages %}
+            Page {{ current }} of {{ total }}
+          {% endblocktranslate %}
+        </span>
+        {% if page_obj.has_next %}
+          <a href="{% querystring page=page_obj.next_page_number %}">{% translate "Next" %}</a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  </section>
+{% endblock %}

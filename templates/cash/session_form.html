@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ page_title }} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Physical cash evidence" %}</p>
+      <h1>{{ page_title }}</h1>
+      {% if cash_session %}
+        <p class="muted">{{ cash_session.branch.name }} · {{ cash_session.business_date }}</p>
+      {% endif %}
+    </div>
+  </div>
+  <form class="card form-card" method="post">
+    {% csrf_token %}
+    {% include "includes/form_fields.html" %}
+    <div class="action-row">
+      <button class="button" type="submit">{% translate "Submit" %}</button>
+      {% if cash_session %}
+        <a href="{% url 'cash:session-detail' cash_session.id %}">{% translate "Cancel" %}</a>
+      {% else %}
+        <a href="{% url 'cash:session-list' %}">{% translate "Cancel" %}</a>
+      {% endif %}
+    </div>
+  </form>
+{% endblock %}

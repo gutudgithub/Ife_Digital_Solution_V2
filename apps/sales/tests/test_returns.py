@@ -11,6 +11,8 @@ from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.businesses.models import Branch, Business, BusinessMembership, MembershipRole
+from apps.cash.models import CashMovement, CashMovementType
+from apps.cash.services import close_cash_session, open_cash_session
 from apps.catalog.models import Product, ProductVariant, StockUnit
 from apps.inventory.models import InventoryBalance, InventoryMovement, InventoryMovementType
 from apps.inventory.services import post_inventory_adjustment, post_opening_balance
@@ -83,6 +85,12 @@ class SaleReturnServiceTests(TestCase):
             user=stock_user,
             assigned_branch=self.branch,
             role=MembershipRole.STOCK_EMPLOYEE,
+        )
+        open_cash_session(
+            actor=self.owner,
+            branch=self.branch,
+            opening_float=Decimal("0.00"),
+            idempotency_key=uuid.uuid4(),
         )
         product = Product.objects.create(business=self.business, name="Return Shoe")
         self.first_variant = ProductVariant.objects.create(
@@ -181,6 +189,40 @@ class SaleReturnServiceTests(TestCase):
         self.assertEqual(posted.refund.amount, posted.total_refund_amount)
         self.assertEqual(posted.refund.method, "cash")
         self.assertEqual(posted.receipt.total_amount, posted.total_refund_amount)
+        cash_movement = CashMovement.objects.get(
+            movement_type=CashMovementType.CASH_REFUND,
+            source_id=posted.refund.id,
+        )
+        self.assertEqual(cash_movement.amount_delta, Decimal("-1500.00"))
+
+    def test_cash_refund_requires_open_session_and_rolls_back_return(self) -> None:
+        sale_return = self._draft_return()
+        session = self.branch.cash_sessions.get()
+        close_cash_session(
+            actor=self.owner,
+            session=session,
+            actual_cash=sale_return.sale.total_amount,
+            explanation="",
+            idempotency_key=uuid.uuid4(),
+        )
+
+        with self.assertRaisesMessage(ValidationError, "Open the branch cash session"):
+            post_sale_return(
+                actor=self.owner,
+                sale_return=sale_return,
+                refund_method="cash",
+                telebirr_reference="",
+                idempotency_key=uuid.uuid4(),
+            )
+
+        sale_return.refresh_from_db()
+        self.assertEqual(sale_return.status, SaleReturnStatus.DRAFT)
+        self.assertFalse(SaleRefundEvidence.objects.exists())
+        self.assertFalse(
+            InventoryMovement.objects.filter(
+                movement_type=InventoryMovementType.SALE_RETURN
+            ).exists()
+        )
 
     def test_remaining_quantity_excludes_reversed_returns(self) -> None:
         sale = self._posted_sale()
@@ -260,6 +302,9 @@ class SaleReturnServiceTests(TestCase):
             posted.refund.telebirr_reference_normalized,
             "TXSHARED001",
         )
+        self.assertFalse(
+            CashMovement.objects.filter(movement_type=CashMovementType.CASH_REFUND).exists()
+        )
 
         second_line = sale.lines.get(variant=self.second_variant)
         second = self._draft_return(
@@ -336,6 +381,7 @@ class SaleReturnServiceTests(TestCase):
             movement_type=InventoryMovementType.SALE_RETURN,
             source_id=return_line.id,
         )
+        cash_movement_count = CashMovement.objects.count()
         reversal = reverse_sale_return(
             actor=self.owner,
             sale_return=sale_return,
@@ -352,6 +398,7 @@ class SaleReturnServiceTests(TestCase):
         )
         self.assertEqual(movement.unit_cost, return_movement.unit_cost)
         self.assertEqual(movement.value_delta, -return_movement.value_delta)
+        self.assertEqual(CashMovement.objects.count(), cash_movement_count)
         self.assertEqual(
             balance_after.inventory_value,
             balance_before_return.inventory_value,
@@ -619,6 +666,12 @@ class SaleReturnConcurrencyTests(TransactionTestCase):
             user=owner_user,
             assigned_branch=self.branch,
             role=MembershipRole.OWNER,
+        )
+        open_cash_session(
+            actor=self.owner,
+            branch=self.branch,
+            opening_float=Decimal("0.00"),
+            idempotency_key=uuid.uuid4(),
         )
         product = Product.objects.create(business=self.business, name="Concurrent Shoe")
         variant = ProductVariant.objects.create(

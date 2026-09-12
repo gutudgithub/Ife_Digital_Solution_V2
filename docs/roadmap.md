@@ -43,8 +43,8 @@ is proven before purchase returns and broader controls are layered onto it.
 
 Stage 4 is split into independently reviewable controls:
 
-- Stage 4A is proposed for shared branch cash sessions, immutable physical-cash movements,
-  drawer counting, variance, and controlled reopening.
+- Stage 4A is owner-approved and implemented: shared branch cash sessions, immutable
+  physical-cash movements, drawer counting, variance, and controlled reopening.
 - Stage 4B remains separately gated for operating expenses and supplier settlement evidence.
 - Stage 4C remains separately gated for stock count and inventory reconciliation.
 

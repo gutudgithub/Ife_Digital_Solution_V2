@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Close cash session" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Physical drawer count" %}</p>
+      <h1>{% translate "Close cash session" %}</h1>
+      <p class="muted">{{ cash_session.branch.name }} · {{ cash_session.business_date }}</p>
+    </div>
+  </div>
+  <section class="grid">
+    <article class="card">
+      <h2>{% translate "Expected drawer cash" %}</h2>
+      <p class="metric">ETB {{ expected_cash|floatformat:2 }}</p>
+      <p class="muted">{% translate "This value is derived and cannot be edited." %}</p>
+    </article>
+  </section>
+  <form class="card form-card section-gap" method="post">
+    {% csrf_token %}
+    {% include "includes/form_fields.html" %}
+    <div class="action-row">
+      <button class="button" type="submit">{% translate "Close session" %}</button>
+      <a href="{% url 'cash:session-detail' cash_session.id %}">{% translate "Cancel" %}</a>
+    </div>
+  </form>
+{% endblock %}

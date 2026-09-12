@@ -6,6 +6,7 @@ from django.test import TestCase, override_settings
 
 from apps.accounts.models import User
 from apps.businesses.models import Branch, Business, BusinessMembership, MembershipRole
+from apps.cash.models import CashMovement, CashSession, CashSessionClosure, CashSessionStatus
 from apps.catalog.models import Category, Product, ProductVariant
 from apps.inventory.models import InventoryBalance, InventoryMovement
 from apps.purchasing.models import GoodsReceipt, Purchase, PurchaseReturn, Supplier
@@ -58,6 +59,16 @@ class SeedDemoCommandTests(TestCase):
             SaleReturnStatus.POSTED,
         )
         self.assertEqual(InternalReturnReceipt.objects.filter(business=business).count(), 1)
+        self.assertEqual(CashSession.objects.filter(business=business).count(), 1)
+        self.assertEqual(
+            CashSession.objects.get(business=business).status,
+            CashSessionStatus.CLOSED,
+        )
+        self.assertEqual(CashMovement.objects.filter(business=business).count(), 5)
+        closure = CashSessionClosure.objects.get(business=business)
+        self.assertEqual(closure.expected_cash, Decimal("500.00"))
+        self.assertEqual(closure.actual_cash, Decimal("500.00"))
+        self.assertEqual(closure.variance, Decimal("0.00"))
         self.assertEqual(InventoryMovement.objects.filter(business=business).count(), 4)
         balance = InventoryBalance.objects.get(
             business=business,

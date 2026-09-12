@@ -11,6 +11,8 @@ from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.businesses.models import Branch, Business, BusinessMembership, MembershipRole
+from apps.cash.models import CashMovement, CashMovementType
+from apps.cash.services import close_cash_session, open_cash_session
 from apps.catalog.models import Product, ProductVariant, StockUnit
 from apps.inventory.models import (
     InventoryBalance,
@@ -84,6 +86,13 @@ class SalesServiceTests(TestCase):
             assigned_branch=self.branch,
             role=MembershipRole.STOCK_EMPLOYEE,
         )
+        for branch in (self.branch, self.other_branch):
+            open_cash_session(
+                actor=self.owner_membership,
+                branch=branch,
+                opening_float=Decimal("0.00"),
+                idempotency_key=uuid.uuid4(),
+            )
         product = Product.objects.create(business=self.business, name="Leather Shoe")
         self.first_variant = ProductVariant.objects.create(
             business=self.business,
@@ -213,6 +222,12 @@ class SalesServiceTests(TestCase):
         self.assertEqual(posted.payment.amount, posted.total_amount)
         self.assertEqual(posted.payment.method, "cash")
         self.assertEqual(posted.receipt.total_amount, posted.total_amount)
+        cash_movement = CashMovement.objects.get(
+            movement_type=CashMovementType.CASH_SALE,
+            source_id=posted.payment.id,
+        )
+        self.assertEqual(cash_movement.amount_delta, posted.total_amount)
+        self.assertEqual(cash_movement.session.branch, self.branch)
         posting_key = posted.posting_key
         self.assertIsNotNone(posting_key)
         assert posting_key is not None
@@ -239,6 +254,9 @@ class SalesServiceTests(TestCase):
         payment = first.payment
         self.assertEqual(payment.telebirr_reference, "tx 123 abc")
         self.assertEqual(payment.telebirr_reference_normalized, "TX123ABC")
+        self.assertFalse(
+            CashMovement.objects.filter(movement_type=CashMovementType.CASH_SALE).exists()
+        )
 
         second = self._draft(quantities=[SaleQuantity(self.second_variant.id, Decimal("1"))])
         with self.assertRaisesMessage(ValidationError, "already been used"):
@@ -263,6 +281,34 @@ class SalesServiceTests(TestCase):
                 telebirr_reference="TX-UNEXPECTED",
                 idempotency_key=uuid.uuid4(),
             )
+
+    def test_cash_payment_requires_open_session_and_rolls_back_inventory(self) -> None:
+        session = self.branch.cash_sessions.get()
+        close_cash_session(
+            actor=self.cashier_membership,
+            session=session,
+            actual_cash=Decimal("0.00"),
+            explanation="",
+            idempotency_key=uuid.uuid4(),
+        )
+        sale = self._draft()
+
+        with self.assertRaisesMessage(ValidationError, "Open the branch cash session"):
+            post_sale(
+                actor=self.cashier_membership,
+                sale=sale,
+                payment_method="cash",
+                telebirr_reference="",
+                idempotency_key=uuid.uuid4(),
+            )
+
+        sale.refresh_from_db()
+        self.assertEqual(sale.status, SaleStatus.DRAFT)
+        self.assertEqual(
+            InventoryBalance.objects.get(variant=self.first_variant).quantity_on_hand,
+            Decimal("10.000"),
+        )
+        self.assertFalse(SalePayment.objects.exists())
 
     def test_stale_catalog_price_rejects_posting_without_silent_repricing(self) -> None:
         sale = self._draft()
@@ -465,6 +511,12 @@ class ConcurrentSalesTests(TransactionTestCase):
             user=cashier,
             assigned_branch=self.branch,
             role=MembershipRole.CASHIER,
+        )
+        open_cash_session(
+            actor=self.owner_membership,
+            branch=self.branch,
+            opening_float=Decimal("0.00"),
+            idempotency_key=uuid.uuid4(),
         )
         product = Product.objects.create(business=self.business, name="Canvas Shoe")
         self.first_variant = ProductVariant.objects.create(

@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ cash_session.branch.name }} · {{ cash_session.business_date }} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Branch cash session" %}</p>
+      <h1>{{ cash_session.branch.name }} · {{ cash_session.business_date }}</h1>
+      <p class="muted">{{ cash_session.get_status_display }}</p>
+    </div>
+    <div class="action-row">
+      {% if cash_session.status == "open" %}
+        {% if can_manage_cash_movements %}
+          <a class="button button--secondary" href="{% url 'cash:manual-movement' cash_session.id %}">{% translate "Add or remove cash" %}</a>
+        {% endif %}
+        <a class="button" href="{% url 'cash:session-close' cash_session.id %}">{% translate "Count and close" %}</a>
+      {% elif can_reopen_cash_sessions %}
+        <a class="button" href="{% url 'cash:session-reopen' cash_session.id %}">{% translate "Reopen session" %}</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <section class="grid">
+    <article class="card">
+      <h2>{% translate "Opening evidence" %}</h2>
+      <p><strong>{% translate "Opening float" %}:</strong> ETB {{ cash_session.opening_float|floatformat:2 }}</p>
+      <p><strong>{% translate "Opened by" %}:</strong> {{ cash_session.opened_by.user.full_name }}</p>
+      <p class="muted">{{ cash_session.opened_at|date:"SHORT_DATETIME_FORMAT" }}</p>
+    </article>
+    <article class="card">
+      <h2>{% translate "Expected drawer cash" %}</h2>
+      <p class="metric">ETB {{ expected_cash|floatformat:2 }}</p>
+      <p class="muted">{% translate "Opening float + cash sales - cash refunds + authorized cash added - authorized cash removed." %}</p>
+    </article>
+  </section>
+
+  <section class="card section-gap">
+    <h2>{% translate "Cash movement history" %}</h2>
+    <div class="table-wrap">
+      <table>
+        <caption class="visually-hidden">{% translate "Immutable cash movements" %}</caption>
+        <thead>
+          <tr>
+            <th>{% translate "Posted" %}</th>
+            <th>{% translate "Movement" %}</th>
+            <th>{% translate "Amount change" %}</th>
+            <th>{% translate "Source evidence" %}</th>
+            <th>{% translate "Actor" %}</th>
+            <th>{% translate "Reason" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in movement_rows %}
+            <tr>
+              <td>{{ row.movement.posted_at|date:"SHORT_DATETIME_FORMAT" }}</td>
+              <td>{{ row.movement.get_movement_type_display }}</td>
+              <td>ETB {{ row.movement.amount_delta|floatformat:2 }}</td>
+              <td>
+                {% if row.source_url %}
+                  <a href="{{ row.source_url }}">{{ row.source_label }}</a>
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td>{{ row.movement.actor.user.full_name }}</td>
+              <td>{{ row.movement.reason|default:"—" }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6">{% translate "No cash movements were posted." %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if movement_page.paginator.num_pages > 1 %}
+      <nav class="pagination" aria-label="{% translate 'Cash movement pages' %}">
+        {% if movement_page.has_previous %}
+          <a href="{% querystring movement_page=movement_page.previous_page_number %}">{% translate "Previous" %}</a>
+        {% endif %}
+        <span>
+          {% blocktranslate trimmed with current=movement_page.number total=movement_page.paginator.num_pages %}
+            Page {{ current }} of {{ total }}
+          {% endblocktranslate %}
+        </span>
+        {% if movement_page.has_next %}
+          <a href="{% querystring movement_page=movement_page.next_page_number %}">{% translate "Next" %}</a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  </section>
+
+  <section class="card section-gap">
+    <h2>{% translate "Closure history" %}</h2>
+    {% for closure in closures %}
+      <article class="history-entry">
+        <p>
+          <strong>
+            <a href="{% url 'cash:closure-report' closure.id %}">
+              {% blocktranslate with sequence=closure.sequence %}Closure {{ sequence }}{% endblocktranslate %}
+            </a>
+          </strong>
+          · {{ closure.posted_at|date:"SHORT_DATETIME_FORMAT" }}
+        </p>
+        <p>
+          {% translate "Expected" %}: ETB {{ closure.expected_cash|floatformat:2 }}
+          · {% translate "Actual" %}: ETB {{ closure.actual_cash|floatformat:2 }}
+          · {% translate "Variance" %}: ETB {{ closure.variance|floatformat:2 }}
+        </p>
+        {% if closure.explanation %}<p>{{ closure.explanation }}</p>{% endif %}
+        {% if closure.reopening %}
+          <p class="muted">
+            {% translate "Reopened" %}: {{ closure.reopening.reason }}
+            · {{ closure.reopening.reopened_by.user.full_name }}
+          </p>
+        {% endif %}
+      </article>
+    {% empty %}
+      <p>{% translate "This session has not been closed." %}</p>
+    {% endfor %}
+  </section>
+{% endblock %}

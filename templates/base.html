@@ -20,6 +20,9 @@
               <a href="{% url 'sales:sale-list' %}">{% translate "Sales" %}</a>
               <a href="{% url 'sales:return-list' %}">{% translate "Sale returns" %}</a>
             {% endif %}
+            {% if active_membership.can_use_cash_sessions %}
+              <a href="{% url 'cash:session-list' %}">{% translate "Cash sessions" %}</a>
+            {% endif %}
             {% if active_membership.can_manage_purchasing or active_membership.can_receive_inventory %}
               <a href="{% url 'purchasing:purchase-list' %}">{% translate "Purchases" %}</a>
               <a href="{% url 'purchasing:purchase-return-list' %}">{% translate "Purchase returns" %}</a>

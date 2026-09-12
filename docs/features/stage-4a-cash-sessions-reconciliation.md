@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed on 12 September 2026. Product-owner decision required before implementation.
+Approved by the product owner and implemented on 12 September 2026.
 
 ## Name
 
@@ -425,6 +425,24 @@ All Stage 4A writes use atomic services.
 
 ## Product-owner decision
 
-Approve the recommended Stage 4A scope as written, request changes, or defer it. Approval
-authorizes implementation only of this brief and does not authorize Stage 4B expenses or
-supplier settlement, Stage 4C stock counts, or Stage 5 profit/margin/growth analytics.
+The product owner approved this recommended Stage 4A scope as written. That approval
+authorizes only this brief and does not authorize Stage 4B expenses or supplier settlement,
+Stage 4C stock counts, or Stage 5 profit/margin/growth analytics.
+
+## Implementation record
+
+The implementation adds explicit business- and branch-scoped cash sessions, signed cash
+movements, operation idempotency keys, immutable closure snapshots, and immutable reopening
+events. Service transactions serialize session lifecycle changes, derive expected cash from
+movement history, reject negative expected balances, and preserve source payment/refund
+uniqueness.
+
+Cash sale and cash refund posting now require an open session and create their physical-cash
+movement inside the existing sale or return transaction. Telebirr remains outside the
+physical drawer, historical records receive no synthetic session, and reversing a return
+does not assert that cash was recovered.
+
+Server-rendered screens provide assigned-branch filtering, pagination, opening, movement,
+counting, closing, reopening, linked source evidence, closure history, and a print-friendly
+internal close report. Cashiers can view operational cash amounts but cannot post manual
+movements, reopen sessions, cross branch boundaries, or view inventory cost/value.

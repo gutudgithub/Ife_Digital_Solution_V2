@@ -13,6 +13,11 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.businesses.models import Branch, BusinessMembership
+from apps.cash.services import (
+    lock_open_cash_session,
+    record_cash_refund,
+    record_cash_sale,
+)
 from apps.catalog.models import ProductVariant, validate_stock_quantity
 from apps.inventory.services import (
     SaleInventoryItem,
@@ -436,6 +441,11 @@ def post_sale(
         raise ValidationError(_("Sale line totals do not match the sale total."))
 
     timestamp = posted_at or timezone.now()
+    cash_session = (
+        lock_open_cash_session(actor=actor, branch=locked_sale.branch)
+        if payment_method == SalePaymentMethod.CASH
+        else None
+    )
     movements = record_sale_inventory(
         actor=actor,
         business=actor.business,
@@ -471,6 +481,14 @@ def post_sale(
         normalized_reference=normalized_reference,
         posted_at=timestamp,
     )
+    if cash_session is not None:
+        record_cash_sale(
+            actor=actor,
+            session=cash_session,
+            amount=payment.amount,
+            source_id=payment.id,
+            posted_at=timestamp,
+        )
     with _translate_sales_constraint_errors():
         InternalReceipt.objects.create(
             business=actor.business,
@@ -883,6 +901,11 @@ def post_sale_return(
         source_id=locked.id,
     )
     timestamp = posted_at or timezone.now()
+    cash_session = (
+        lock_open_cash_session(actor=actor, branch=locked.branch)
+        if refund_method == SalePaymentMethod.CASH
+        else None
+    )
     movements = record_sale_return_inventory(
         actor=actor,
         business=actor.business,
@@ -913,6 +936,14 @@ def post_sale_return(
         normalized_reference=normalized_reference,
         posted_at=timestamp,
     )
+    if cash_session is not None:
+        record_cash_refund(
+            actor=actor,
+            session=cash_session,
+            amount=refund.amount,
+            source_id=refund.id,
+            posted_at=timestamp,
+        )
     with _translate_sales_constraint_errors():
         InternalReturnReceipt.objects.create(
             business=actor.business,

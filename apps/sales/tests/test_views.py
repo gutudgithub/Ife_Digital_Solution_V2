@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.businesses.models import Branch, Business, BusinessMembership, MembershipRole
+from apps.cash.services import open_cash_session
 from apps.catalog.models import Product, ProductVariant, StockUnit
 from apps.inventory.services import post_opening_balance
 from apps.sales.models import InternalReceipt, Sale, SaleStatus
@@ -70,6 +71,13 @@ class SalesViewTests(TestCase):
             assigned_branch=self.branch,
             role=MembershipRole.STOCK_EMPLOYEE,
         )
+        for branch in (self.branch, self.other_branch):
+            open_cash_session(
+                actor=self.owner_membership,
+                branch=branch,
+                opening_float=Decimal("0.00"),
+                idempotency_key=uuid.uuid4(),
+            )
         product = Product.objects.create(business=self.business, name="Running Shoe")
         self.variant = ProductVariant.objects.create(
             business=self.business,
