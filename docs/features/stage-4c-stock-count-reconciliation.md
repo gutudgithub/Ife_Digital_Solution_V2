@@ -513,5 +513,18 @@ recount controls, exact-cost approval and reversal movements, internal print evi
 tenant-scoped server-rendered screens, immutable admin evidence, repeatable demo data, and
 PostgreSQL threaded locking coverage.
 
-Independent Claude review remains required before Stage 4C final acceptance. Native-speaker
-review remains required for translated user-facing strings before pilot release.
+## Independent review record
+
+Claude independently approved Stage 4C after reviewing the full-branch snapshot, blind-count
+boundary, freeze coverage, count-start valuation, exact-cost adjustments and reversals,
+immutable evidence, role isolation, and PostgreSQL concurrency behavior. All 252 PostgreSQL
+tests and all required quality checks passed, and no Stage 1 through Stage 4C findings remain
+outstanding.
+
+Stage 5 performance intelligence remains separately gated. An accountant must approve the
+definitions and treatment of revenue, inventory cost, returns, expenses, cash variance,
+supplier-reference differences, and stock-count adjustments before profit, margin, net
+profit, growth, or time-series graphs are implemented.
+
+Native-speaker review remains required for translated user-facing strings before pilot
+release.
