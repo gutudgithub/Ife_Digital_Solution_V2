@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Expense categories" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Operating expenses" %}</p>
+      <h1>{% translate "Expense categories" %}</h1>
+    </div>
+    <a class="button" href="{% url 'expenses:category-create' %}">{% translate "New category" %}</a>
+  </div>
+  <section class="card">
+    <div class="table-wrap">
+      <table>
+        <caption class="visually-hidden">{% translate "Expense categories" %}</caption>
+        <thead><tr><th>{% translate "Name" %}</th><th>{% translate "Status" %}</th><th>{% translate "Actions" %}</th></tr></thead>
+        <tbody>
+          {% for category in categories %}
+            <tr>
+              <td>{{ category.name }}</td>
+              <td>{% if category.is_active %}{% translate "Active" %}{% else %}{% translate "Inactive" %}{% endif %}</td>
+              <td class="action-row">
+                <a href="{% url 'expenses:category-edit' category.id %}">{% translate "Edit" %}</a>
+                <form method="post" action="{% url 'expenses:category-toggle' category.id %}">
+                  {% csrf_token %}
+                  <button class="link-button" type="submit">{% if category.is_active %}{% translate "Deactivate" %}{% else %}{% translate "Activate" %}{% endif %}</button>
+                </form>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="3">{% translate "No expense categories have been configured." %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}

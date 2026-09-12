@@ -125,6 +125,7 @@ def open_cash_session(
     branch: Branch,
     opening_float: Decimal,
     idempotency_key: UUID,
+    opening_basis_note: str | None = None,
     opened_at: datetime | None = None,
 ) -> CashSession:
     ensure_cash_branch_access(actor, branch)
@@ -140,6 +141,24 @@ def open_cash_session(
         business=actor.business,
         is_active=True,
     )
+    is_first_session = not CashSession.objects.filter(
+        business=actor.business,
+        branch=locked_branch,
+    ).exists()
+    clean_opening_note = (
+        str(_("Physical drawer count at system adoption"))
+        if is_first_session and opening_basis_note is None
+        else (opening_basis_note or "").strip()
+    )
+    if is_first_session:
+        if not actor.can_manage_cash_movements:
+            raise PermissionDenied(
+                _("An owner or manager must open the first cash session for this branch.")
+            )
+        if not clean_opening_note:
+            raise ValidationError(
+                _("Record the physical-count basis for the first branch cash session.")
+            )
     existing_key = CashPostingKey.objects.filter(
         business=actor.business,
         key=idempotency_key,
@@ -180,6 +199,7 @@ def open_cash_session(
             branch=locked_branch,
             business_date=business_date,
             opening_float=amount,
+            opening_basis_note=clean_opening_note,
             opening_key=posting_key,
             opened_by=actor,
             opened_at=timestamp,
@@ -243,10 +263,24 @@ def _record_source_movement(
             raise ValidationError(_("This cash source belongs to another cash session."))
         return existing
     delta = _money(amount_delta)
-    if movement_type == CashMovementType.CASH_SALE and delta <= 0:
-        raise ValidationError(_("Cash sale movement amount must be positive."))
-    if movement_type == CashMovementType.CASH_REFUND and delta >= 0:
-        raise ValidationError(_("Cash refund movement amount must be negative."))
+    positive_types = {
+        CashMovementType.CASH_SALE,
+        CashMovementType.OPERATING_EXPENSE_REVERSAL,
+        CashMovementType.SUPPLIER_PAYMENT_REVERSAL,
+        CashMovementType.SUPPLIER_REFUND,
+    }
+    negative_types = {
+        CashMovementType.CASH_REFUND,
+        CashMovementType.OPERATING_EXPENSE,
+        CashMovementType.SUPPLIER_PAYMENT,
+        CashMovementType.SUPPLIER_REFUND_REVERSAL,
+    }
+    if movement_type in positive_types and delta <= 0:
+        raise ValidationError(_("This cash movement amount must be positive."))
+    if movement_type in negative_types and delta >= 0:
+        raise ValidationError(_("This cash movement amount must be negative."))
+    if movement_type not in positive_types | negative_types:
+        raise ValidationError(_("This source-linked cash movement type is not supported."))
     if delta < 0 and expected_cash(locked) + delta < 0:
         raise ValidationError(_("This cash movement would make expected cash negative."))
     try:
@@ -307,6 +341,26 @@ def record_cash_refund(
         session=session,
         movement_type=CashMovementType.CASH_REFUND,
         amount_delta=-_money(amount),
+        source_id=source_id,
+        posted_at=posted_at,
+    )
+
+
+@transaction.atomic
+def record_source_cash_movement(
+    *,
+    actor: BusinessMembership,
+    session: CashSession,
+    movement_type: str,
+    amount_delta: Decimal,
+    source_id: UUID,
+    posted_at: datetime,
+) -> CashMovement:
+    return _record_source_movement(
+        actor=actor,
+        session=session,
+        movement_type=movement_type,
+        amount_delta=amount_delta,
         source_id=source_id,
         posted_at=posted_at,
     )

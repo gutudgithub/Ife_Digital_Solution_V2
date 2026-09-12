@@ -52,8 +52,12 @@
    lines rather than editable projection fields.
 4. Inactive historical suppliers and variants remain usable for a receipt-linked return when
    tenant, branch, source receipt, and current-stock validations still pass.
-5. Supplier payments, refunds, credits, payables, tax, and statutory accounting are not
-   represented by the current purchasing records.
+5. Supplier payments reference exactly one approved or received purchase and cannot exceed
+   its derived operational reference balance.
+6. Supplier-return credits and refunds reference exactly one posted, unreversed return and
+   cannot exceed its supplier-reference amount.
+7. These settlement records are operational evidence, not certified payables, supplier
+   statements, tax records, or statutory accounting.
 
 ## Sales and payments
 
@@ -85,6 +89,24 @@
 10. Only an owner or manager may reopen the latest branch session, through an immutable
     event.
 11. A return reversal never asserts automatic physical cash recovery.
+12. The first real branch session requires an owner/manager physical drawer count and an
+    immutable opening-basis note; no historical transaction receives a synthetic session.
+
+## Operating expenses and supplier settlement
+
+1. Draft expenses have no reporting or cash effect.
+2. Only fully paid cash or manually referenced Telebirr expenses may be posted.
+3. Expense categories are business-scoped; deactivation preserves historical evidence.
+4. Posted expenses, supplier payments, and supplier-return settlements are immutable and
+   corrected only by full linked reversals.
+5. Cash expenses and supplier payments reduce expected cash; recovered supplier cash refunds
+   increase it.
+6. Cash reversals compensate in the exact original session and cannot move to a later drawer.
+7. Supplier-return reference amount, inventory-value reduction, and supplier-accepted
+   settlement are retained separately and are not automatically profit, loss, income,
+   expense, payable, receivable, or purchase-price variance.
+8. A purchase with active supplier payments cannot be cancelled, and a purchase return with
+   active supplier settlement cannot be reversed; reverse the linked evidence first.
 
 ## Time, currency, and audit
 

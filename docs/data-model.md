@@ -197,6 +197,24 @@ Generated sale and refund sources each create at most one cash movement. Expecte
 derived from signed movements; closure and reopening events preserve every prior count and
 reason rather than editing history.
 
+## Implemented Stage 4B expense and settlement entities
+
+- `ExpenseCategory`: business-scoped configurable category with retained inactive history.
+- `OperatingExpense`: branch-scoped draft/posted/cancelled/reversed paid-expense document.
+- `OperatingExpensePayment`: immutable cash or manually referenced Telebirr payment evidence.
+- `OperatingExpenseReversal`: immutable full correction linked to the source expense.
+- `SupplierPayment`: immutable cash or Telebirr payment against exactly one purchase.
+- `SupplierPaymentReversal`: immutable full correction linked to the source payment.
+- `SupplierReturnSettlement`: immutable accepted credit or recovered refund against exactly
+  one posted purchase return.
+- `SupplierReturnSettlementReversal`: immutable full correction of one settlement.
+- `ExpenseSettlementPostingKey`: business-scoped idempotency claim shared across all Stage 4B
+  posting and reversal operations.
+
+Cash Stage 4B sources create one signed movement in the locked session. Telebirr and
+non-cash credits create no drawer movement. Purchase and return settlement balances are
+derived from immutable six-decimal source evidence and quantized once to cents for comparison.
+
 ## Remaining planned ledger entities
 
 Future slices should add:

@@ -77,6 +77,7 @@ class CashViewTests(TestCase):
             {
                 "branch": str(self.branch.id),
                 "opening_float": "100.00",
+                "opening_basis_note": "Direct physical drawer count",
                 "idempotency_key": str(uuid.uuid4()),
             },
         )
@@ -162,7 +163,7 @@ class CashViewTests(TestCase):
             404,
         )
         assigned_session = open_cash_session(
-            actor=self.cashier,
+            actor=self.owner,
             branch=self.branch,
             opening_float=Decimal("0.00"),
             idempotency_key=uuid.uuid4(),
@@ -178,7 +179,7 @@ class CashViewTests(TestCase):
         self,
     ) -> None:
         session = open_cash_session(
-            actor=self.cashier,
+            actor=self.owner,
             branch=self.branch,
             opening_float=Decimal("50.00"),
             idempotency_key=uuid.uuid4(),

@@ -645,6 +645,10 @@ def reverse_purchase_return(
     reversed_at: datetime | None = None,
 ) -> PurchaseReturnReversal:
     _validate_manager(actor, purchase_return.purchase)
+    Purchase.objects.select_for_update().get(
+        pk=purchase_return.purchase_id,
+        business=actor.business,
+    )
     locked = (
         PurchaseReturn.objects.select_for_update()
         .select_related("branch", "purchase")
@@ -671,6 +675,10 @@ def reverse_purchase_return(
         raise ValidationError(_("The purchase return reversal is incomplete."))
     if locked.status != PurchaseReturnStatus.POSTED:
         raise ValidationError(_("Only a posted purchase return can be reversed."))
+    if locked.supplier_settlements.filter(reversal__isnull=True).exists():
+        raise ValidationError(
+            _("Reverse active supplier-return settlements before reversing this purchase return.")
+        )
     if not reason.strip():
         raise ValidationError(_("A reversal reason is required."))
 
@@ -763,6 +771,10 @@ def cancel_purchase(
         raise ValidationError(_("This purchase can no longer be cancelled."))
     if locked.receipts.exists():
         raise ValidationError(_("A received purchase cannot be cancelled."))
+    if locked.supplier_payments.filter(reversal__isnull=True).exists():
+        raise ValidationError(
+            _("Reverse active supplier payments before cancelling this purchase.")
+        )
     locked.status = PurchaseStatus.CANCELLED
     with _translate_purchasing_constraint_errors():
         locked.save(update_fields=("status", "updated_at"))

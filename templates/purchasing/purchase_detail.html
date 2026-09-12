@@ -24,6 +24,9 @@
       {% if can_receive_inventory and has_receipts %}
         <a class="button button--secondary" href="{% url 'purchasing:purchase-return-create' purchase.id %}">{% translate "Prepare return" %}</a>
       {% endif %}
+      {% if can_manage_settlement and purchase.status != "draft" and purchase.status != "cancelled" %}
+        <a class="button button--secondary" href="{% url 'expenses:supplier-payment-create' purchase.id %}">{% translate "Record supplier payment" %}</a>
+      {% endif %}
     </div>
   </div>
 
@@ -52,6 +55,37 @@
       {% endif %}
     </article>
   </section>
+
+  {% if can_manage_settlement %}
+    <section class="card section-gap">
+      <h2>{% translate "Operational settlement summary" %}</h2>
+      <p class="muted">{% translate "Operational reference evidence only; not a certified payable, supplier statement, or general ledger." %}</p>
+      <div class="grid">
+        {% for label, value in settlement_totals.items %}
+          <p><strong>{{ label }}:</strong> ETB {{ value|floatformat:2 }}</p>
+        {% endfor %}
+      </div>
+      <div class="table-wrap">
+        <table>
+          <caption class="visually-hidden">{% translate "Supplier payment history" %}</caption>
+          <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Method" %}</th><th>{% translate "Supplier reference" %}</th><th>{% translate "Amount" %}</th><th>{% translate "Actions" %}</th></tr></thead>
+          <tbody>
+            {% for payment in supplier_payments %}
+              <tr>
+                <td>{{ payment.business_date }}</td>
+                <td>{{ payment.get_method_display }}</td>
+                <td>{{ payment.supplier_reference|default:"—" }}</td>
+                <td>ETB {{ payment.amount|floatformat:2 }}</td>
+                <td><a href="{% url 'expenses:supplier-payment-print' payment.id %}">{% translate "Print" %}</a>{% if not payment.reversal %} · <a href="{% url 'expenses:supplier-payment-reverse' payment.id %}">{% translate "Reverse" %}</a>{% endif %}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="5">{% translate "No supplier payments have been recorded." %}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% endif %}
 
   <section class="card section-gap">
     <h2>{% translate "Lines" %}</h2>

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ heading }} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading"><div><p class="eyebrow">{% translate "Correction evidence" %}</p><h1>{{ heading }}</h1></div></div>
+  <section class="card form-card">
+    <form method="post">
+      {% csrf_token %}
+      {% include "includes/form_fields.html" with form=form %}
+      <button class="button" type="submit">{% translate "Post reversal" %}</button>
+    </form>
+  </section>
+{% endblock %}

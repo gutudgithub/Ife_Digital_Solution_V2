@@ -29,7 +29,10 @@ Runtime configuration is supplied through environment variables:
    printing, a partial customer return, a full sale reversal, a return reversal, refund
    evidence, one cash-session opening, linked cash sale/refund movements, a manual drawer
    movement, physical count, variance handling, closure report, authorized reopening, and
-   movement/balance reconciliation. Never use `seed_demo` in production.
+   movement/balance reconciliation. Also verify a draft and posted expense, one cash expense
+   against an open session, one Telebirr expense, a partial supplier payment, a supplier-return
+   credit/refund, exact-source reversals, settlement summaries, and cashier non-disclosure.
+   Never use `seed_demo` in production.
 
 The development Compose command runs migrations automatically for convenience. Production
 must not let every replica race to run migrations.

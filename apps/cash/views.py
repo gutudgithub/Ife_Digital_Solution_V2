@@ -30,6 +30,14 @@ from apps.cash.services import (
     post_manual_cash_movement,
     reopen_cash_session,
 )
+from apps.expenses.models import (
+    OperatingExpense,
+    OperatingExpenseReversal,
+    SupplierPayment,
+    SupplierPaymentReversal,
+    SupplierReturnSettlement,
+    SupplierReturnSettlementReversal,
+)
 from apps.forms import add_accessible_error_attributes
 from apps.sales.models import SalePayment, SaleRefundEvidence
 
@@ -151,6 +159,55 @@ def session_detail(request: HttpRequest, session_id: UUID) -> HttpResponse:
             id__in=source_ids,
         ).select_related("sale_return")
     }
+    operating_expenses: dict[UUID, OperatingExpense] = {}
+    expense_reversals: dict[UUID, OperatingExpenseReversal] = {}
+    supplier_payments: dict[UUID, SupplierPayment] = {}
+    supplier_payment_reversals: dict[UUID, SupplierPaymentReversal] = {}
+    supplier_refunds: dict[UUID, SupplierReturnSettlement] = {}
+    supplier_refund_reversals: dict[UUID, SupplierReturnSettlementReversal] = {}
+    if membership.can_manage_operating_expenses:
+        operating_expenses = {
+            expense.id: expense
+            for expense in OperatingExpense.objects.filter(
+                business=business,
+                id__in=source_ids,
+            )
+        }
+        expense_reversals = {
+            reversal.id: reversal
+            for reversal in OperatingExpenseReversal.objects.filter(
+                business=business,
+                id__in=source_ids,
+            ).select_related("expense")
+        }
+        supplier_payments = {
+            payment.id: payment
+            for payment in SupplierPayment.objects.filter(
+                business=business,
+                id__in=source_ids,
+            )
+        }
+        supplier_payment_reversals = {
+            reversal.id: reversal
+            for reversal in SupplierPaymentReversal.objects.filter(
+                business=business,
+                id__in=source_ids,
+            ).select_related("supplier_payment")
+        }
+        supplier_refunds = {
+            settlement.id: settlement
+            for settlement in SupplierReturnSettlement.objects.filter(
+                business=business,
+                id__in=source_ids,
+            )
+        }
+        supplier_refund_reversals = {
+            reversal.id: reversal
+            for reversal in SupplierReturnSettlementReversal.objects.filter(
+                business=business,
+                id__in=source_ids,
+            ).select_related("settlement")
+        }
     movement_rows = []
     for movement in movement_page.object_list:
         source_label = ""
@@ -168,6 +225,65 @@ def session_detail(request: HttpRequest, session_id: UUID) -> HttpResponse:
                     "sales:return-detail",
                     args=[refund.sale_return_id],
                 )
+        elif movement.movement_type == CashMovementType.OPERATING_EXPENSE:
+            expense = operating_expenses.get(movement.source_id)
+            if expense is not None:
+                source_label = expense.internal_number
+                source_url = reverse("expenses:expense-detail", args=[expense.id])
+        elif movement.movement_type == CashMovementType.OPERATING_EXPENSE_REVERSAL:
+            expense_reversal = expense_reversals.get(movement.source_id)
+            if expense_reversal is not None:
+                source_label = expense_reversal.expense.internal_number
+                source_url = reverse(
+                    "expenses:expense-detail",
+                    args=[expense_reversal.expense_id],
+                )
+        elif movement.movement_type == CashMovementType.SUPPLIER_PAYMENT:
+            supplier_payment = supplier_payments.get(movement.source_id)
+            if supplier_payment is not None:
+                source_label = str(_("Supplier payment evidence"))
+                source_url = reverse(
+                    "expenses:supplier-payment-print",
+                    args=[supplier_payment.id],
+                )
+        elif movement.movement_type == CashMovementType.SUPPLIER_PAYMENT_REVERSAL:
+            payment_reversal = supplier_payment_reversals.get(movement.source_id)
+            if payment_reversal is not None:
+                source_label = str(_("Supplier payment reversal"))
+                source_url = reverse(
+                    "expenses:supplier-payment-print",
+                    args=[payment_reversal.supplier_payment_id],
+                )
+        elif movement.movement_type == CashMovementType.SUPPLIER_REFUND:
+            settlement = supplier_refunds.get(movement.source_id)
+            if settlement is not None:
+                source_label = str(_("Supplier refund evidence"))
+                source_url = reverse(
+                    "expenses:return-settlement-print",
+                    args=[settlement.id],
+                )
+        elif movement.movement_type == CashMovementType.SUPPLIER_REFUND_REVERSAL:
+            refund_reversal = supplier_refund_reversals.get(movement.source_id)
+            if refund_reversal is not None:
+                source_label = str(_("Supplier refund reversal"))
+                source_url = reverse(
+                    "expenses:return-settlement-print",
+                    args=[refund_reversal.settlement_id],
+                )
+        if (
+            movement.movement_type
+            in {
+                CashMovementType.OPERATING_EXPENSE,
+                CashMovementType.OPERATING_EXPENSE_REVERSAL,
+                CashMovementType.SUPPLIER_PAYMENT,
+                CashMovementType.SUPPLIER_PAYMENT_REVERSAL,
+                CashMovementType.SUPPLIER_REFUND,
+                CashMovementType.SUPPLIER_REFUND_REVERSAL,
+            }
+            and not membership.can_manage_operating_expenses
+        ):
+            source_label = str(_("Restricted operational evidence"))
+            source_url = ""
         movement_rows.append(
             {
                 "movement": movement,
@@ -206,6 +322,7 @@ def session_open(request: HttpRequest) -> HttpResponse:
                 branch=form.cleaned_data["branch"],
                 opening_float=cast(Decimal, form.cleaned_data["opening_float"]),
                 idempotency_key=form.cleaned_data["idempotency_key"],
+                opening_basis_note=cast(str, form.cleaned_data["opening_basis_note"]),
             )
         except ValidationError as error:
             form.add_error(None, error)

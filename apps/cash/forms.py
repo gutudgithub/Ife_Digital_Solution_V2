@@ -8,7 +8,7 @@ from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy as _
 
 from apps.businesses.models import Branch, BusinessMembership
-from apps.cash.models import CashMovementType, CashSessionStatus
+from apps.cash.models import CashMovementType, CashSession, CashSessionStatus
 
 
 def cash_branch_queryset(membership: BusinessMembership) -> QuerySet[Branch]:
@@ -32,6 +32,14 @@ class CashSessionOpenForm(forms.Form):
         label=_("Opening float"),
         help_text=_("Physical cash placed in the drawer before sales."),
     )
+    opening_basis_note = forms.CharField(
+        required=False,
+        label=_("Opening basis note"),
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text=_(
+            "Required for the first branch session: describe the direct physical drawer count."
+        ),
+    )
     idempotency_key = forms.UUIDField(widget=forms.HiddenInput)
 
     def __init__(
@@ -41,12 +49,33 @@ class CashSessionOpenForm(forms.Form):
         membership: BusinessMembership,
     ) -> None:
         super().__init__(data=data)
+        self.membership = membership
         branch_field = cast(forms.ModelChoiceField, self.fields["branch"])
         branch_field.queryset = cash_branch_queryset(membership)
         if not self.is_bound:
             self.initial["idempotency_key"] = uuid.uuid4()
             if branch_field.queryset.count() == 1:
                 self.initial["branch"] = branch_field.queryset.first()
+            self.initial["opening_basis_note"] = _("Physical drawer count at system adoption")
+
+    def clean(self) -> dict[str, object]:
+        cleaned_data = super().clean() or {}
+        branch = cleaned_data.get("branch")
+        note = str(cleaned_data.get("opening_basis_note") or "").strip()
+        if (
+            isinstance(branch, Branch)
+            and not CashSession.objects.filter(
+                business=self.membership.business,
+                branch=branch,
+            ).exists()
+            and not note
+        ):
+            self.add_error(
+                "opening_basis_note",
+                _("Record the physical-count basis for the first branch cash session."),
+            )
+        cleaned_data["opening_basis_note"] = note
+        return cleaned_data
 
 
 class ManualCashMovementForm(forms.Form):

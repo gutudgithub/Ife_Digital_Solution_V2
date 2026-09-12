@@ -8,6 +8,12 @@ from apps.accounts.models import User
 from apps.businesses.models import Branch, Business, BusinessMembership, MembershipRole
 from apps.cash.models import CashMovement, CashSession, CashSessionClosure, CashSessionStatus
 from apps.catalog.models import Category, Product, ProductVariant
+from apps.expenses.models import (
+    ExpenseCategory,
+    OperatingExpense,
+    SupplierPayment,
+    SupplierReturnSettlement,
+)
 from apps.inventory.models import InventoryBalance, InventoryMovement
 from apps.purchasing.models import GoodsReceipt, Purchase, PurchaseReturn, Supplier
 from apps.sales.models import (
@@ -46,6 +52,13 @@ class SeedDemoCommandTests(TestCase):
         self.assertEqual(Purchase.objects.filter(business=business).count(), 1)
         self.assertEqual(GoodsReceipt.objects.filter(business=business).count(), 1)
         self.assertEqual(PurchaseReturn.objects.filter(business=business).count(), 1)
+        self.assertEqual(ExpenseCategory.objects.filter(business=business).count(), 1)
+        self.assertEqual(OperatingExpense.objects.filter(business=business).count(), 1)
+        self.assertEqual(SupplierPayment.objects.filter(business=business).count(), 1)
+        self.assertEqual(
+            SupplierReturnSettlement.objects.filter(business=business).count(),
+            1,
+        )
         self.assertEqual(Sale.objects.filter(business=business).count(), 1)
         self.assertEqual(
             Sale.objects.get(business=business).status,

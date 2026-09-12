@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed for product-owner approval. Do not implement until approved.
+Approved by the product owner on 12 September 2026.
 
 ## Name
 
@@ -143,7 +143,8 @@ return. It records one of:
   Telebirr.
 
 Multiple partial entries are allowed up to the return's supplier reference total. Reversed
-purchase returns cannot receive new settlement entries.
+purchase returns cannot receive new settlement entries, and a purchase return with active
+settlement evidence cannot be reversed until that evidence is reversed.
 
 A credit accepted against the source purchase cannot make the operational purchase balance
 negative. A refund recovered cannot exceed the purchase's active supplier payments net of
@@ -508,6 +509,9 @@ All Stage 4B operational writes use atomic services.
 6. For cash, lock the open branch session and reject insufficient expected cash.
 7. Assign the locked session date for cash or current local date for Telebirr.
 8. Create immutable payment evidence and one linked negative cash movement atomically.
+
+An approved purchase with active supplier-payment evidence cannot be cancelled until that
+payment evidence is reversed.
 
 ### Post a supplier-return settlement
 

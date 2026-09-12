@@ -39,6 +39,7 @@ class CashSessionAdmin(ImmutableCashAdmin):
         "business_date",
         "status",
         "opening_float",
+        "opening_basis_note",
         "opening_key",
         "opened_by",
         "opened_at",

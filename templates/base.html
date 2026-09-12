@@ -27,6 +27,10 @@
               <a href="{% url 'purchasing:purchase-list' %}">{% translate "Purchases" %}</a>
               <a href="{% url 'purchasing:purchase-return-list' %}">{% translate "Purchase returns" %}</a>
             {% endif %}
+            {% if active_membership.can_manage_operating_expenses %}
+              <a href="{% url 'expenses:expense-list' %}">{% translate "Expenses" %}</a>
+              <a href="{% url 'expenses:settlement-activity' %}">{% translate "Supplier settlement" %}</a>
+            {% endif %}
             <a href="{% url 'attendance:attendance-list' %}">{% translate "Attendance" %}</a>
             <form method="post" action="{% url 'logout' %}">
               {% csrf_token %}

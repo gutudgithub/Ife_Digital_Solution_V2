@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ record_type }} · {% translate "Settlement evidence" %}{% endblock %}
+
+{% block content %}
+  <article class="card">
+    <h1>{{ record_type }}</h1>
+    <p class="muted">{% translate "Internal operational evidence only; not provider confirmation, a supplier statement, certified payable, or official tax document." %}</p>
+    <p><strong>{% translate "Purchase" %}:</strong> {{ record.purchase.internal_number }}</p>
+    <p><strong>{% translate "Supplier" %}:</strong> {{ record.supplier.name }}</p>
+    <p><strong>{% translate "Branch" %}:</strong> {{ record.branch.name }}</p>
+    <p><strong>{% translate "Date" %}:</strong> {{ record.business_date }}</p>
+    <p><strong>{% translate "Amount" %}:</strong> ETB {{ record.amount|floatformat:2 }}</p>
+    <p><strong>{% translate "Supplier reference" %}:</strong> {{ record.supplier_reference|default:"—" }}</p>
+    <p><strong>{% translate "Telebirr reference" %}:</strong> {{ record.telebirr_reference|default:"—" }}</p>
+    <p><strong>{% translate "Posted by" %}:</strong> {{ record.posted_by.user.full_name }}</p>
+    {% if reversal %}<p><strong>{% translate "Reversed" %}:</strong> {{ reversal.reason }}</p>{% endif %}
+  </article>
+{% endblock %}

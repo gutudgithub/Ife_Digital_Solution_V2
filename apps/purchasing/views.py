@@ -16,6 +16,11 @@ from django.views.decorators.http import require_POST
 
 from apps.businesses.models import Business, BusinessMembership
 from apps.businesses.types import TenantRequest
+from apps.expenses.models import SupplierPayment, SupplierReturnSettlement
+from apps.expenses.services import (
+    purchase_return_settlement_totals,
+    purchase_settlement_totals,
+)
 from apps.forms import add_accessible_error_attributes
 from apps.purchasing.forms import (
     BasePurchaseLineFormSet,
@@ -340,6 +345,7 @@ def purchase_detail(request: HttpRequest, purchase_id: UUID) -> HttpResponse:
         ).select_related("supplier", "branch", "approved_by__user"),
         pk=purchase_id,
     )
+    can_manage_settlement = membership.can_manage_supplier_settlement
     return render(
         request,
         "purchasing/purchase_detail.html",
@@ -356,6 +362,18 @@ def purchase_detail(request: HttpRequest, purchase_id: UUID) -> HttpResponse:
             "can_manage_purchasing": membership.can_manage_purchasing,
             "can_receive_inventory": membership.can_receive_inventory,
             "has_receipts": purchase.receipts.exists(),
+            "can_manage_settlement": can_manage_settlement,
+            "settlement_totals": (
+                purchase_settlement_totals(purchase) if can_manage_settlement else None
+            ),
+            "supplier_payments": (
+                SupplierPayment.objects.filter(
+                    business=business,
+                    purchase=purchase,
+                ).select_related("posted_by__user", "reversal")
+                if can_manage_settlement
+                else SupplierPayment.objects.none()
+            ),
         },
     )
 
@@ -583,6 +601,7 @@ def purchase_return_detail(request: HttpRequest, return_id: UUID) -> HttpRespons
         ),
         pk=return_id,
     )
+    can_manage_settlement = membership.can_manage_supplier_settlement
     return render(
         request,
         "purchasing/purchase_return_detail.html",
@@ -594,6 +613,20 @@ def purchase_return_detail(request: HttpRequest, return_id: UUID) -> HttpRespons
             ),
             "can_manage_purchasing": membership.can_manage_purchasing,
             "can_view_inventory_value": membership.can_manage_purchasing,
+            "can_manage_settlement": can_manage_settlement,
+            "settlement_totals": (
+                purchase_return_settlement_totals(purchase_return)
+                if can_manage_settlement
+                else None
+            ),
+            "supplier_settlements": (
+                SupplierReturnSettlement.objects.filter(
+                    business=business,
+                    purchase_return=purchase_return,
+                ).select_related("posted_by__user", "reversal")
+                if can_manage_settlement
+                else SupplierReturnSettlement.objects.none()
+            ),
         },
     )
 

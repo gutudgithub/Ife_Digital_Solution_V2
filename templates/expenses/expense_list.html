@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Operating expenses" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Paid operating evidence" %}</p>
+      <h1>{% translate "Operating expenses" %}</h1>
+      <p class="muted">{% translate "Internal operational evidence only; not an official tax document or statutory accounting record." %}</p>
+    </div>
+    <div class="action-row">
+      <a class="button button--secondary" href="{% url 'expenses:category-list' %}">{% translate "Categories" %}</a>
+      <a class="button" href="{% url 'expenses:expense-create' %}">{% translate "New expense" %}</a>
+    </div>
+  </div>
+  <section class="card">
+    <form class="filter-form" method="get">
+      {% include "includes/form_fields.html" with form=filter_form %}
+      <button class="button button--secondary" type="submit">{% translate "Filter" %}</button>
+    </form>
+    <div class="table-wrap">
+      <table>
+        <caption class="visually-hidden">{% translate "Operating expense records" %}</caption>
+        <thead><tr><th>{% translate "Expense" %}</th><th>{% translate "Date" %}</th><th>{% translate "Branch" %}</th><th>{% translate "Category" %}</th><th>{% translate "Payee" %}</th><th>{% translate "Status" %}</th><th>{% translate "Amount" %}</th></tr></thead>
+        <tbody>
+          {% for expense in expenses %}
+            <tr>
+              <td><a href="{% url 'expenses:expense-detail' expense.id %}">{{ expense.internal_number }}</a></td>
+              <td>{{ expense.business_date|default:"—" }}</td>
+              <td>{{ expense.branch.name }}</td>
+              <td>{{ expense.category.name }}</td>
+              <td>{{ expense.payee|default:"—" }}</td>
+              <td>{{ expense.get_status_display }}</td>
+              <td>ETB {{ expense.amount|floatformat:2 }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="7">{% translate "No operating expenses match these filters." %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if page_obj.paginator.num_pages > 1 %}
+      <nav class="pagination" aria-label="{% translate 'Expense pages' %}">
+        {% if page_obj.has_previous %}<a href="{% querystring page=page_obj.previous_page_number %}">{% translate "Previous" %}</a>{% endif %}
+        <span>{% blocktranslate trimmed with current=page_obj.number total=page_obj.paginator.num_pages %}Page {{ current }} of {{ total }}{% endblocktranslate %}</span>
+        {% if page_obj.has_next %}<a href="{% querystring page=page_obj.next_page_number %}">{% translate "Next" %}</a>{% endif %}
+      </nav>
+    {% endif %}
+  </section>
+{% endblock %}

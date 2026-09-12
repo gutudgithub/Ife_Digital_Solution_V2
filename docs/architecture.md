@@ -22,6 +22,8 @@ The initial modules are:
   reversals, and internal receipts.
 - `cash`: branch cash sessions, signed physical-cash movements, closure counts, variance,
   and controlled reopening.
+- `expenses`: paid operating expenses, purchase-linked supplier payments, supplier-return
+  credits/refunds, and their immutable reversals.
 
 Future modules should follow ledger boundaries rather than generic CRUD groupings:
 reconciliation, audit, and reporting.
@@ -55,6 +57,7 @@ Current role capabilities:
 | Adjust stock or post/reverse supplier returns | Yes | Yes | No | No |
 | Open and close assigned-branch cash sessions | Yes | Yes | Yes | No |
 | Post manual cash movements or reopen sessions | Yes | Yes | No | No |
+| Manage expenses and supplier settlement | Yes | Yes | No | No |
 | Platform administration | Staff permission only | Staff permission only | Staff permission only | Staff permission only |
 
 Later slices must define explicit capabilities for employee administration and report access.
@@ -86,6 +89,12 @@ Stage 4A cash posting locks the open branch session for physical-cash sales, ref
 drawer movements, closure, and reopening. Expected cash is the exact signed movement sum;
 the separately entered physical count and immutable variance snapshot never rewrite source
 transactions. Telebirr and historical pre-Stage-4A evidence are not assigned drawer effects.
+
+Stage 4B posts only fully paid expenses and purchase-linked supplier settlement evidence.
+Cash methods create source-linked movements in the locked session; Telebirr and supplier
+credits do not affect physical cash. Supplier reference, inventory-value reduction, and
+accepted settlement remain distinct operational values rather than statutory accounting.
+Reversals compensate in the original cash session, which must first be validly reopened.
 
 ## Localization
 

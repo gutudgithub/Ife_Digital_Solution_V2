@@ -84,7 +84,7 @@ class CashServiceTests(TestCase):
 
     def _open(self, *, opening_float: str = "100.00") -> CashSession:
         return open_cash_session(
-            actor=self.cashier,
+            actor=self.owner,
             branch=self.branch,
             opening_float=Decimal(opening_float),
             idempotency_key=uuid.uuid4(),
@@ -94,13 +94,13 @@ class CashServiceTests(TestCase):
         key = uuid.uuid4()
 
         first = open_cash_session(
-            actor=self.cashier,
+            actor=self.owner,
             branch=self.branch,
             opening_float=Decimal("0.00"),
             idempotency_key=key,
         )
         replay = open_cash_session(
-            actor=self.cashier,
+            actor=self.owner,
             branch=self.branch,
             opening_float=Decimal("0.00"),
             idempotency_key=key,
@@ -114,6 +114,64 @@ class CashServiceTests(TestCase):
         self.assertEqual(movement.amount_delta, Decimal("0.00"))
         self.assertEqual(movement.source_id, first.id)
         self.assertEqual(expected_cash(first), Decimal("0.00"))
+        self.assertEqual(
+            first.opening_basis_note,
+            "Physical drawer count at system adoption",
+        )
+        first.opening_basis_note = "Changed"
+        with self.assertRaisesMessage(ValidationError, "cannot be modified"):
+            first.save()
+
+    def test_first_session_requires_manager_and_physical_count_note(self) -> None:
+        with self.assertRaisesMessage(PermissionDenied, "first cash session"):
+            open_cash_session(
+                actor=self.cashier,
+                branch=self.branch,
+                opening_float=Decimal("0.00"),
+                opening_basis_note="Cashier count",
+                idempotency_key=uuid.uuid4(),
+            )
+        with self.assertRaisesMessage(ValidationError, "physical-count basis"):
+            open_cash_session(
+                actor=self.owner,
+                branch=self.branch,
+                opening_float=Decimal("0.00"),
+                opening_basis_note=" ",
+                idempotency_key=uuid.uuid4(),
+            )
+
+    def test_cashier_can_open_a_later_session(self) -> None:
+        historical_time = timezone.now() - timedelta(days=1)
+        with patch(
+            "apps.cash.services.timezone.localdate",
+            return_value=timezone.localtime(historical_time).date(),
+        ):
+            historical = open_cash_session(
+                actor=self.owner,
+                branch=self.branch,
+                opening_float=Decimal("0.00"),
+                opening_basis_note="Initial physical count",
+                idempotency_key=uuid.uuid4(),
+                opened_at=historical_time,
+            )
+            close_cash_session(
+                actor=self.owner,
+                session=historical,
+                actual_cash=Decimal("0.00"),
+                explanation="",
+                idempotency_key=uuid.uuid4(),
+                closed_at=historical_time,
+            )
+
+        later = open_cash_session(
+            actor=self.cashier,
+            branch=self.branch,
+            opening_float=Decimal("0.00"),
+            idempotency_key=uuid.uuid4(),
+        )
+
+        self.assertEqual(later.opened_by, self.cashier)
+        self.assertEqual(later.opening_basis_note, "")
 
     def test_opening_rejects_negative_float_noncurrent_date_and_duplicate_session(
         self,
@@ -346,6 +404,13 @@ class CashServiceTests(TestCase):
         with self.assertRaises(PermissionDenied):
             open_cash_session(
                 actor=self.stock_employee,
+                branch=self.branch,
+                opening_float=Decimal("10.00"),
+                idempotency_key=uuid.uuid4(),
+            )
+        with self.assertRaisesMessage(PermissionDenied, "first cash session"):
+            open_cash_session(
+                actor=self.cashier,
                 branch=self.branch,
                 opening_float=Decimal("10.00"),
                 idempotency_key=uuid.uuid4(),

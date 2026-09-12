@@ -21,6 +21,21 @@ from apps.cash.services import (
     post_manual_cash_movement,
 )
 from apps.catalog.models import Category, Product, ProductVariant, StockUnit
+from apps.expenses.models import (
+    ExpenseCategory,
+    ExpenseSettlementPostingKey,
+    OperatingExpense,
+    OperationalPaymentMethod,
+    SupplierPayment,
+    SupplierReturnSettlement,
+    SupplierReturnSettlementType,
+)
+from apps.expenses.services import (
+    create_operating_expense_draft,
+    post_operating_expense,
+    post_supplier_payment,
+    post_supplier_return_settlement,
+)
 from apps.purchasing.models import (
     Purchase,
     PurchaseLine,
@@ -278,6 +293,10 @@ class Command(BaseCommand):
                     purchase_return=purchase_return,
                     idempotency_key=uuid.UUID("00000000-0000-4000-8000-000000000202"),
                 )
+            else:
+                purchase_return = purchase.purchase_returns.get(
+                    supplier_document_reference="DEMO-RETURN-001"
+                )
             sale_key = uuid.UUID("00000000-0000-4000-8000-000000000203")
             posting_key = SalePostingKey.objects.filter(
                 business=business,
@@ -330,6 +349,78 @@ class Command(BaseCommand):
                 )
             else:
                 sale_return = sale.returns.get(posting_key__key=return_key)
+            expense_category, _ = ExpenseCategory.objects.update_or_create(
+                business=business,
+                name="Utilities",
+                defaults={"is_active": True},
+            )
+            expense_key = uuid.UUID("00000000-0000-4000-8000-000000000209")
+            expense_posting_key = ExpenseSettlementPostingKey.objects.filter(
+                business=business,
+                key=expense_key,
+            ).first()
+            if expense_posting_key is None:
+                operating_expense = create_operating_expense_draft(
+                    actor=owner_membership,
+                    branch=branch,
+                    category=expense_category,
+                    payee="Demo Internet Provider",
+                    description="Local demonstration operating expense.",
+                    amount=Decimal("150.00"),
+                )
+                operating_expense = post_operating_expense(
+                    actor=owner_membership,
+                    expense=operating_expense,
+                    method=OperationalPaymentMethod.TELEBIRR,
+                    telebirr_reference="DEMO-TX-EXPENSE-001",
+                    idempotency_key=expense_key,
+                )
+            else:
+                operating_expense = OperatingExpense.objects.get(
+                    business=business,
+                    posting_key=expense_posting_key,
+                )
+            supplier_payment_key = uuid.UUID("00000000-0000-4000-8000-000000000210")
+            supplier_payment_posting_key = ExpenseSettlementPostingKey.objects.filter(
+                business=business,
+                key=supplier_payment_key,
+            ).first()
+            if supplier_payment_posting_key is None:
+                supplier_payment = post_supplier_payment(
+                    actor=owner_membership,
+                    purchase=purchase,
+                    amount=Decimal("1000.00"),
+                    method=OperationalPaymentMethod.TELEBIRR,
+                    supplier_reference="DEMO-SUPPLIER-PAYMENT-001",
+                    telebirr_reference="DEMO-TX-SUPPLIER-001",
+                    idempotency_key=supplier_payment_key,
+                )
+            else:
+                supplier_payment = SupplierPayment.objects.get(
+                    business=business,
+                    posting_key=supplier_payment_posting_key,
+                )
+            settlement_key = uuid.UUID("00000000-0000-4000-8000-000000000211")
+            settlement_posting_key = ExpenseSettlementPostingKey.objects.filter(
+                business=business,
+                key=settlement_key,
+            ).first()
+            if settlement_posting_key is None:
+                supplier_settlement = post_supplier_return_settlement(
+                    actor=owner_membership,
+                    purchase_return=purchase_return,
+                    settlement_type=SupplierReturnSettlementType.CREDIT,
+                    amount=Decimal("300.00"),
+                    method="",
+                    supplier_reference="DEMO-SUPPLIER-CREDIT-001",
+                    telebirr_reference="",
+                    idempotency_key=settlement_key,
+                )
+            else:
+                supplier_settlement = SupplierReturnSettlement.objects.get(
+                    business=business,
+                    posting_key=settlement_posting_key,
+                )
             post_manual_cash_movement(
                 actor=owner_membership,
                 session=cash_session,
@@ -363,6 +454,9 @@ class Command(BaseCommand):
         self.stdout.write(f"Internal receipt: {sale.receipt.internal_number}")
         self.stdout.write(f"Posted customer return: {sale_return.internal_number}")
         self.stdout.write(f"Internal return receipt: {sale_return.receipt.internal_number}")
+        self.stdout.write(f"Posted operating expense: {operating_expense.internal_number}")
+        self.stdout.write(f"Supplier payment: {supplier_payment.id}")
+        self.stdout.write(f"Supplier return credit: {supplier_settlement.id}")
         self.stdout.write(f"Closed cash session: {closure.session.business_date}")
 
     @staticmethod

@@ -22,6 +22,21 @@ class CashMovementType(models.TextChoices):
     CASH_REFUND = "cash_refund", _("Cash refund")
     CASH_ADDED = "cash_added", _("Cash added")
     CASH_REMOVED = "cash_removed", _("Cash removed")
+    OPERATING_EXPENSE = "operating_expense", _("Operating expense")
+    OPERATING_EXPENSE_REVERSAL = (
+        "operating_expense_reversal",
+        _("Operating expense reversal"),
+    )
+    SUPPLIER_PAYMENT = "supplier_payment", _("Supplier payment")
+    SUPPLIER_PAYMENT_REVERSAL = (
+        "supplier_payment_reversal",
+        _("Supplier payment reversal"),
+    )
+    SUPPLIER_REFUND = "supplier_refund", _("Supplier refund recovered")
+    SUPPLIER_REFUND_REVERSAL = (
+        "supplier_refund_reversal",
+        _("Supplier refund reversal"),
+    )
 
 
 class CashOperationType(models.TextChoices):
@@ -104,6 +119,7 @@ class CashSession(models.Model):
         default=CashSessionStatus.OPEN,
     )
     opening_float = models.DecimalField(max_digits=18, decimal_places=2)
+    opening_basis_note = models.TextField(blank=True)
     opening_key = models.OneToOneField(
         CashPostingKey,
         on_delete=models.PROTECT,
@@ -158,6 +174,7 @@ class CashSession(models.Model):
                 "branch_id",
                 "business_date",
                 "opening_float",
+                "opening_basis_note",
                 "opening_key_id",
                 "opened_by_id",
                 "opened_at",
@@ -219,7 +236,7 @@ class CashMovement(models.Model):
         on_delete=models.PROTECT,
         related_name="movements",
     )
-    movement_type = models.CharField(max_length=24, choices=CashMovementType.choices)
+    movement_type = models.CharField(max_length=32, choices=CashMovementType.choices)
     amount_delta = models.DecimalField(max_digits=18, decimal_places=2)
     source_id = models.UUIDField(blank=True, null=True)
     posting_key = models.OneToOneField(
@@ -280,6 +297,48 @@ class CashMovement(models.Model):
                         amount_delta__lt=Decimal("0.00"),
                         source_id__isnull=True,
                         posting_key__isnull=False,
+                    )
+                    | Q(
+                        movement_type=CashMovementType.OPERATING_EXPENSE,
+                        amount_delta__lt=Decimal("0.00"),
+                        source_id__isnull=False,
+                        posting_key__isnull=True,
+                        reason="",
+                    )
+                    | Q(
+                        movement_type=CashMovementType.OPERATING_EXPENSE_REVERSAL,
+                        amount_delta__gt=Decimal("0.00"),
+                        source_id__isnull=False,
+                        posting_key__isnull=True,
+                        reason="",
+                    )
+                    | Q(
+                        movement_type=CashMovementType.SUPPLIER_PAYMENT,
+                        amount_delta__lt=Decimal("0.00"),
+                        source_id__isnull=False,
+                        posting_key__isnull=True,
+                        reason="",
+                    )
+                    | Q(
+                        movement_type=CashMovementType.SUPPLIER_PAYMENT_REVERSAL,
+                        amount_delta__gt=Decimal("0.00"),
+                        source_id__isnull=False,
+                        posting_key__isnull=True,
+                        reason="",
+                    )
+                    | Q(
+                        movement_type=CashMovementType.SUPPLIER_REFUND,
+                        amount_delta__gt=Decimal("0.00"),
+                        source_id__isnull=False,
+                        posting_key__isnull=True,
+                        reason="",
+                    )
+                    | Q(
+                        movement_type=CashMovementType.SUPPLIER_REFUND_REVERSAL,
+                        amount_delta__lt=Decimal("0.00"),
+                        source_id__isnull=False,
+                        posting_key__isnull=True,
+                        reason="",
                     )
                 ),
                 name="cash_movement_evidence_matches_type",
