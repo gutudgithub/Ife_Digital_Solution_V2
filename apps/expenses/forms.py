@@ -44,6 +44,14 @@ class ExpenseCategoryForm(forms.ModelForm):
 
 
 class OperatingExpenseForm(forms.ModelForm):
+    amount = forms.DecimalField(
+        min_value=Decimal("0.01"),
+        max_digits=18,
+        decimal_places=2,
+        label=_("Amount"),
+        error_messages={"min_value": _("Expense amount must be greater than zero.")},
+    )
+
     class Meta:
         model = OperatingExpense
         fields = ("branch", "category", "payee", "description", "amount")

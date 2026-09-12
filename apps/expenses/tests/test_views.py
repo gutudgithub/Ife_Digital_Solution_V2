@@ -182,6 +182,27 @@ class ExpenseViewTests(TestCase):
         )
         self.assertContains(stale_cancel, "Only draft operating expenses can be cancelled.")
 
+    def test_expense_amount_form_rejects_nonpositive_values_with_field_error(self) -> None:
+        self.client.force_login(self.owner_user)
+        for amount in ("0.00", "-1.00"):
+            with self.subTest(amount=amount):
+                response = self.client.post(
+                    reverse("expenses:expense-create"),
+                    {
+                        "branch": str(self.branch.id),
+                        "category": str(self.category.id),
+                        "payee": "Utility office",
+                        "description": "Monthly electricity",
+                        "amount": amount,
+                    },
+                )
+
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, "Expense amount must be greater than zero.")
+                self.assertContains(response, 'aria-invalid="true"')
+                self.assertNotContains(response, "expenses_operating_expense_amount_positive")
+        self.assertFalse(OperatingExpense.objects.exists())
+
     def test_expense_filters_paginate_and_preserve_query_parameters(self) -> None:
         for index in range(51):
             create_operating_expense_draft(
