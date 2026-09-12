@@ -154,14 +154,33 @@ remain an explicitly documented bypass until production database roles/triggers 
 
 Drafts have no stock or payment effect. Posting atomically creates one outbound inventory
 movement per line, one full payment, and one internal receipt. Posted sale evidence rejects
-normal instance edits/deletes. Stage 3B will add compensating sale corrections.
+normal instance edits/deletes.
+
+## Implemented Stage 3B sale-correction entities
+
+- `SaleReturn`: business, original branch and posted sale, customer-return or full-reversal
+  purpose, lifecycle state, exact refund total, actors, timestamps, and posting key.
+- `SaleReturnLine`: exact source sale line, immutable product/SKU/unit/price/cost snapshots,
+  returned quantity, exact refund line total, and restored inventory value.
+- `SaleRefundEvidence`: one exact cash or manually referenced Telebirr refund record per
+  posted return, with business-scoped normalized Telebirr reference uniqueness.
+- `InternalReturnReceipt`: immutable internal return/refund record linked to the original
+  internal receipt and explicitly not an official tax invoice or tax credit note.
+- `SaleReturnReversal`: one immutable compensating record that removes restored stock using
+  the current moving-average outbound path and preserves the original refund evidence.
+- `SaleReturnPostingKey`: business-wide idempotency claim shared by return posting and
+  return reversal operations.
+
+Posted returns restore quantity at the original sale-line assigned inventory cost. Return
+reversals do not edit the sale or return; they create linked outbound movements and make the
+quantities returnable again. Service transactions lock source sales, lines, variants, and
+balances deterministically.
 
 ## Remaining planned ledger entities
 
 Future slices should add:
 
 - cash session and cash movement;
-- customer return, refund, sale void, and reversal;
 - later payment allocation only if credit or split-tender scope is approved;
 - stock count and reconciliation;
 - generalized audit event.

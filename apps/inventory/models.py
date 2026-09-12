@@ -24,6 +24,8 @@ class InventoryMovementType(models.TextChoices):
     PURCHASE_RETURN = "purchase_return", _("Purchase return")
     PURCHASE_RETURN_REVERSAL = "purchase_return_reversal", _("Purchase return reversal")
     SALE = "sale", _("Sale")
+    SALE_RETURN = "sale_return", _("Sale return")
+    SALE_RETURN_REVERSAL = "sale_return_reversal", _("Sale return reversal")
     ADJUSTMENT_IN = "adjustment_in", _("Positive adjustment")
     ADJUSTMENT_OUT = "adjustment_out", _("Negative adjustment")
 
@@ -34,6 +36,8 @@ class InventorySourceType(models.TextChoices):
     PURCHASE_RETURN_LINE = "purchase_return_line", _("Purchase return line")
     PURCHASE_RETURN_REVERSAL = "purchase_return_reversal", _("Purchase return reversal")
     SALE_LINE = "sale_line", _("Sale line")
+    SALE_RETURN_LINE = "sale_return_line", _("Sale return line")
+    SALE_RETURN_REVERSAL = "sale_return_reversal", _("Sale return reversal")
 
 
 class StockOperation(models.Model):

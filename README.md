@@ -5,8 +5,8 @@ foundation is reusable for inventory-based retail while the first pilot is tailo
 clothing and footwear.
 
 This repository contains the independently reviewed Stage 1 foundation, Stage 2A inventory
-ledger, and Stage 2B purchase-return lifecycle, plus the implemented Stage 3A normal sales
-path awaiting independent review:
+ledger, Stage 2B purchase-return lifecycle, Stage 3A normal sales path, and implemented
+Stage 3B controlled sale corrections awaiting independent review:
 
 - email-based authentication and Django administration;
 - business and branch records;
@@ -24,11 +24,12 @@ path awaiting independent review:
 - supplier activity, purchase-cost history, and filtered movement history;
 - fully paid cash or manually referenced Telebirr sales;
 - immutable sale inventory movements, payment evidence, and internal receipts;
+- exact-line customer returns and full sale reversals with immutable refund evidence;
+- original-assigned-cost stock restoration and controlled return reversals;
 - English, Amharic, and Afaan Oromoo locale configuration;
 - PostgreSQL-compatible settings, Docker Compose, CI, and pre-commit checks.
 
-Posted-sale corrections, cash close, reconciliation, and later reports remain separate
-reviewed delivery slices.
+Cash close, reconciliation, and later reports remain separate reviewed delivery slices.
 
 ## Requirements
 
@@ -62,11 +63,12 @@ The owner can manage products, suppliers, purchases, receiving, purchase returns
 reversals, opening stock, adjustments, sales, history, and attendance. The seeded purchase
 `DEMO-PUR-001` includes a posted receipt and one posted supplier return, so inventory,
 supplier activity, cost history, and return screens have evidence immediately. The demo also
-posts one fully paid cash sale and creates its internal receipt. The stock
+posts one fully paid cash sale, a customer return, and their internal receipts. The stock
 employee can receive approved purchases and prepare return drafts for the assigned branch,
 but cannot approve purchases, post/reverse returns, adjust stock, or view inventory values.
-The cashier can record assigned-branch sales and personal attendance but cannot see
-suppliers, returns, purchase costs, movement history, average costs, or inventory values.
+The cashier can record assigned-branch sales, prepare customer-return drafts, and record
+personal attendance but cannot post refunds, create full sale reversals, see suppliers,
+purchase returns, purchase costs, movement history, average costs, or inventory values.
 When finished, stop the containers with `docker compose down`.
 
 ## Local setup with SQLite
@@ -92,6 +94,7 @@ this order:
 The dashboard is at `/`, the product catalog at `/catalog/`, inventory and movement history
 at `/inventory/`, purchasing at `/purchasing/`, purchase returns at
 `/purchasing/returns/`, sales at `/sales/`, and attendance at `/attendance/`.
+Sale corrections are listed at `/sales/returns/`.
 
 ## Local setup with PostgreSQL and Docker
 

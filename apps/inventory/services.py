@@ -77,6 +77,23 @@ class SaleInventoryItem:
     source_id: UUID
 
 
+@dataclass(frozen=True)
+class SaleReturnInventoryItem:
+    variant: ProductVariant
+    quantity: Decimal
+    unit_cost: Decimal
+    unit_snapshot: str
+    source_id: UUID
+
+
+@dataclass(frozen=True)
+class SaleReturnReversalInventoryItem:
+    variant: ProductVariant
+    quantity: Decimal
+    unit_snapshot: str
+    source_id: UUID
+
+
 def _quantity(value: Decimal) -> Decimal:
     return value.quantize(QUANTITY_QUANTUM, rounding=ROUND_HALF_UP)
 
@@ -442,6 +459,125 @@ def record_purchase_return_reversal_inventory(
                 unit_cost=assigned_cost,
                 value_delta=value_delta,
                 source_type=InventorySourceType.PURCHASE_RETURN_REVERSAL,
+                source_id=item.source_id,
+                actor=actor,
+                reason=reason.strip(),
+                posted_at=posted_at,
+            )
+        movements.append(movement)
+    return movements
+
+
+@transaction.atomic
+def record_sale_return_inventory(
+    *,
+    actor: BusinessMembership,
+    business: Business,
+    branch: Branch,
+    items: list[SaleReturnInventoryItem],
+    reason: str,
+    posted_at: datetime,
+) -> list[InventoryMovement]:
+    ensure_sale_branch_access(actor, branch)
+    if not actor.can_sell_across_branches:
+        raise PermissionDenied(_("Sales management permission is required."))
+    if not items:
+        raise ValidationError(_("At least one sale return line is required."))
+    if not reason.strip():
+        raise ValidationError(_("A sale return reason is required."))
+    for item in items:
+        _validate_historical_variant_scope(business, branch, item.variant)
+        if item.variant.stock_unit != item.unit_snapshot:
+            raise ValidationError(_("The variant stock unit changed after sale posting."))
+        validate_stock_quantity(item.quantity, item.unit_snapshot)
+        if item.unit_cost < 0:
+            raise ValidationError(_("Restoration cost cannot be negative."))
+    _lock_variants([item.variant for item in items])
+
+    balances: dict[UUID, InventoryBalance] = {}
+    for item in sorted(items, key=lambda return_item: str(return_item.variant.id)):
+        if item.variant.id not in balances:
+            balances[item.variant.id] = _locked_balance(
+                business=business,
+                branch=branch,
+                variant=item.variant,
+            )
+
+    movements: list[InventoryMovement] = []
+    for item in items:
+        assigned_cost, value_delta = _apply_inbound(
+            balance=balances[item.variant.id],
+            quantity=item.quantity,
+            unit_cost=item.unit_cost,
+        )
+        with _translate_inventory_constraint_errors():
+            movement = InventoryMovement.objects.create(
+                business=business,
+                branch=branch,
+                variant=item.variant,
+                movement_type=InventoryMovementType.SALE_RETURN,
+                quantity_delta=_quantity(item.quantity),
+                unit_cost=assigned_cost,
+                value_delta=value_delta,
+                source_type=InventorySourceType.SALE_RETURN_LINE,
+                source_id=item.source_id,
+                actor=actor,
+                reason=reason.strip(),
+                posted_at=posted_at,
+            )
+        movements.append(movement)
+    return movements
+
+
+@transaction.atomic
+def record_sale_return_reversal_inventory(
+    *,
+    actor: BusinessMembership,
+    business: Business,
+    branch: Branch,
+    items: list[SaleReturnReversalInventoryItem],
+    reason: str,
+    posted_at: datetime,
+) -> list[InventoryMovement]:
+    ensure_sale_branch_access(actor, branch)
+    if not actor.can_sell_across_branches:
+        raise PermissionDenied(_("Sales management permission is required."))
+    if not items:
+        raise ValidationError(_("At least one sale return reversal line is required."))
+    if not reason.strip():
+        raise ValidationError(_("A sale return reversal reason is required."))
+    for item in items:
+        _validate_historical_variant_scope(business, branch, item.variant)
+        if item.variant.stock_unit != item.unit_snapshot:
+            raise ValidationError(_("The variant stock unit changed after sale posting."))
+        validate_stock_quantity(item.quantity, item.unit_snapshot)
+    _lock_variants([item.variant for item in items])
+
+    balances: dict[UUID, InventoryBalance] = {}
+    for item in sorted(items, key=lambda reversal_item: str(reversal_item.variant.id)):
+        if item.variant.id not in balances:
+            balances[item.variant.id] = _locked_balance(
+                business=business,
+                branch=branch,
+                variant=item.variant,
+            )
+
+    movements: list[InventoryMovement] = []
+    for item in items:
+        assigned_cost, value_delta = _apply_outbound(
+            balance=balances[item.variant.id],
+            quantity=item.quantity,
+        )
+        with _translate_inventory_constraint_errors():
+            movement = InventoryMovement.objects.create(
+                business=business,
+                branch=branch,
+                variant=item.variant,
+                movement_type=InventoryMovementType.SALE_RETURN_REVERSAL,
+                quantity_delta=-_quantity(item.quantity),
+                unit_cost=assigned_cost,
+                value_delta=value_delta,
+                source_type=InventorySourceType.SALE_RETURN_REVERSAL,
                 source_id=item.source_id,
                 actor=actor,
                 reason=reason.strip(),

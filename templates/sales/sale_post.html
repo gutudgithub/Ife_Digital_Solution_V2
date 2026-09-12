@@ -13,7 +13,7 @@
   </div>
   <section class="card form-card">
     <p>{% translate "Posting is atomic and immutable. It reduces inventory, records one full payment, and issues one internal receipt." %}</p>
-    <p class="muted">{% translate "Posted-sale corrections, voids, returns, exchanges, and refunds are not available in Stage 3A." %}</p>
+    <p class="muted">{% translate "Corrections use a separate controlled return and refund-evidence workflow after posting." %}</p>
     <form method="post">
       {% csrf_token %}
       {% include "includes/form_fields.html" %}

@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed on 12 September 2026. Awaiting product-owner approval before implementation.
+Approved by the product owner on 12 September 2026. Implementation is in progress.
 
 ## Name
 

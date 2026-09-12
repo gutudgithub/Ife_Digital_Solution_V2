@@ -17,7 +17,13 @@
         <a class="danger-link" href="{% url 'sales:sale-cancel' sale.id %}">{% translate "Cancel draft" %}</a>
       </div>
     {% elif sale.status == "posted" %}
-      <a class="button" href="{% url 'sales:receipt-detail' sale.receipt.id %}">{% translate "View internal receipt" %}</a>
+      <div class="action-row">
+        <a class="button button--secondary" href="{% url 'sales:receipt-detail' sale.receipt.id %}">{% translate "View internal receipt" %}</a>
+        <a class="button" href="{% url 'sales:return-create' sale.id 'customer_return' %}">{% translate "Prepare customer return" %}</a>
+        {% if can_manage_returns %}
+          <a class="button button--secondary" href="{% url 'sales:return-create' sale.id 'sale_reversal' %}">{% translate "Prepare full sale reversal" %}</a>
+        {% endif %}
+      </div>
     {% endif %}
   </div>
 
@@ -84,4 +90,47 @@
       </table>
     </div>
   </section>
+
+  {% if sale.status == "posted" %}
+    <section class="card section-gap">
+      <h2>{% translate "Returnable quantities" %}</h2>
+      <div class="table-wrap">
+        <table>
+          <caption class="visually-hidden">{% translate "Returnable quantities by original sale line" %}</caption>
+          <thead>
+            <tr>
+              <th>{% translate "SKU" %}</th>
+              <th>{% translate "Sold" %}</th>
+              <th>{% translate "Posted returns" %}</th>
+              <th>{% translate "Remaining returnable" %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in return_progress %}
+              <tr>
+                <td>{{ item.line.sku_snapshot }}</td>
+                <td>{{ item.line.quantity }}</td>
+                <td>{{ item.returned_quantity }}</td>
+                <td>{{ item.remaining_quantity }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card section-gap">
+      <h2>{% translate "Sale corrections" %}</h2>
+      <ul>
+        {% for item in sale_returns %}
+          <li>
+            <a href="{% url 'sales:return-detail' item.id %}">{{ item.internal_number }}</a>
+            — {{ item.get_purpose_display }} — {{ item.get_status_display }}
+          </li>
+        {% empty %}
+          <li>{% translate "No visible sale corrections." %}</li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
 {% endblock %}

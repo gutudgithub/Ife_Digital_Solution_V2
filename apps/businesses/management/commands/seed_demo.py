@@ -22,14 +22,25 @@ from apps.purchasing.models import (
 )
 from apps.purchasing.services import (
     ReceiptQuantity,
-    ReturnQuantity,
     approve_purchase,
     post_purchase_return,
     receive_purchase,
     save_purchase_return_draft,
 )
-from apps.sales.models import Sale, SalePostingKey
-from apps.sales.services import SaleQuantity, post_sale, save_sale_draft
+from apps.purchasing.services import (
+    ReturnQuantity as PurchaseReturnQuantity,
+)
+from apps.sales.models import Sale, SalePostingKey, SaleReturnPostingKey, SaleReturnPurpose
+from apps.sales.services import (
+    ReturnQuantity as SaleReturnQuantity,
+)
+from apps.sales.services import (
+    SaleQuantity,
+    post_sale,
+    post_sale_return,
+    save_sale_draft,
+    save_sale_return_draft,
+)
 
 
 class Command(BaseCommand):
@@ -248,7 +259,7 @@ class Command(BaseCommand):
                     return_date=timezone.localdate(),
                     reason="One damaged shirt returned in the local demo.",
                     supplier_document_reference="DEMO-RETURN-001",
-                    quantities=[ReturnQuantity(receipt_line.id, Decimal("1"))],
+                    quantities=[PurchaseReturnQuantity(receipt_line.id, Decimal("1"))],
                 )
                 post_purchase_return(
                     actor=owner_membership,
@@ -284,6 +295,29 @@ class Command(BaseCommand):
                     business=business,
                     posting_key=posting_key,
                 )
+            return_key = uuid.UUID("00000000-0000-4000-8000-000000000204")
+            if not SaleReturnPostingKey.objects.filter(
+                business=business,
+                key=return_key,
+            ).exists():
+                sale_line = sale.lines.get()
+                sale_return = save_sale_return_draft(
+                    actor=cashier_membership,
+                    sale=sale,
+                    purpose=SaleReturnPurpose.CUSTOMER_RETURN,
+                    return_date=timezone.localdate(),
+                    reason="One saleable shirt returned in the local demo.",
+                    quantities=[SaleReturnQuantity(sale_line.id, Decimal("1"))],
+                )
+                sale_return = post_sale_return(
+                    actor=owner_membership,
+                    sale_return=sale_return,
+                    refund_method="cash",
+                    telebirr_reference="",
+                    idempotency_key=return_key,
+                )
+            else:
+                sale_return = sale.returns.get(posting_key__key=return_key)
 
         self.stdout.write(self.style.SUCCESS("Local demo data is ready."))
         self.stdout.write("Owner: owner@demo.ife.local")
@@ -292,6 +326,8 @@ class Command(BaseCommand):
         self.stdout.write("Posted supplier return: DEMO-RETURN-001")
         self.stdout.write(f"Posted cash sale: {sale.internal_number}")
         self.stdout.write(f"Internal receipt: {sale.receipt.internal_number}")
+        self.stdout.write(f"Posted customer return: {sale_return.internal_number}")
+        self.stdout.write(f"Internal return receipt: {sale_return.receipt.internal_number}")
 
     @staticmethod
     def _upsert_user(*, email: str, full_name: str, password: str) -> User:

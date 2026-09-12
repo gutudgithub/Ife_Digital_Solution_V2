@@ -15,9 +15,13 @@ from apps.sales.models import (
     Sale,
     SaleLine,
     SalePaymentMethod,
+    SaleReturn,
+    SaleReturnLine,
+    SaleReturnStatus,
     SaleStatus,
     calculate_sale_line_total,
 )
+from apps.sales.services import sale_line_return_progress
 
 
 def sale_branch_queryset(membership: BusinessMembership) -> QuerySet[Branch]:
@@ -215,4 +219,176 @@ class ReceiptLookupForm(forms.Form):
     receipt_number = forms.CharField(
         max_length=40,
         label=_("Internal receipt number"),
+    )
+
+
+class ReturnSaleLineChoiceField(forms.ModelChoiceField):
+    returnable_by_line: dict[object, Decimal]
+
+    def label_from_instance(self, obj: SaleLine) -> str:
+        returnable = self.returnable_by_line.get(obj.id, Decimal("0.000"))
+        return _("%(sku)s — sold %(sold)s, returnable %(returnable)s") % {
+            "sku": obj.sku_snapshot,
+            "sold": obj.quantity,
+            "returnable": returnable,
+        }
+
+
+class SaleReturnForm(forms.ModelForm):
+    class Meta:
+        model = SaleReturn
+        fields = ("return_date", "reason")
+        widgets = {
+            "return_date": forms.DateInput(attrs={"type": "date"}),
+            "reason": forms.Textarea(attrs={"rows": 3}),
+        }
+
+
+class SaleReturnLineForm(forms.ModelForm):
+    sale_line = ReturnSaleLineChoiceField(
+        queryset=SaleLine.objects.none(),
+        label=_("Original sale line"),
+    )
+    returned_quantity = forms.DecimalField(
+        min_value=Decimal("0.001"),
+        max_digits=18,
+        decimal_places=3,
+        label=_("Return quantity"),
+        error_messages={"min_value": _("Return quantity must be greater than zero.")},
+    )
+
+    class Meta:
+        model = SaleReturnLine
+        fields = ("sale_line", "returned_quantity")
+
+    def _post_clean(self) -> None:
+        sale_line = self.cleaned_data.get("sale_line")
+        quantity = self.cleaned_data.get("returned_quantity")
+        if isinstance(sale_line, SaleLine) and isinstance(quantity, Decimal):
+            self.instance.business = sale_line.business
+            self.instance.variant = sale_line.variant
+            self.instance.product_name_snapshot = sale_line.product_name_snapshot
+            self.instance.sku_snapshot = sale_line.sku_snapshot
+            self.instance.unit_snapshot = sale_line.unit_snapshot
+            self.instance.original_selling_unit_price = sale_line.selling_unit_price
+            self.instance.refund_line_total = calculate_sale_line_total(
+                quantity,
+                sale_line.selling_unit_price,
+            )
+            self.instance.original_assigned_inventory_unit_cost = (
+                sale_line.assigned_inventory_unit_cost
+            )
+        super()._post_clean()  # type: ignore[misc]
+
+    def scope_to_sale(self, sale: Sale) -> None:
+        progress = sale_line_return_progress(sale)
+        sale_line_field = cast(ReturnSaleLineChoiceField, self.fields["sale_line"])
+        sale_line_field.queryset = SaleLine.objects.filter(
+            business=sale.business,
+            sale=sale,
+        ).select_related("variant")
+        sale_line_field.returnable_by_line = {
+            item.line.id: item.remaining_quantity for item in progress
+        }
+
+
+class BaseSaleReturnLineFormSet(BaseInlineFormSet):
+    def scope_to_sale(self, sale: Sale) -> None:
+        for form in self.forms:
+            if not isinstance(form, SaleReturnLineForm):
+                raise TypeError("Sale return line formset must use SaleReturnLineForm.")
+            form.scope_to_sale(sale)
+
+    def clean(self) -> None:
+        super().clean()
+        if any(self.errors):
+            return
+        seen_lines: set[object] = set()
+        for form in self.forms:
+            if not form.cleaned_data or form.cleaned_data.get("DELETE"):
+                continue
+            sale_line = form.cleaned_data.get("sale_line")
+            if sale_line is None:
+                continue
+            if sale_line.pk in seen_lines:
+                raise forms.ValidationError(_("A sale return cannot repeat the same sale line."))
+            seen_lines.add(sale_line.pk)
+
+
+SaleReturnLineFormSet = inlineformset_factory(
+    SaleReturn,
+    SaleReturnLine,
+    form=SaleReturnLineForm,
+    formset=BaseSaleReturnLineFormSet,
+    fields=("sale_line", "returned_quantity"),
+    extra=2,
+    can_delete=True,
+    min_num=1,
+    validate_min=True,
+)
+
+
+class SaleReturnPostForm(forms.Form):
+    refund_method = forms.ChoiceField(
+        choices=SalePaymentMethod.choices,
+        label=_("Refund evidence method"),
+    )
+    telebirr_reference = forms.CharField(
+        required=False,
+        max_length=120,
+        label=_("Telebirr refund transaction reference"),
+        help_text=_("Required for Telebirr. This is manually entered operational evidence."),
+    )
+    idempotency_key = forms.UUIDField(widget=forms.HiddenInput)
+
+    def __init__(self, data: Mapping[str, object] | None = None) -> None:
+        super().__init__(data=data)
+        if not self.is_bound:
+            self.initial["idempotency_key"] = uuid.uuid4()
+
+    def clean(self) -> dict[str, object]:
+        cleaned_data = super().clean() or {}
+        method = cleaned_data.get("refund_method")
+        reference = str(cleaned_data.get("telebirr_reference") or "").strip()
+        if method == SalePaymentMethod.TELEBIRR and not reference:
+            self.add_error(
+                "telebirr_reference",
+                _("Enter the Telebirr refund transaction reference."),
+            )
+        if method == SalePaymentMethod.CASH and reference:
+            self.add_error(
+                "telebirr_reference",
+                _("Cash refunds cannot include a Telebirr reference."),
+            )
+        cleaned_data["telebirr_reference"] = reference
+        return cleaned_data
+
+
+class SaleReturnCancelForm(forms.Form):
+    confirm = forms.BooleanField(label=_("Cancel this sale return draft"))
+
+
+class SaleReturnReversalForm(forms.Form):
+    reason = forms.CharField(
+        label=_("Reversal reason"),
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )
+    idempotency_key = forms.UUIDField(widget=forms.HiddenInput)
+
+    def __init__(self, data: Mapping[str, object] | None = None) -> None:
+        super().__init__(data=data)
+        if not self.is_bound:
+            self.initial["idempotency_key"] = uuid.uuid4()
+
+
+class SaleReturnFilterForm(forms.Form):
+    search = forms.CharField(
+        required=False,
+        max_length=120,
+        label=_("Return, sale, receipt, or Telebirr refund reference"),
+    )
+    status = forms.ChoiceField(
+        choices=(("", _("All statuses")), *SaleReturnStatus.choices),
+        required=False,
+        label=_("Status"),
     )
