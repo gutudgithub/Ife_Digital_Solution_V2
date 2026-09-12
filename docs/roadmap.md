@@ -36,8 +36,8 @@ is proven before purchase returns and broader controls are layered onto it.
   balances, adjustments, moving-average balances, and immutable movement history.
 - Stage 2B is independently approved: receipt-linked purchase returns, full reversals,
   supplier activity, purchase-cost history, and filtered movement history.
-- Stage 3A is implemented and awaiting independent review: fully paid single-tender cash or
-  manually referenced Telebirr sales, inventory posting, and internal receipts.
+- Stage 3A is independently approved: fully paid single-tender cash or manually referenced
+  Telebirr sales, inventory posting, and internal receipts.
 - Stage 3B remains separately gated for posted-sale reversals, customer returns, exchanges,
   and refund evidence.
 

@@ -2,8 +2,10 @@
 
 ## Status
 
-Approved by the product owner on 8 September 2026. Implemented and awaiting independent
-review.
+Approved by the product owner on 8 September 2026.
+
+Implementation and review hardening are independently approved by Claude with no
+outstanding findings as of 12 September 2026.
 
 ## Name
 
