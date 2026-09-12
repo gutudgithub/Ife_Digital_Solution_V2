@@ -2,7 +2,8 @@
 
 ## Status
 
-Approved by the product owner and implemented on 12 September 2026.
+Approved by the product owner, implemented, and independently approved by Claude with no
+findings on 12 September 2026.
 
 ## Name
 
@@ -446,3 +447,21 @@ Server-rendered screens provide assigned-branch filtering, pagination, opening, 
 counting, closing, reopening, linked source evidence, closure history, and a print-friendly
 internal close report. Cashiers can view operational cash amounts but cannot post manual
 movements, reopen sessions, cross branch boundaries, or view inventory cost/value.
+
+## Independent review record
+
+Claude independently approved Stage 4A with no findings after probing the complete opening,
+cash-sale, Telebirr, cash-refund, manual-movement, closing, reopening, recount, and
+re-closing lifecycle.
+
+The review confirmed exact signed-movement arithmetic, immutable multi-closure history,
+cash-versus-Telebirr boundaries, no automatic cash recovery on return reversal, consistent
+sale/return-to-cash lock ordering, friendly form validation, and five PostgreSQL threaded
+concurrency paths.
+
+Two decisions must be explicit before Stage 4B implementation:
+
+1. how supplier-reference amounts, inventory-value reductions, and actual supplier
+   settlements relate and what their differences do not claim; and
+2. how the physical opening float for the first real session after deployment is counted,
+   authorized, and evidenced without inventing synthetic pre-Stage-4A history.
