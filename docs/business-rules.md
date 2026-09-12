@@ -43,6 +43,21 @@
    quantity using the original return movement's assigned inventory cost.
 10. Supplier reference totals and inventory-value reductions are operational disclosures,
     not profit, loss, payable, receivable, refund, or purchase-price variance.
+11. Starting a complete branch stock count freezes every inventory-posting path until the
+    count is approved or cancelled.
+12. The snapshot includes every active variant and every inactive variant with nonzero branch
+    stock. Every line requires an explicit physical quantity, including zero.
+13. Stock employees count blind; only owners and managers see system quantity, average cost,
+    inventory value, variance, and calculated value adjustment during review.
+14. Stock-count quantity variance is approved physical quantity minus system snapshot.
+    Quantity summaries are grouped by stock unit and never add unlike units.
+15. Stock-count inventory-value adjustment is quantity variance multiplied by the immutable
+    assigned adjustment cost. It is operational evidence, not automatically shrinkage, gain,
+    loss, income, expense, profit, tax, or accounting adjustment.
+16. Positive variance with a zero snapshot cost requires exceptional unit-cost evidence.
+    Nonzero snapshot cost cannot be replaced through the count form.
+17. Approved counts are immutable. Corrections use one full exact-cost reversal followed by a
+    new complete count when needed.
 
 ## Purchasing
 

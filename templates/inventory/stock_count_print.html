@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Stock-count evidence" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="print-hidden action-row">
+    <button class="button" type="button" onclick="window.print()">{% translate "Print" %}</button>
+    <a href="{% url 'inventory:stock-count-detail' stock_count.id %}">{% translate "Back" %}</a>
+  </div>
+  <article class="card receipt">
+    <p class="eyebrow">{% translate "Internal operational evidence" %}</p>
+    <h1>{% translate "Approved stock-count record" %}</h1>
+    <p>{% translate "This is not an official tax document, accounting journal, audited stock certificate, or proof of theft or loss." %}</p>
+    <hr>
+    <p><strong>{% translate "Branch" %}:</strong> {{ stock_count.branch.name }}</p>
+    <p><strong>{% translate "Business date" %}:</strong> {{ stock_count.business_date }}</p>
+    <p><strong>{% translate "Count method" %}:</strong> {{ stock_count.count_method_note }}</p>
+    <p><strong>{% translate "Started by" %}:</strong> {{ stock_count.started_by.user.full_name }} · {{ stock_count.started_at|date:"SHORT_DATETIME_FORMAT" }}</p>
+    <p><strong>{% translate "Submitted by" %}:</strong> {{ stock_count.submitted_by.user.full_name }} · {{ stock_count.submitted_at|date:"SHORT_DATETIME_FORMAT" }}</p>
+    <p><strong>{% translate "Approved by" %}:</strong> {{ approval.approved_by.user.full_name }} · {{ approval.approved_at|date:"SHORT_DATETIME_FORMAT" }}</p>
+    <p><strong>{% translate "Evidence checksum" %}:</strong> <code>{{ approval.evidence_checksum }}</code></p>
+    <p><strong>{% translate "Signed stock count inventory-value adjustment" %}:</strong> ETB {{ approval.total_inventory_value_adjustment|floatformat:6 }}</p>
+    {% if reversal %}
+      <p><strong>{% translate "Reversed" %}:</strong> {{ reversal.reversed_by.user.full_name }} · {{ reversal.reversed_at|date:"SHORT_DATETIME_FORMAT" }}</p>
+      <p><strong>{% translate "Reversal reason" %}:</strong> {{ reversal.reason }}</p>
+    {% endif %}
+
+    <h2>{% translate "Quantity variance by stock unit" %}</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>{% translate "Stock unit" %}</th><th>{% translate "Positive quantity" %}</th><th>{% translate "Negative quantity" %}</th><th>{% translate "Zero-variance lines" %}</th></tr></thead>
+        <tbody>
+          {% for unit in unit_summary_rows %}
+            <tr><td>{{ unit.label }}</td><td>{{ unit.positive_quantity }}</td><td>{{ unit.negative_quantity }}</td><td>{{ unit.zero_variance_line_count }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <h2>{% translate "Approved line evidence" %}</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>{% translate "Product and SKU" %}</th><th>{% translate "System" %}</th><th>{% translate "Physical" %}</th><th>{% translate "Variance" %}</th><th>{% translate "Assigned cost" %}</th><th>{% translate "Value adjustment" %}</th><th>{% translate "Explanation" %}</th></tr>
+        </thead>
+        <tbody>
+          {% for row in line_rows %}
+            <tr>
+              <td>{{ row.line.product_name_snapshot }} · {{ row.line.variant_label_snapshot }} · {{ row.line.sku_snapshot }}</td>
+              <td>{{ row.line.system_quantity_snapshot }} {{ row.line.get_stock_unit_snapshot_display }}</td>
+              <td>{{ row.line.physical_quantity }} {{ row.line.get_stock_unit_snapshot_display }}</td>
+              <td>{{ row.line.variance_quantity }} {{ row.line.get_stock_unit_snapshot_display }}</td>
+              <td>{% if row.line.assigned_count_adjustment_unit_cost is not None %}ETB {{ row.line.assigned_count_adjustment_unit_cost|floatformat:6 }}{% else %}—{% endif %}</td>
+              <td>{% if row.value_adjustment is not None %}ETB {{ row.value_adjustment|floatformat:6 }}{% else %}—{% endif %}</td>
+              <td>{{ row.line.variance_explanation|default:"—" }}{% if row.line.exceptional_cost_evidence_note %}<br>{{ row.line.exceptional_cost_evidence_note }}{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </article>
+{% endblock %}

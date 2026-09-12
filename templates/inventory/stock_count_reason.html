@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ page_title }} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Stock-count control" %}</p>
+      <h1>{{ page_title }}</h1>
+      <p class="muted">{{ stock_count.branch.name }} · {{ stock_count.business_date }}</p>
+    </div>
+  </div>
+  <section class="card">
+    <form method="post">
+      {% csrf_token %}
+      {% include "includes/form_fields.html" with form=form %}
+      <div class="action-row">
+        <button class="button" type="submit">{{ submit_label }}</button>
+        <a href="{% url 'inventory:stock-count-detail' stock_count.id %}">{% translate "Cancel" %}</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

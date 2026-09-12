@@ -215,12 +215,30 @@ Cash Stage 4B sources create one signed movement in the locked session. Telebirr
 non-cash credits create no drawer movement. Purchase and return settlement balances are
 derived from immutable six-decimal source evidence and quantized once to cents for comparison.
 
+## Implemented Stage 4C stock-count entities
+
+- `StockCountSession`: business, branch, Addis Ababa business date, immutable count-method
+  evidence, freeze status, and start/submit/cancel actors and timestamps.
+- `StockCountLine`: immutable variant and quantity/value snapshots plus blind physical count,
+  assigned adjustment cost, variance explanation, and exceptional-cost evidence.
+- `StockCountLineRevision`: immutable before/after evidence for quantity replacements.
+- `StockCountReviewReturn`: immutable manager reason for reopening a submitted count.
+- `StockCountApproval`: immutable line summaries, signed inventory-value adjustment,
+  evidence checksum, actor, timestamp, and posting key.
+- `StockCountReversal`: immutable full exact-cost correction of one approval.
+- `StockCountPostingKey`: business-scoped idempotency claim for start, approval, and reversal.
+
+One branch has at most one counting or submitted session. Starting a session snapshots every
+active variant and every inactive variant with a nonzero balance while holding the branch
+inventory freeze. Approval creates at most one movement for each nonzero line variance; zero
+variance creates no movement. Quantity summaries remain grouped by stock unit, while signed
+inventory-value adjustment remains six-decimal ETB evidence.
+
 ## Remaining planned ledger entities
 
 Future slices should add:
 
 - later payment allocation only if credit or split-tender scope is approved;
-- stock count and reconciliation;
 - generalized audit event.
 
 Operational records must carry both `business_id` and `branch_id`, immutable posted

@@ -36,6 +36,19 @@ from apps.expenses.services import (
     post_supplier_payment,
     post_supplier_return_settlement,
 )
+from apps.inventory.models import (
+    StockCountApproval,
+    StockCountPostingKey,
+    StockCountSession,
+)
+from apps.inventory.services import (
+    approve_stock_count,
+    post_opening_balance,
+    record_stock_count_quantity,
+    record_stock_count_review_evidence,
+    start_stock_count,
+    submit_stock_count,
+)
 from apps.purchasing.models import (
     Purchase,
     PurchaseLine,
@@ -129,7 +142,7 @@ class Command(BaseCommand):
                     "is_active": True,
                 },
             )
-            BusinessMembership.objects.update_or_create(
+            stock_membership, _ = BusinessMembership.objects.update_or_create(
                 business=business,
                 user=stock_employee,
                 defaults={
@@ -444,6 +457,61 @@ class Command(BaseCommand):
                 explanation="",
                 idempotency_key=uuid.UUID("00000000-0000-4000-8000-000000000206"),
             )
+            post_opening_balance(
+                actor=owner_membership,
+                branch=branch,
+                variant=demo_variants["SHOE-BRN-42"],
+                quantity=Decimal("6"),
+                unit_cost=Decimal("2100"),
+                idempotency_key=uuid.UUID("00000000-0000-4000-8000-000000000214"),
+            )
+            stock_count_start_key = uuid.UUID("00000000-0000-4000-8000-000000000212")
+            stock_count_key = StockCountPostingKey.objects.filter(
+                business=business,
+                key=stock_count_start_key,
+            ).first()
+            if stock_count_key is None:
+                stock_count = start_stock_count(
+                    actor=owner_membership,
+                    branch=branch,
+                    count_method_note=(
+                        "Demo owner and stock employee counted every display and stock shelf."
+                    ),
+                    idempotency_key=stock_count_start_key,
+                )
+                physical_quantities = {
+                    "TSHIRT-BLK-M": Decimal("6"),
+                    "TSHIRT-WHT-L": Decimal("0"),
+                    "SHOE-BRN-42": Decimal("7"),
+                    "SHOE-BLK-43": Decimal("0"),
+                }
+                for line in stock_count.lines.select_related("variant"):
+                    record_stock_count_quantity(
+                        actor=stock_membership,
+                        line=line,
+                        physical_quantity=physical_quantities[line.variant.sku],
+                    )
+                submit_stock_count(actor=stock_membership, session=stock_count)
+                explanations = {
+                    "TSHIRT-BLK-M": "One shirt was not found during the complete demo recount.",
+                    "SHOE-BRN-42": "One additional shoe pair was verified on the display.",
+                }
+                for line in stock_count.lines.select_related("variant"):
+                    explanation = explanations.get(line.variant.sku)
+                    if explanation is not None:
+                        record_stock_count_review_evidence(
+                            actor=owner_membership,
+                            line=line,
+                            variance_explanation=explanation,
+                        )
+                stock_count_approval = approve_stock_count(
+                    actor=owner_membership,
+                    session=stock_count,
+                    idempotency_key=uuid.UUID("00000000-0000-4000-8000-000000000213"),
+                )
+            else:
+                stock_count = StockCountSession.objects.get(start_key=stock_count_key)
+                stock_count_approval = StockCountApproval.objects.get(session=stock_count)
 
         self.stdout.write(self.style.SUCCESS("Local demo data is ready."))
         self.stdout.write("Owner: owner@demo.ife.local")
@@ -458,6 +526,7 @@ class Command(BaseCommand):
         self.stdout.write(f"Supplier payment: {supplier_payment.id}")
         self.stdout.write(f"Supplier return credit: {supplier_settlement.id}")
         self.stdout.write(f"Closed cash session: {closure.session.business_date}")
+        self.stdout.write(f"Approved stock count: {stock_count_approval.id}")
 
     @staticmethod
     def _upsert_user(*, email: str, full_name: str, password: str) -> User:

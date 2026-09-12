@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Reverse stock-count adjustments" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Compensating inventory event" %}</p>
+      <h1>{% translate "Reverse stock-count adjustments" %}</h1>
+      <p class="muted">{{ stock_count.branch.name }} · {{ stock_count.business_date }}</p>
+    </div>
+  </div>
+  <section class="card">
+    <p>{% translate "This creates immutable compensating movements at each original assigned count-adjustment cost. It does not edit or reopen the approved count." %}</p>
+    <p>{% translate "The reversal fails closed if later activity leaves insufficient quantity or inventory value. After reversal, start a new complete count for corrected evidence." %}</p>
+    <form method="post">
+      {% csrf_token %}
+      {% include "includes/form_fields.html" with form=reason_form %}
+      {% include "includes/form_fields.html" with form=posting_form %}
+      <div class="action-row">
+        <button class="button" type="submit">{% translate "Post exact-cost reversal" %}</button>
+        <a href="{% url 'inventory:stock-count-detail' stock_count.id %}">{% translate "Cancel" %}</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

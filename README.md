@@ -4,9 +4,8 @@ Ife Digital Solution is a business-control platform for Ethiopian small business
 foundation is reusable for inventory-based retail while the first pilot is tailored to
 clothing and footwear.
 
-This repository contains the independently reviewed Stage 1 foundation, Stage 2A inventory
-ledger, Stage 2B purchase-return lifecycle, Stage 3A normal sales path, and Stage 3B
-controlled sale corrections:
+This repository contains the independently reviewed Stages 1 through 4B and the implemented
+Stage 4C stock-count reconciliation slice:
 
 - email-based authentication and Django administration;
 - business and branch records;
@@ -26,10 +25,14 @@ controlled sale corrections:
 - immutable sale inventory movements, payment evidence, and internal receipts;
 - exact-line customer returns and full sale reversals with immutable refund evidence;
 - original-assigned-cost stock restoration and controlled return reversals;
+- branch cash sessions, immutable drawer movements, physical counts, and variance evidence;
+- paid operating expenses and purchase-linked supplier settlement evidence;
+- complete blind branch stock counts, inventory-posting freezes, approval, and exact-cost
+  reversal evidence;
 - English, Amharic, and Afaan Oromoo locale configuration;
 - PostgreSQL-compatible settings, Docker Compose, CI, and pre-commit checks.
 
-Cash close, reconciliation, and later reports remain separate reviewed delivery slices.
+Costing, performance analytics, and later reports remain separately gated delivery slices.
 
 ## Requirements
 
@@ -59,13 +62,15 @@ Open `http://localhost:8000/login/` and sign in with the password you chose:
 - cashier: `cashier@demo.ife.local`;
 - stock employee: `stock@demo.ife.local`.
 
-The owner can manage products, suppliers, purchases, receiving, purchase returns and
-reversals, opening stock, adjustments, sales, history, and attendance. The seeded purchase
+The owner can manage products, suppliers, purchases, receiving, returns, expenses, supplier
+settlement, cash sessions, stock counts, sales, history, and attendance. The seeded purchase
 `DEMO-PUR-001` includes a posted receipt and one posted supplier return, so inventory,
 supplier activity, cost history, and return screens have evidence immediately. The demo also
-posts one fully paid cash sale, a customer return, and their internal receipts. The stock
-employee can receive approved purchases and prepare return drafts for the assigned branch,
-but cannot approve purchases, post/reverse returns, adjust stock, or view inventory values.
+posts one fully paid cash sale, a customer return, their internal receipts, expense and
+supplier-settlement evidence, a closed cash session, and an approved full-branch stock count.
+The stock employee can receive approved purchases, prepare return drafts, enter blind stock
+counts, and submit complete counts for the assigned branch, but cannot approve or reverse
+counts, post/reverse returns, adjust stock, or view inventory values.
 The cashier can record assigned-branch sales, prepare customer-return drafts, and record
 personal attendance but cannot post refunds, create full sale reversals, see suppliers,
 purchase returns, purchase costs, movement history, average costs, or inventory values.
@@ -93,8 +98,9 @@ this order:
 
 The dashboard is at `/`, the product catalog at `/catalog/`, inventory and movement history
 at `/inventory/`, purchasing at `/purchasing/`, purchase returns at
-`/purchasing/returns/`, sales at `/sales/`, and attendance at `/attendance/`.
-Sale corrections are listed at `/sales/returns/`.
+`/purchasing/returns/`, sales at `/sales/`, cash sessions at `/cash/`, expenses at
+`/expenses/`, stock counts at `/inventory/counts/`, and attendance at `/attendance/`. Sale
+corrections are listed at `/sales/returns/`.
 
 ## Local setup with PostgreSQL and Docker
 

@@ -10,12 +10,15 @@
       <h1>{% translate "Inventory" %}</h1>
       <p class="muted">{% translate "Balances are projections of immutable posted movements." %}</p>
     </div>
-    {% if can_manage_inventory %}
-      <div class="action-row">
+    <div class="action-row">
+      {% if active_membership.can_count_inventory %}
+        <a class="button button--secondary" href="{% url 'inventory:stock-count-list' %}">{% translate "Stock counts" %}</a>
+      {% endif %}
+      {% if can_manage_inventory %}
         <a class="button button--secondary" href="{% url 'inventory:opening-create' %}">{% translate "Opening stock" %}</a>
         <a class="button" href="{% url 'inventory:inventory-adjust' %}">{% translate "Adjust stock" %}</a>
-      </div>
-    {% endif %}
+      {% endif %}
+    </div>
   </div>
 
   <section class="card">
@@ -112,18 +115,24 @@
             </tr>
           </thead>
           <tbody>
-            {% for movement in movements %}
+            {% for row in movement_rows %}
               <tr>
-                <td>{{ movement.posted_at|date:"SHORT_DATETIME_FORMAT" }}</td>
-                <td>{{ movement.variant.product.name }} · {{ movement.variant.sku }}</td>
-                <td>{{ movement.branch.name }}</td>
-                <td>{{ movement.get_movement_type_display }}</td>
-                <td>{{ movement.quantity_delta }} {{ movement.variant.get_stock_unit_display }}</td>
+                <td>{{ row.movement.posted_at|date:"SHORT_DATETIME_FORMAT" }}</td>
+                <td>{{ row.movement.variant.product.name }} · {{ row.movement.variant.sku }}</td>
+                <td>{{ row.movement.branch.name }}</td>
+                <td>
+                  {% if row.stock_count_session_id %}
+                    <a href="{% url 'inventory:stock-count-detail' row.stock_count_session_id %}">{{ row.movement.get_movement_type_display }}</a>
+                  {% else %}
+                    {{ row.movement.get_movement_type_display }}
+                  {% endif %}
+                </td>
+                <td>{{ row.movement.quantity_delta }} {{ row.movement.variant.get_stock_unit_display }}</td>
                 {% if can_manage_inventory %}
-                  <td>ETB {{ movement.unit_cost|floatformat:6 }}</td>
-                  <td>ETB {{ movement.value_delta|floatformat:6 }}</td>
+                  <td>ETB {{ row.movement.unit_cost|floatformat:6 }}</td>
+                  <td>ETB {{ row.movement.value_delta|floatformat:6 }}</td>
                 {% endif %}
-                <td>{{ movement.actor.user.full_name }}</td>
+                <td>{{ row.movement.actor.user.full_name }}</td>
               </tr>
             {% empty %}
               <tr><td colspan="{% if can_manage_inventory %}8{% else %}6{% endif %}">{% translate "No inventory movements match these filters." %}</td></tr>

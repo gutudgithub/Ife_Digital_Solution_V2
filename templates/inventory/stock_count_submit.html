@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Submit stock count" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Blind count completion" %}</p>
+      <h1>{% translate "Submit stock count for review" %}</h1>
+    </div>
+  </div>
+  <section class="card">
+    <p>
+      {% blocktranslate trimmed with counted=counted_line_count remaining=remaining_line_count total=line_count %}
+        {{ counted }} of {{ total }} lines are counted; {{ remaining }} remain.
+      {% endblocktranslate %}
+    </p>
+    <p>{% translate "Every product variant requires an explicit physical quantity, including zero. Submission calculates quantity variances and moves the count to owner or manager review." %}</p>
+    <form method="post">
+      {% csrf_token %}
+      <div class="action-row">
+        <button class="button" type="submit">{% translate "Submit complete count" %}</button>
+        <a href="{% url 'inventory:stock-count-worksheet' stock_count.id %}">{% translate "Return to worksheet" %}</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

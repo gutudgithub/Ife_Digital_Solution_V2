@@ -3,20 +3,31 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
-from uuid import UUID
+from hashlib import sha256
+from uuid import UUID, uuid4
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
+from django.db.models import Max, Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.businesses.models import Branch, Business, BusinessMembership
-from apps.catalog.models import ProductVariant, validate_stock_quantity
+from apps.catalog.models import WHOLE_STOCK_UNITS, ProductVariant, validate_stock_quantity
 from apps.inventory.models import (
     InventoryBalance,
     InventoryMovement,
     InventoryMovementType,
     InventorySourceType,
+    StockCountApproval,
+    StockCountLine,
+    StockCountLineRevision,
+    StockCountOperationType,
+    StockCountPostingKey,
+    StockCountReversal,
+    StockCountReviewReturn,
+    StockCountSession,
+    StockCountStatus,
     StockOperation,
     StockOperationType,
 )
@@ -39,6 +50,24 @@ INVENTORY_CONSTRAINT_NAMES = frozenset(
         "inventory_balance_cost_nonnegative",
         "inventory_balance_value_nonnegative",
         "inventory_zero_balance_has_zero_cost_and_value",
+        "inventory_unique_stock_count_key_per_business",
+        "inventory_stock_count_key_operation_valid",
+        "inventory_unique_open_stock_count_per_branch",
+        "inventory_stock_count_status_valid",
+        "inventory_stock_count_submission_fields_match",
+        "inventory_stock_count_cancellation_fields_match",
+        "inventory_stock_count_status_has_audit",
+        "inventory_unique_stock_count_review_return_sequence",
+        "inventory_unique_stock_count_revision_sequence",
+        "inventory_stock_count_previous_quantity_nonnegative",
+        "inventory_stock_count_replacement_quantity_nonnegative",
+        "inventory_unique_stock_count_line_variant",
+        "inventory_stock_count_system_quantity_nonnegative",
+        "inventory_stock_count_average_cost_nonnegative",
+        "inventory_stock_count_value_nonnegative",
+        "inventory_stock_count_physical_quantity_nonnegative",
+        "inventory_stock_count_assigned_cost_nonnegative",
+        "inventory_stock_count_counted_fields_match",
     }
 )
 
@@ -93,6 +122,27 @@ class SaleReturnReversalInventoryItem:
     unit_cost: Decimal
     unit_snapshot: str
     source_id: UUID
+
+
+@dataclass(frozen=True)
+class StockCountUnitVarianceSummary:
+    stock_unit: str
+    positive_quantity: Decimal
+    negative_quantity: Decimal
+    zero_variance_line_count: int
+
+
+@dataclass(frozen=True)
+class StockCountReviewSummary:
+    line_count: int
+    counted_line_count: int
+    remaining_line_count: int
+    positive_variance_line_count: int
+    negative_variance_line_count: int
+    zero_variance_line_count: int
+    missing_exceptional_cost_line_count: int
+    total_inventory_value_adjustment: Decimal
+    unit_summaries: tuple[StockCountUnitVarianceSummary, ...]
 
 
 def _quantity(value: Decimal) -> Decimal:
@@ -170,6 +220,69 @@ def ensure_sale_branch_access(actor: BusinessMembership, branch: Branch) -> None
     active_branches = list(actor.business.branches.filter(is_active=True)[:2])
     if len(active_branches) != 1 or active_branches[0].id != branch.id:
         raise PermissionDenied(_("Ask a manager to assign your branch before recording sales."))
+
+
+def ensure_stock_count_branch_access(
+    actor: BusinessMembership,
+    branch: Branch,
+    *,
+    management_required: bool,
+) -> None:
+    _validate_actor(actor, branch.business)
+    if not branch.is_active:
+        raise PermissionDenied(_("Stock counting requires an active branch."))
+    if management_required:
+        if not actor.can_approve_stock_counts:
+            raise PermissionDenied(_("Stock-count management permission is required."))
+        return
+    if not actor.can_count_inventory:
+        raise PermissionDenied(_("Stock-count entry permission is required."))
+    if actor.can_approve_stock_counts:
+        return
+    assigned_branch = actor.assigned_branch
+    if assigned_branch is not None:
+        if assigned_branch.id != branch.id:
+            raise PermissionDenied(_("You may count stock only for your assigned branch."))
+        return
+    active_branches = list(actor.business.branches.filter(is_active=True)[:2])
+    if len(active_branches) != 1 or active_branches[0].id != branch.id:
+        raise PermissionDenied(_("Ask a manager to assign your branch before counting stock."))
+
+
+def _lock_branch(branch: Branch, business: Business) -> Branch:
+    try:
+        return (
+            Branch.objects.select_for_update()
+            .select_related("business")
+            .get(pk=branch.pk, business=business)
+        )
+    except Branch.DoesNotExist as error:
+        raise ValidationError(_("Branch must belong to this business.")) from error
+
+
+def _active_stock_count(branch: Branch, business: Business) -> StockCountSession | None:
+    return (
+        StockCountSession.objects.filter(
+            business=business,
+            branch=branch,
+            status__in=(StockCountStatus.COUNTING, StockCountStatus.SUBMITTED),
+        )
+        .order_by("started_at")
+        .first()
+    )
+
+
+def lock_inventory_posting_branch(
+    *,
+    business: Business,
+    branch: Branch,
+) -> Branch:
+    locked_branch = _lock_branch(branch, business)
+    if _active_stock_count(locked_branch, business) is not None:
+        raise ValidationError(
+            _("Inventory posting is temporarily paused for this branch. Ask a manager for help.")
+        )
+    return locked_branch
 
 
 def _validate_variant_scope(
@@ -340,6 +453,7 @@ def record_purchase_receipt_inventory(
     posted_at: datetime,
 ) -> list[InventoryMovement]:
     ensure_branch_operation_access(actor, branch, management_required=False)
+    branch = lock_inventory_posting_branch(business=business, branch=branch)
     if not items:
         raise ValidationError(_("At least one receipt line is required."))
     seen_variants: set[UUID] = set()
@@ -399,6 +513,7 @@ def record_purchase_return_inventory(
     posted_at: datetime,
 ) -> list[InventoryMovement]:
     ensure_branch_operation_access(actor, branch, management_required=True)
+    branch = lock_inventory_posting_branch(business=business, branch=branch)
     if not items:
         raise ValidationError(_("At least one purchase return line is required."))
     if not reason.strip():
@@ -455,6 +570,7 @@ def record_purchase_return_reversal_inventory(
     posted_at: datetime,
 ) -> list[InventoryMovement]:
     ensure_branch_operation_access(actor, branch, management_required=True)
+    branch = lock_inventory_posting_branch(business=business, branch=branch)
     if not items:
         raise ValidationError(_("At least one purchase return line is required."))
     if not reason.strip():
@@ -514,6 +630,7 @@ def record_sale_return_inventory(
     posted_at: datetime,
 ) -> list[InventoryMovement]:
     ensure_sale_branch_access(actor, branch)
+    branch = lock_inventory_posting_branch(business=business, branch=branch)
     if not actor.can_sell_across_branches:
         raise PermissionDenied(_("Sales management permission is required."))
     if not items:
@@ -575,6 +692,7 @@ def record_sale_return_reversal_inventory(
     posted_at: datetime,
 ) -> list[InventoryMovement]:
     ensure_sale_branch_access(actor, branch)
+    branch = lock_inventory_posting_branch(business=business, branch=branch)
     if not actor.can_sell_across_branches:
         raise PermissionDenied(_("Sales management permission is required."))
     if not items:
@@ -635,6 +753,7 @@ def record_sale_inventory(
     posted_at: datetime,
 ) -> list[InventoryMovement]:
     ensure_sale_branch_access(actor, branch)
+    branch = lock_inventory_posting_branch(business=business, branch=branch)
     if not items:
         raise ValidationError(_("At least one sale line is required."))
     seen_variants: set[UUID] = set()
@@ -693,6 +812,7 @@ def post_opening_balance(
 ) -> StockOperation:
     business = actor.business
     ensure_branch_operation_access(actor, branch, management_required=True)
+    branch = lock_inventory_posting_branch(business=business, branch=branch)
     _validate_variant_scope(business, branch, variant)
     validate_stock_quantity(quantity, variant.stock_unit)
     if unit_cost < 0:
@@ -768,6 +888,7 @@ def post_inventory_adjustment(
 ) -> StockOperation:
     business = actor.business
     ensure_branch_operation_access(actor, branch, management_required=True)
+    branch = lock_inventory_posting_branch(business=business, branch=branch)
     _validate_variant_scope(business, branch, variant)
     validate_stock_quantity(quantity, variant.stock_unit)
     if operation_type not in {
@@ -839,3 +960,803 @@ def post_inventory_adjustment(
             posted_at=timestamp,
         )
     return operation
+
+
+def _validate_count_quantity(quantity: Decimal, stock_unit: str) -> Decimal:
+    counted_quantity = _quantity(quantity)
+    if counted_quantity < 0:
+        raise ValidationError(_("Physical quantity cannot be negative."))
+    if stock_unit in WHOLE_STOCK_UNITS and counted_quantity != counted_quantity.to_integral_value():
+        raise ValidationError(_("This stock unit requires a whole-number quantity."))
+    return counted_quantity
+
+
+def _claim_stock_count_posting_key(
+    *,
+    business: Business,
+    key: UUID,
+    operation_type: str,
+    source_id: UUID,
+    allow_existing_source: bool = False,
+) -> StockCountPostingKey:
+    existing = (
+        StockCountPostingKey.objects.select_for_update().filter(business=business, key=key).first()
+    )
+    if existing is not None:
+        if existing.operation_type != operation_type or (
+            existing.source_id != source_id and not allow_existing_source
+        ):
+            raise ValidationError(
+                _("This idempotency key belongs to another stock-count operation.")
+            )
+        return existing
+    try:
+        with transaction.atomic():
+            with _translate_inventory_constraint_errors():
+                return StockCountPostingKey.objects.create(
+                    business=business,
+                    key=key,
+                    operation_type=operation_type,
+                    source_id=source_id,
+                )
+    except (IntegrityError, ValidationError) as error:
+        existing = StockCountPostingKey.objects.select_for_update().get(
+            business=business,
+            key=key,
+        )
+        if existing.operation_type != operation_type or (
+            existing.source_id != source_id and not allow_existing_source
+        ):
+            raise ValidationError(
+                _("This idempotency key belongs to another stock-count operation.")
+            ) from error
+        return existing
+
+
+def _locked_stock_count_session(
+    *,
+    actor: BusinessMembership,
+    session: StockCountSession,
+    management_required: bool,
+) -> tuple[Branch, StockCountSession]:
+    ensure_stock_count_branch_access(
+        actor,
+        session.branch,
+        management_required=management_required,
+    )
+    branch = _lock_branch(session.branch, actor.business)
+    try:
+        locked = (
+            StockCountSession.objects.select_for_update()
+            .select_related("branch")
+            .get(pk=session.pk, business=actor.business, branch=branch)
+        )
+    except StockCountSession.DoesNotExist as error:
+        raise ValidationError(_("Stock-count session was not found.")) from error
+    return branch, locked
+
+
+def _ensure_session_freeze(branch: Branch, session: StockCountSession) -> None:
+    active = _active_stock_count(branch, session.business)
+    if active is None or active.id != session.id:
+        raise ValidationError(_("This branch is no longer frozen by this stock count."))
+
+
+def _stock_count_variant_label(variant: ProductVariant) -> str:
+    return " / ".join(value for value in (variant.size, variant.color) if value)
+
+
+@transaction.atomic
+def start_stock_count(
+    *,
+    actor: BusinessMembership,
+    branch: Branch,
+    count_method_note: str,
+    idempotency_key: UUID,
+    started_at: datetime | None = None,
+) -> StockCountSession:
+    ensure_stock_count_branch_access(actor, branch, management_required=True)
+    business = actor.business
+    clean_note = count_method_note.strip()
+    if not clean_note:
+        raise ValidationError(_("A count method note is required."))
+    locked_branch = _lock_branch(branch, business)
+    existing_key = (
+        StockCountPostingKey.objects.select_for_update()
+        .filter(business=business, key=idempotency_key)
+        .first()
+    )
+    if existing_key is not None:
+        if existing_key.operation_type != StockCountOperationType.START:
+            raise ValidationError(
+                _("This idempotency key belongs to another stock-count operation.")
+            )
+        try:
+            existing_session = StockCountSession.objects.get(
+                pk=existing_key.source_id,
+                business=business,
+                start_key=existing_key,
+            )
+        except StockCountSession.DoesNotExist as error:
+            raise ValidationError(_("The stock-count start is incomplete.")) from error
+        if existing_session.branch_id != locked_branch.id:
+            raise ValidationError(
+                _("This idempotency key belongs to another stock-count operation.")
+            )
+        return existing_session
+    if _active_stock_count(locked_branch, business) is not None:
+        raise ValidationError(_("This branch already has an active stock count."))
+
+    timestamp = started_at or timezone.now()
+    session_id = uuid4()
+    start_key = _claim_stock_count_posting_key(
+        business=business,
+        key=idempotency_key,
+        operation_type=StockCountOperationType.START,
+        source_id=session_id,
+        allow_existing_source=True,
+    )
+    if start_key.source_id != session_id:
+        try:
+            existing_session = StockCountSession.objects.get(
+                pk=start_key.source_id,
+                business=business,
+                start_key=start_key,
+            )
+        except StockCountSession.DoesNotExist as error:
+            raise ValidationError(_("The stock-count start is incomplete.")) from error
+        if existing_session.branch_id != locked_branch.id:
+            raise ValidationError(
+                _("This idempotency key belongs to another stock-count operation.")
+            )
+        return existing_session
+    with _translate_inventory_constraint_errors():
+        session = StockCountSession.objects.create(
+            id=session_id,
+            business=business,
+            branch=locked_branch,
+            status=StockCountStatus.COUNTING,
+            business_date=timezone.localdate(timestamp),
+            count_method_note=clean_note,
+            start_key=start_key,
+            started_by=actor,
+            started_at=timestamp,
+        )
+
+    nonzero_balance_variant_ids = list(
+        InventoryBalance.objects.filter(
+            business=business,
+            branch=locked_branch,
+        )
+        .exclude(quantity_on_hand=Decimal("0.000"))
+        .values_list("variant_id", flat=True)
+    )
+    variants = list(
+        ProductVariant.objects.select_for_update()
+        .select_related("product")
+        .filter(business=business)
+        .filter(Q(is_active=True) | Q(id__in=nonzero_balance_variant_ids))
+        .order_by("id")
+    )
+    if not variants:
+        raise ValidationError(_("Add at least one active product variant before starting a count."))
+    balances = {
+        balance.variant_id: balance
+        for balance in InventoryBalance.objects.select_for_update()
+        .filter(
+            business=business,
+            branch=locked_branch,
+            variant_id__in=[variant.id for variant in variants],
+        )
+        .order_by("variant_id")
+    }
+    for variant in variants:
+        balance = balances.get(variant.id)
+        system_quantity = balance.quantity_on_hand if balance is not None else Decimal("0.000")
+        average_cost = balance.average_unit_cost if balance is not None else Decimal("0.000000")
+        inventory_value = balance.inventory_value if balance is not None else Decimal("0.000000")
+        with _translate_inventory_constraint_errors():
+            StockCountLine.objects.create(
+                business=business,
+                branch=locked_branch,
+                session=session,
+                variant=variant,
+                product_name_snapshot=variant.product.name,
+                variant_label_snapshot=_stock_count_variant_label(variant),
+                sku_snapshot=variant.sku,
+                stock_unit_snapshot=variant.stock_unit,
+                system_quantity_snapshot=system_quantity,
+                average_unit_cost_snapshot=average_cost,
+                inventory_value_snapshot=inventory_value,
+            )
+    return session
+
+
+@transaction.atomic
+def record_stock_count_quantity(
+    *,
+    actor: BusinessMembership,
+    line: StockCountLine,
+    physical_quantity: Decimal,
+    replacement_reason: str = "",
+    counted_at: datetime | None = None,
+) -> StockCountLine:
+    branch, session = _locked_stock_count_session(
+        actor=actor,
+        session=line.session,
+        management_required=False,
+    )
+    _ensure_session_freeze(branch, session)
+    if session.status != StockCountStatus.COUNTING:
+        raise ValidationError(_("Only a counting worksheet can be changed."))
+    try:
+        locked_line = StockCountLine.objects.select_for_update().get(
+            pk=line.pk,
+            business=actor.business,
+            branch=branch,
+            session=session,
+        )
+    except StockCountLine.DoesNotExist as error:
+        raise ValidationError(_("Stock-count line was not found.")) from error
+    quantity = _validate_count_quantity(
+        physical_quantity,
+        locked_line.stock_unit_snapshot,
+    )
+    if locked_line.physical_quantity == quantity:
+        return locked_line
+    clean_reason = replacement_reason.strip()
+    if locked_line.physical_quantity is not None and not clean_reason:
+        raise ValidationError(_("Explain why the previous physical count is being replaced."))
+    sequence = (locked_line.revisions.aggregate(maximum=Max("sequence"))["maximum"] or 0) + 1
+    timestamp = counted_at or timezone.now()
+    with _translate_inventory_constraint_errors():
+        StockCountLineRevision.objects.create(
+            business=actor.business,
+            branch=branch,
+            session=session,
+            line=locked_line,
+            sequence=sequence,
+            previous_quantity=locked_line.physical_quantity,
+            replacement_quantity=quantity,
+            reason=clean_reason,
+            actor=actor,
+            revised_at=timestamp,
+        )
+        locked_line.physical_quantity = quantity
+        locked_line.variance_quantity = None
+        locked_line.variance_explanation = ""
+        locked_line.assigned_count_adjustment_unit_cost = None
+        locked_line.exceptional_cost_evidence_note = ""
+        locked_line.counted_by = actor
+        locked_line.counted_at = timestamp
+        locked_line.save(
+            update_fields=(
+                "physical_quantity",
+                "variance_quantity",
+                "variance_explanation",
+                "assigned_count_adjustment_unit_cost",
+                "exceptional_cost_evidence_note",
+                "counted_by",
+                "counted_at",
+            )
+        )
+    return locked_line
+
+
+@transaction.atomic
+def submit_stock_count(
+    *,
+    actor: BusinessMembership,
+    session: StockCountSession,
+    submitted_at: datetime | None = None,
+) -> StockCountSession:
+    branch, locked = _locked_stock_count_session(
+        actor=actor,
+        session=session,
+        management_required=False,
+    )
+    _ensure_session_freeze(branch, locked)
+    if locked.status == StockCountStatus.SUBMITTED:
+        return locked
+    if locked.status != StockCountStatus.COUNTING:
+        raise ValidationError(_("Only a counting worksheet can be submitted."))
+    lines = list(
+        StockCountLine.objects.select_for_update().filter(session=locked).order_by("variant_id")
+    )
+    if not lines:
+        raise ValidationError(_("A stock count must contain at least one line."))
+    if any(line.physical_quantity is None for line in lines):
+        raise ValidationError(_("Count every stock-count line, including explicit zeroes."))
+    for line in lines:
+        if line.physical_quantity is None:
+            raise ValidationError(_("Count every stock-count line, including explicit zeroes."))
+        variance = _quantity(line.physical_quantity - line.system_quantity_snapshot)
+        line.variance_quantity = variance
+        if variance == 0:
+            line.assigned_count_adjustment_unit_cost = None
+        elif line.average_unit_cost_snapshot > 0 or variance < 0:
+            line.assigned_count_adjustment_unit_cost = line.average_unit_cost_snapshot
+        else:
+            line.assigned_count_adjustment_unit_cost = None
+        line.save(
+            update_fields=(
+                "variance_quantity",
+                "assigned_count_adjustment_unit_cost",
+            )
+        )
+    locked.status = StockCountStatus.SUBMITTED
+    locked.submitted_by = actor
+    locked.submitted_at = submitted_at or timezone.now()
+    locked.save(update_fields=("status", "submitted_by", "submitted_at", "updated_at"))
+    return locked
+
+
+@transaction.atomic
+def return_stock_count_for_recount(
+    *,
+    actor: BusinessMembership,
+    session: StockCountSession,
+    reason: str,
+    returned_at: datetime | None = None,
+) -> StockCountReviewReturn:
+    branch, locked = _locked_stock_count_session(
+        actor=actor,
+        session=session,
+        management_required=True,
+    )
+    _ensure_session_freeze(branch, locked)
+    if locked.status != StockCountStatus.SUBMITTED:
+        raise ValidationError(_("Only a submitted stock count can be returned for recount."))
+    clean_reason = reason.strip()
+    if not clean_reason:
+        raise ValidationError(_("A recount reason is required."))
+    sequence = (locked.review_returns.aggregate(maximum=Max("sequence"))["maximum"] or 0) + 1
+    timestamp = returned_at or timezone.now()
+    with _translate_inventory_constraint_errors():
+        review_return = StockCountReviewReturn.objects.create(
+            business=actor.business,
+            branch=branch,
+            session=locked,
+            sequence=sequence,
+            reason=clean_reason,
+            returned_by=actor,
+            returned_at=timestamp,
+        )
+        for line in StockCountLine.objects.select_for_update().filter(session=locked):
+            line.variance_quantity = None
+            line.variance_explanation = ""
+            line.assigned_count_adjustment_unit_cost = None
+            line.exceptional_cost_evidence_note = ""
+            line.save(
+                update_fields=(
+                    "variance_quantity",
+                    "variance_explanation",
+                    "assigned_count_adjustment_unit_cost",
+                    "exceptional_cost_evidence_note",
+                )
+            )
+        locked.status = StockCountStatus.COUNTING
+        locked.submitted_by = None
+        locked.submitted_at = None
+        locked.save(update_fields=("status", "submitted_by", "submitted_at", "updated_at"))
+    return review_return
+
+
+@transaction.atomic
+def cancel_stock_count(
+    *,
+    actor: BusinessMembership,
+    session: StockCountSession,
+    reason: str,
+    cancelled_at: datetime | None = None,
+) -> StockCountSession:
+    branch, locked = _locked_stock_count_session(
+        actor=actor,
+        session=session,
+        management_required=True,
+    )
+    _ensure_session_freeze(branch, locked)
+    if locked.status not in {StockCountStatus.COUNTING, StockCountStatus.SUBMITTED}:
+        raise ValidationError(_("Only an active stock count can be cancelled."))
+    clean_reason = reason.strip()
+    if not clean_reason:
+        raise ValidationError(_("A stock-count cancellation reason is required."))
+    locked.status = StockCountStatus.CANCELLED
+    locked.cancelled_by = actor
+    locked.cancelled_at = cancelled_at or timezone.now()
+    locked.cancellation_reason = clean_reason
+    locked.save(
+        update_fields=(
+            "status",
+            "cancelled_by",
+            "cancelled_at",
+            "cancellation_reason",
+            "updated_at",
+        )
+    )
+    return locked
+
+
+@transaction.atomic
+def record_stock_count_review_evidence(
+    *,
+    actor: BusinessMembership,
+    line: StockCountLine,
+    variance_explanation: str,
+    exceptional_unit_cost: Decimal | None = None,
+    exceptional_cost_evidence_note: str = "",
+) -> StockCountLine:
+    branch, session = _locked_stock_count_session(
+        actor=actor,
+        session=line.session,
+        management_required=True,
+    )
+    _ensure_session_freeze(branch, session)
+    if session.status != StockCountStatus.SUBMITTED:
+        raise ValidationError(_("Review evidence requires a submitted stock count."))
+    locked_line = StockCountLine.objects.select_for_update().get(
+        pk=line.pk,
+        business=actor.business,
+        branch=branch,
+        session=session,
+    )
+    variance = locked_line.variance_quantity
+    if variance is None:
+        raise ValidationError(_("The stock-count variance has not been calculated."))
+    clean_explanation = variance_explanation.strip()
+    if variance != 0 and not clean_explanation:
+        raise ValidationError(_("Explain every nonzero stock count quantity variance."))
+    clean_evidence = exceptional_cost_evidence_note.strip()
+    assigned_cost: Decimal | None
+    if variance > 0 and locked_line.average_unit_cost_snapshot == 0:
+        if exceptional_unit_cost is None or exceptional_unit_cost < 0:
+            raise ValidationError(
+                _("A non-negative exceptional count-adjustment unit cost is required.")
+            )
+        if not clean_evidence:
+            raise ValidationError(_("Exceptional unit-cost evidence is required."))
+        assigned_cost = _cost(exceptional_unit_cost)
+    else:
+        if exceptional_unit_cost is not None or clean_evidence:
+            raise ValidationError(_("Snapshot cost cannot be replaced for this stock-count line."))
+        assigned_cost = None if variance == 0 else locked_line.average_unit_cost_snapshot
+    locked_line.variance_explanation = clean_explanation
+    locked_line.assigned_count_adjustment_unit_cost = assigned_cost
+    locked_line.exceptional_cost_evidence_note = clean_evidence
+    locked_line.save(
+        update_fields=(
+            "variance_explanation",
+            "assigned_count_adjustment_unit_cost",
+            "exceptional_cost_evidence_note",
+        )
+    )
+    return locked_line
+
+
+def stock_count_review_summary(
+    *,
+    actor: BusinessMembership,
+    session: StockCountSession,
+) -> StockCountReviewSummary:
+    ensure_stock_count_branch_access(actor, session.branch, management_required=True)
+    if session.business_id != actor.business_id:
+        raise ValidationError(_("Stock-count session was not found."))
+    lines = list(session.lines.order_by("stock_unit_snapshot", "variant_id"))
+    line_count = len(lines)
+    counted_line_count = sum(line.physical_quantity is not None for line in lines)
+    positive_count = 0
+    negative_count = 0
+    zero_count = 0
+    missing_cost_count = 0
+    total_value = Decimal("0.000000")
+    grouped: dict[str, tuple[Decimal, Decimal, int]] = {}
+    for line in lines:
+        variance = line.variance_quantity
+        positive_quantity, negative_quantity, zero_lines = grouped.get(
+            line.stock_unit_snapshot,
+            (Decimal("0.000"), Decimal("0.000"), 0),
+        )
+        if variance is None:
+            grouped[line.stock_unit_snapshot] = (
+                positive_quantity,
+                negative_quantity,
+                zero_lines,
+            )
+            continue
+        if variance > 0:
+            positive_count += 1
+            positive_quantity = _quantity(positive_quantity + variance)
+        elif variance < 0:
+            negative_count += 1
+            negative_quantity = _quantity(negative_quantity + variance)
+        else:
+            zero_count += 1
+            zero_lines += 1
+        assigned_cost = line.assigned_count_adjustment_unit_cost
+        if variance != 0 and assigned_cost is None:
+            missing_cost_count += 1
+        elif assigned_cost is not None:
+            total_value = _value(total_value + _value(variance * assigned_cost))
+        grouped[line.stock_unit_snapshot] = (
+            positive_quantity,
+            negative_quantity,
+            zero_lines,
+        )
+    unit_summaries = tuple(
+        StockCountUnitVarianceSummary(
+            stock_unit=stock_unit,
+            positive_quantity=values[0],
+            negative_quantity=values[1],
+            zero_variance_line_count=values[2],
+        )
+        for stock_unit, values in sorted(grouped.items())
+    )
+    return StockCountReviewSummary(
+        line_count=line_count,
+        counted_line_count=counted_line_count,
+        remaining_line_count=line_count - counted_line_count,
+        positive_variance_line_count=positive_count,
+        negative_variance_line_count=negative_count,
+        zero_variance_line_count=zero_count,
+        missing_exceptional_cost_line_count=missing_cost_count,
+        total_inventory_value_adjustment=total_value,
+        unit_summaries=unit_summaries,
+    )
+
+
+def _stock_count_evidence_checksum(
+    session: StockCountSession,
+    lines: list[StockCountLine],
+) -> str:
+    evidence = [str(session.id), str(session.business_id), str(session.branch_id)]
+    for line in lines:
+        evidence.extend(
+            (
+                str(line.id),
+                str(line.variant_id),
+                str(line.system_quantity_snapshot),
+                str(line.physical_quantity),
+                str(line.variance_quantity),
+                str(line.assigned_count_adjustment_unit_cost),
+                line.variance_explanation,
+                line.exceptional_cost_evidence_note,
+            )
+        )
+    return sha256("\x1f".join(evidence).encode()).hexdigest()
+
+
+@transaction.atomic
+def approve_stock_count(
+    *,
+    actor: BusinessMembership,
+    session: StockCountSession,
+    idempotency_key: UUID,
+    approved_at: datetime | None = None,
+) -> StockCountApproval:
+    branch, locked = _locked_stock_count_session(
+        actor=actor,
+        session=session,
+        management_required=True,
+    )
+    posting_key = _claim_stock_count_posting_key(
+        business=actor.business,
+        key=idempotency_key,
+        operation_type=StockCountOperationType.APPROVE,
+        source_id=locked.id,
+    )
+    existing_approval = StockCountApproval.objects.filter(posting_key=posting_key).first()
+    if existing_approval is not None:
+        return existing_approval
+    _ensure_session_freeze(branch, locked)
+    if locked.status != StockCountStatus.SUBMITTED:
+        raise ValidationError(_("Only a submitted stock count can be approved."))
+    lines = list(
+        StockCountLine.objects.select_for_update()
+        .select_related("variant")
+        .filter(session=locked)
+        .order_by("variant_id")
+    )
+    if not lines:
+        raise ValidationError(_("A stock count must contain at least one line."))
+    _lock_variants([line.variant for line in lines])
+    balances = {
+        line.variant_id: _locked_balance(
+            business=actor.business,
+            branch=branch,
+            variant=line.variant,
+        )
+        for line in lines
+    }
+    positive_count = 0
+    negative_count = 0
+    zero_count = 0
+    total_value = Decimal("0.000000")
+    timestamp = approved_at or timezone.now()
+    for line in lines:
+        if line.physical_quantity is None:
+            raise ValidationError(_("Count every stock-count line, including explicit zeroes."))
+        quantity = _validate_count_quantity(
+            line.physical_quantity,
+            line.stock_unit_snapshot,
+        )
+        variance = _quantity(quantity - line.system_quantity_snapshot)
+        if line.variance_quantity != variance:
+            raise ValidationError(_("Stock-count variance evidence changed before approval."))
+        if variance != 0 and not line.variance_explanation.strip():
+            raise ValidationError(_("Explain every nonzero stock count quantity variance."))
+        assigned_cost = line.assigned_count_adjustment_unit_cost
+        if variance > 0 and line.average_unit_cost_snapshot == 0:
+            if assigned_cost is None or not line.exceptional_cost_evidence_note.strip():
+                raise ValidationError(
+                    _("Exceptional unit-cost evidence is required before approval.")
+                )
+        elif variance != 0 and assigned_cost != line.average_unit_cost_snapshot:
+            raise ValidationError(_("Snapshot cost cannot be replaced for this stock-count line."))
+        balance = balances[line.variant_id]
+        if (
+            balance.quantity_on_hand != line.system_quantity_snapshot
+            or balance.average_unit_cost != line.average_unit_cost_snapshot
+            or balance.inventory_value != line.inventory_value_snapshot
+        ):
+            raise ValidationError(_("Inventory changed after the stock-count snapshot."))
+        if variance > 0:
+            if assigned_cost is None:
+                raise ValidationError(_("A count-adjustment unit cost is required."))
+            positive_count += 1
+            movement_cost, value_delta = _apply_inbound(
+                balance=balance,
+                quantity=variance,
+                unit_cost=assigned_cost,
+            )
+            movement_type = InventoryMovementType.STOCK_COUNT_ADJUSTMENT_IN
+        elif variance < 0:
+            if assigned_cost is None:
+                raise ValidationError(_("A count-adjustment unit cost is required."))
+            negative_count += 1
+            movement_cost, value_delta = _apply_outbound_at_cost(
+                balance=balance,
+                quantity=-variance,
+                unit_cost=assigned_cost,
+            )
+            movement_type = InventoryMovementType.STOCK_COUNT_ADJUSTMENT_OUT
+        else:
+            zero_count += 1
+            continue
+        total_value = _value(total_value + value_delta)
+        with _translate_inventory_constraint_errors():
+            InventoryMovement.objects.create(
+                business=actor.business,
+                branch=branch,
+                variant=line.variant,
+                movement_type=movement_type,
+                quantity_delta=variance,
+                unit_cost=movement_cost,
+                value_delta=value_delta,
+                source_type=InventorySourceType.STOCK_COUNT_LINE,
+                source_id=line.id,
+                actor=actor,
+                reason=line.variance_explanation.strip(),
+                posted_at=timestamp,
+            )
+    with _translate_inventory_constraint_errors():
+        approval = StockCountApproval.objects.create(
+            business=actor.business,
+            branch=branch,
+            session=locked,
+            posting_key=posting_key,
+            approved_by=actor,
+            approved_at=timestamp,
+            line_count=len(lines),
+            positive_variance_line_count=positive_count,
+            negative_variance_line_count=negative_count,
+            zero_variance_line_count=zero_count,
+            total_inventory_value_adjustment=total_value,
+            evidence_checksum=_stock_count_evidence_checksum(locked, lines),
+        )
+        locked.status = StockCountStatus.APPROVED
+        locked.save(update_fields=("status", "updated_at"))
+    return approval
+
+
+@transaction.atomic
+def reverse_stock_count(
+    *,
+    actor: BusinessMembership,
+    approval: StockCountApproval,
+    reason: str,
+    idempotency_key: UUID,
+    reversed_at: datetime | None = None,
+) -> StockCountReversal:
+    ensure_stock_count_branch_access(actor, approval.branch, management_required=True)
+    clean_reason = reason.strip()
+    if not clean_reason:
+        raise ValidationError(_("A stock-count reversal reason is required."))
+    branch = _lock_branch(approval.branch, actor.business)
+    if _active_stock_count(branch, actor.business) is not None:
+        raise ValidationError(
+            _("Inventory posting is temporarily paused for this branch. Ask a manager for help.")
+        )
+    try:
+        locked_approval = (
+            StockCountApproval.objects.select_for_update()
+            .select_related("session")
+            .get(pk=approval.pk, business=actor.business, branch=branch)
+        )
+    except StockCountApproval.DoesNotExist as error:
+        raise ValidationError(_("Stock-count approval was not found.")) from error
+    posting_key = _claim_stock_count_posting_key(
+        business=actor.business,
+        key=idempotency_key,
+        operation_type=StockCountOperationType.REVERSE,
+        source_id=locked_approval.session_id,
+    )
+    existing_reversal = StockCountReversal.objects.filter(posting_key=posting_key).first()
+    if existing_reversal is not None:
+        return existing_reversal
+    if StockCountReversal.objects.filter(approval=locked_approval).exists():
+        raise ValidationError(_("This stock count was already reversed."))
+    lines = list(
+        StockCountLine.objects.select_for_update()
+        .select_related("variant")
+        .filter(session=locked_approval.session)
+        .exclude(variance_quantity=Decimal("0.000"))
+        .order_by("variant_id")
+    )
+    _lock_variants([line.variant for line in lines])
+    balances = {
+        line.variant_id: _locked_balance(
+            business=actor.business,
+            branch=branch,
+            variant=line.variant,
+        )
+        for line in lines
+    }
+    timestamp = reversed_at or timezone.now()
+    with _translate_inventory_constraint_errors():
+        reversal = StockCountReversal.objects.create(
+            business=actor.business,
+            branch=branch,
+            approval=locked_approval,
+            posting_key=posting_key,
+            reason=clean_reason,
+            reversed_by=actor,
+            reversed_at=timestamp,
+        )
+    for line in lines:
+        variance = line.variance_quantity
+        assigned_cost = line.assigned_count_adjustment_unit_cost
+        if variance is None or assigned_cost is None:
+            raise ValidationError(_("Approved stock-count adjustment evidence is incomplete."))
+        balance = balances[line.variant_id]
+        if variance > 0:
+            movement_cost, value_delta = _apply_outbound_at_cost(
+                balance=balance,
+                quantity=variance,
+                unit_cost=assigned_cost,
+            )
+            quantity_delta = -variance
+            movement_type = InventoryMovementType.STOCK_COUNT_REVERSAL_OUT
+        else:
+            movement_cost, value_delta = _apply_inbound(
+                balance=balance,
+                quantity=-variance,
+                unit_cost=assigned_cost,
+            )
+            quantity_delta = -variance
+            movement_type = InventoryMovementType.STOCK_COUNT_REVERSAL_IN
+        with _translate_inventory_constraint_errors():
+            InventoryMovement.objects.create(
+                business=actor.business,
+                branch=branch,
+                variant=line.variant,
+                movement_type=movement_type,
+                quantity_delta=quantity_delta,
+                unit_cost=movement_cost,
+                value_delta=value_delta,
+                source_type=InventorySourceType.STOCK_COUNT_REVERSAL,
+                source_id=reversal.id,
+                actor=actor,
+                reason=clean_reason,
+                posted_at=timestamp,
+            )
+    return reversal

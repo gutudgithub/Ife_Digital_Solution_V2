@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Stock counts" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Inventory reconciliation" %}</p>
+      <h1>{% translate "Stock counts" %}</h1>
+      <p class="muted">{% translate "Complete physical counts reconcile one branch against an immutable system snapshot." %}</p>
+    </div>
+    {% if can_manage_stock_counts %}
+      <a class="button" href="{% url 'inventory:stock-count-start' %}">{% translate "Start full-branch count" %}</a>
+    {% endif %}
+  </div>
+
+  <section class="card">
+    <form class="filter-form" method="get">
+      {% include "includes/form_fields.html" with form=filter_form %}
+      <div class="action-row">
+        <button class="button button--secondary" type="submit">{% translate "Apply filters" %}</button>
+        <a href="{% url 'inventory:stock-count-list' %}">{% translate "Clear" %}</a>
+      </div>
+    </form>
+    <div class="table-wrap">
+      <table>
+        <caption class="visually-hidden">{% translate "Filtered stock-count sessions" %}</caption>
+        <thead>
+          <tr>
+            <th>{% translate "Business date" %}</th>
+            <th>{% translate "Branch" %}</th>
+            <th>{% translate "Status" %}</th>
+            <th>{% translate "Started by" %}</th>
+            <th>{% translate "Submitted by" %}</th>
+            <th>{% translate "Approved by" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for stock_count in sessions %}
+            <tr>
+              <td><a href="{% url 'inventory:stock-count-detail' stock_count.id %}">{{ stock_count.business_date }}</a></td>
+              <td>{{ stock_count.branch.name }}</td>
+              <td>{{ stock_count.get_status_display }}</td>
+              <td>{{ stock_count.started_by.user.full_name }}</td>
+              <td>{% if stock_count.submitted_by %}{{ stock_count.submitted_by.user.full_name }}{% else %}—{% endif %}</td>
+              <td>{% if stock_count.approval %}{{ stock_count.approval.approved_by.user.full_name }}{% else %}—{% endif %}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6">{% translate "No stock counts match these filters." %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if page_obj.paginator.num_pages > 1 %}
+      <nav class="pagination" aria-label="{% translate 'Stock-count pages' %}">
+        {% if page_obj.has_previous %}
+          <a href="{% querystring page=page_obj.previous_page_number %}">{% translate "Previous" %}</a>
+        {% endif %}
+        <span>
+          {% blocktranslate trimmed with current=page_obj.number total=page_obj.paginator.num_pages %}
+            Page {{ current }} of {{ total }}
+          {% endblocktranslate %}
+        </span>
+        {% if page_obj.has_next %}
+          <a href="{% querystring page=page_obj.next_page_number %}">{% translate "Next" %}</a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  </section>
+{% endblock %}

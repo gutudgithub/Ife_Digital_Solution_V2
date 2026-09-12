@@ -320,9 +320,12 @@ This preserves draft/recount edits without treating them as inventory movements.
 - approver;
 - approved at;
 - line count;
-- total positive and negative quantity variance summaries;
+- positive-, negative-, and zero-variance line counts;
 - total signed inventory-value adjustment;
 - immutable evidence checksum or equivalent stable summary.
+
+Quantity summaries are grouped by stock unit. The system never adds unlike units such as
+pairs, pieces, and grams into one quantity total.
 
 ### `StockCountReversal`
 
@@ -422,6 +425,7 @@ Stage 4C adds operational reports only:
 - count history by branch and status;
 - approved count summary;
 - line-level system quantity, physical quantity, and quantity variance;
+- quantity-variance summaries grouped by stock unit;
 - signed inventory-value adjustment using stored assigned cost;
 - actor and timestamp trail;
 - movement links;
@@ -500,3 +504,14 @@ Stage 4C is complete only when:
 
 Approval of this brief does not authorize Stage 5 costing, profit, margin, growth, or
 time-series analytics.
+
+## Product-owner approval and implementation status
+
+The product owner approved this recommended Stage 4C scope as written. The implementation
+adds full-branch snapshots, blind count entry, branch-level inventory freezes, review and
+recount controls, exact-cost approval and reversal movements, internal print evidence,
+tenant-scoped server-rendered screens, immutable admin evidence, repeatable demo data, and
+PostgreSQL threaded locking coverage.
+
+Independent Claude review remains required before Stage 4C final acceptance. Native-speaker
+review remains required for translated user-facing strings before pilot release.

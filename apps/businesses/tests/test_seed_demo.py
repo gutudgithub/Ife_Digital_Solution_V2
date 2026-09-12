@@ -14,7 +14,14 @@ from apps.expenses.models import (
     SupplierPayment,
     SupplierReturnSettlement,
 )
-from apps.inventory.models import InventoryBalance, InventoryMovement
+from apps.inventory.models import (
+    InventoryBalance,
+    InventoryMovement,
+    StockCountApproval,
+    StockCountLine,
+    StockCountSession,
+    StockCountStatus,
+)
 from apps.purchasing.models import GoodsReceipt, Purchase, PurchaseReturn, Supplier
 from apps.sales.models import (
     InternalReceipt,
@@ -82,12 +89,24 @@ class SeedDemoCommandTests(TestCase):
         self.assertEqual(closure.expected_cash, Decimal("500.00"))
         self.assertEqual(closure.actual_cash, Decimal("500.00"))
         self.assertEqual(closure.variance, Decimal("0.00"))
-        self.assertEqual(InventoryMovement.objects.filter(business=business).count(), 4)
+        self.assertEqual(InventoryMovement.objects.filter(business=business).count(), 7)
         balance = InventoryBalance.objects.get(
             business=business,
             variant__sku="TSHIRT-BLK-M",
         )
-        self.assertEqual(balance.quantity_on_hand, Decimal("7.000"))
+        self.assertEqual(balance.quantity_on_hand, Decimal("6.000"))
+        shoe_balance = InventoryBalance.objects.get(
+            business=business,
+            variant__sku="SHOE-BRN-42",
+        )
+        self.assertEqual(shoe_balance.quantity_on_hand, Decimal("7.000"))
+        self.assertEqual(StockCountSession.objects.filter(business=business).count(), 1)
+        self.assertEqual(
+            StockCountSession.objects.get(business=business).status,
+            StockCountStatus.APPROVED,
+        )
+        self.assertEqual(StockCountLine.objects.filter(business=business).count(), 4)
+        self.assertEqual(StockCountApproval.objects.filter(business=business).count(), 1)
         self.assertEqual(
             (
                 BusinessMembership.objects.get(business=business, user=owner).role,

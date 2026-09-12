@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Blind stock-count worksheet" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Blind physical count" %}</p>
+      <h1>{{ stock_count.branch.name }} · {{ stock_count.business_date }}</h1>
+      <p class="muted">
+        {% blocktranslate trimmed with counted=counted_line_count remaining=remaining_line_count total=line_count %}
+          {{ counted }} counted · {{ remaining }} remaining · {{ total }} total lines
+        {% endblocktranslate %}
+      </p>
+    </div>
+    <div class="action-row">
+      <a class="button" href="{% url 'inventory:stock-count-submit' stock_count.id %}">{% translate "Submit for review" %}</a>
+      {% if can_manage_stock_counts %}
+        <a class="button button--secondary" href="{% url 'inventory:stock-count-cancel' stock_count.id %}">{% translate "Cancel count" %}</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <section class="card">
+    <p><strong>{% translate "Blind-count rule" %}:</strong> {% translate "The worksheet intentionally hides system quantity, variance, cost, and inventory value." %}</p>
+    <form class="filter-form" method="get">
+      <div class="form-row">
+        <label for="stock-count-search">{% translate "Search product, variant, or SKU" %}</label>
+        <input id="stock-count-search" name="q" value="{{ search }}">
+      </div>
+      <div class="action-row">
+        <button class="button button--secondary" type="submit">{% translate "Search" %}</button>
+        <a href="{% url 'inventory:stock-count-worksheet' stock_count.id %}">{% translate "Clear" %}</a>
+      </div>
+    </form>
+  </section>
+
+  <section class="section-gap">
+    {% for row in line_rows %}
+      {% ifchanged row.line.product_name_snapshot %}
+        <h2>{{ row.line.product_name_snapshot }}</h2>
+      {% endifchanged %}
+      <article class="card section-gap">
+        <h3>{{ row.line.variant_label_snapshot|default:row.line.product_name_snapshot }} · {{ row.line.sku_snapshot }}</h3>
+        <p>
+          <strong>{% translate "Stock unit" %}:</strong> {{ row.line.get_stock_unit_snapshot_display }}
+          · <strong>{% translate "Count status" %}:</strong>
+          {% if row.line.physical_quantity is None %}{% translate "Not counted" %}{% else %}{% translate "Counted" %}{% endif %}
+        </p>
+        {% if row.line.counted_by %}
+          <p class="muted">{{ row.line.counted_by.user.full_name }} · {{ row.line.counted_at|date:"SHORT_DATETIME_FORMAT" }}</p>
+        {% endif %}
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="line_id" value="{{ row.line.id }}">
+          <input type="hidden" name="q" value="{{ search }}">
+          <input type="hidden" name="page" value="{{ page_obj.number }}">
+          {% include "includes/form_fields.html" with form=row.form %}
+          <button class="button" type="submit">
+            {% if row.line.physical_quantity is None %}{% translate "Record quantity" %}{% else %}{% translate "Replace quantity" %}{% endif %}
+          </button>
+        </form>
+      </article>
+    {% empty %}
+      <section class="card"><p>{% translate "No stock-count lines match this search." %}</p></section>
+    {% endfor %}
+  </section>
+
+  {% if page_obj.paginator.num_pages > 1 %}
+    <nav class="pagination" aria-label="{% translate 'Blind stock-count worksheet pages' %}">
+      {% if page_obj.has_previous %}
+        <a href="{% querystring page=page_obj.previous_page_number q=search %}">{% translate "Previous" %}</a>
+      {% endif %}
+      <span>
+        {% blocktranslate trimmed with current=page_obj.number total=page_obj.paginator.num_pages %}
+          Page {{ current }} of {{ total }}
+        {% endblocktranslate %}
+      </span>
+      {% if page_obj.has_next %}
+        <a href="{% querystring page=page_obj.next_page_number q=search %}">{% translate "Next" %}</a>
+      {% endif %}
+    </nav>
+  {% endif %}
+{% endblock %}

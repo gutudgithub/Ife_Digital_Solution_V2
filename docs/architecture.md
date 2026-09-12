@@ -16,7 +16,8 @@ The initial modules are:
 - `accounts`: custom email-based user identity;
 - `businesses`: business, branch, membership, role, and active tenant context;
 - `catalog`: category, product style, and sellable size/color variant;
-- `inventory`: immutable stock movements and moving-average balances;
+- `inventory`: immutable stock movements, moving-average balances, complete blind branch
+  counts, reconciliation approvals, and exact-cost reversals;
 - `purchasing`: suppliers, purchases, receipts, and purchase returns;
 - `sales`: sales, single full payments, exact-line returns, refund evidence, correction
   reversals, and internal receipts.
@@ -55,6 +56,9 @@ Current role capabilities:
 | View sale inventory cost/value | Yes | Yes | No | No |
 | Receive purchases and prepare supplier returns | Yes | Yes | No | Yes |
 | Adjust stock or post/reverse supplier returns | Yes | Yes | No | No |
+| Start, approve, cancel, or reverse stock counts | Yes | Yes | No | No |
+| Enter and submit assigned-branch blind stock counts | Yes | Yes | No | Yes |
+| View stock-count quantity/cost comparison evidence | Yes | Yes | No | No |
 | Open and close assigned-branch cash sessions | Yes | Yes | Yes | No |
 | Post manual cash movements or reopen sessions | Yes | Yes | No | No |
 | Manage expenses and supplier settlement | Yes | Yes | No | No |
@@ -95,6 +99,12 @@ Cash methods create source-linked movements in the locked session; Telebirr and 
 credits do not affect physical cash. Supplier reference, inventory-value reduction, and
 accepted settlement remain distinct operational values rather than statutory accounting.
 Reversals compensate in the original cash session, which must first be validly reopened.
+
+Stage 4C locks the branch before activating a complete stock-count freeze and capturing
+immutable quantity, value, and moving-average cost snapshots. Stock employees enter only
+blind physical quantities. Managers review quantity variances grouped by stock unit and a
+separate signed ETB inventory-value adjustment. Approval posts nonzero differences at the
+assigned snapshot or evidenced exceptional cost; full reversal uses the same exact costs.
 
 ## Localization
 

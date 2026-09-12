@@ -47,9 +47,9 @@ Stage 4 is split into independently reviewable controls:
   movements, drawer counting, variance, and controlled reopening.
 - Stage 4B is independently approved: paid operating expenses,
   purchase-linked supplier payments, and supplier-return credit/refund evidence.
-- Stage 4C has a recommended brief awaiting product-owner approval: complete branch stock
-  counts, an inventory-posting freeze, explicitly named quantity variance, count-start
-  moving-average valuation, and exact-cost adjustment reversal.
+- Stage 4C is product-owner approved and implemented pending independent review: complete
+  branch stock counts, an inventory-posting freeze, explicitly named quantity variance,
+  count-start moving-average valuation, and exact-cost adjustment reversal.
 
 Customer ordering, delivery, professional services, AI, payroll, and statutory employment
 administration remain excluded.

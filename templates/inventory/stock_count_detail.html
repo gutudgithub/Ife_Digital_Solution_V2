@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ stock_count.branch.name }} · {{ stock_count.business_date }} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Stock-count session" %}</p>
+      <h1>{{ stock_count.branch.name }} · {{ stock_count.business_date }}</h1>
+      <p class="muted">{{ stock_count.get_status_display }}</p>
+    </div>
+    <div class="action-row">
+      {% if stock_count.status == "counting" %}
+        <a class="button" href="{% url 'inventory:stock-count-worksheet' stock_count.id %}">{% translate "Open blind worksheet" %}</a>
+        {% if can_manage_stock_counts %}
+          <a class="button button--secondary" href="{% url 'inventory:stock-count-cancel' stock_count.id %}">{% translate "Cancel count" %}</a>
+        {% endif %}
+      {% elif stock_count.status == "submitted" and can_manage_stock_counts %}
+        <a class="button" href="{% url 'inventory:stock-count-review' stock_count.id %}">{% translate "Review comparison" %}</a>
+        <a class="button button--secondary" href="{% url 'inventory:stock-count-return' stock_count.id %}">{% translate "Return for recount" %}</a>
+        <a class="button button--secondary" href="{% url 'inventory:stock-count-cancel' stock_count.id %}">{% translate "Cancel count" %}</a>
+      {% elif stock_count.status == "approved" and can_manage_stock_counts %}
+        <a class="button" href="{% url 'inventory:stock-count-print' stock_count.id %}">{% translate "Print evidence" %}</a>
+        {% if not reversal %}
+          <a class="button button--secondary" href="{% url 'inventory:stock-count-reverse' stock_count.id %}">{% translate "Reverse adjustments" %}</a>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+
+  <section class="grid">
+    <article class="card">
+      <h2>{% translate "Count opening evidence" %}</h2>
+      <p><strong>{% translate "Branch" %}:</strong> {{ stock_count.branch.name }}</p>
+      <p><strong>{% translate "Business date" %}:</strong> {{ stock_count.business_date }}</p>
+      <p><strong>{% translate "Count method" %}:</strong> {{ stock_count.count_method_note }}</p>
+      <p><strong>{% translate "Started by" %}:</strong> {{ stock_count.started_by.user.full_name }}</p>
+      <p class="muted">{{ stock_count.started_at|date:"SHORT_DATETIME_FORMAT" }}</p>
+    </article>
+    <article class="card">
+      <h2>{% translate "Progress and status" %}</h2>
+      <p>
+        {% blocktranslate trimmed with counted=counted_line_count remaining=remaining_line_count total=line_count %}
+          {{ counted }} counted · {{ remaining }} remaining · {{ total }} total lines
+        {% endblocktranslate %}
+      </p>
+      {% if stock_count.submitted_by %}
+        <p><strong>{% translate "Submitted by" %}:</strong> {{ stock_count.submitted_by.user.full_name }}</p>
+        <p class="muted">{{ stock_count.submitted_at|date:"SHORT_DATETIME_FORMAT" }}</p>
+      {% endif %}
+      {% if stock_count.cancelled_by %}
+        <p><strong>{% translate "Cancellation reason" %}:</strong> {{ stock_count.cancellation_reason }}</p>
+        <p>{{ stock_count.cancelled_by.user.full_name }} · {{ stock_count.cancelled_at|date:"SHORT_DATETIME_FORMAT" }}</p>
+      {% endif %}
+    </article>
+  </section>
+
+  {% if approval and can_manage_stock_counts %}
+    <section class="card section-gap">
+      <h2>{% translate "Approval evidence" %}</h2>
+      <p><strong>{% translate "Approved by" %}:</strong> {{ approval.approved_by.user.full_name }}</p>
+      <p><strong>{% translate "Approved at" %}:</strong> {{ approval.approved_at|date:"SHORT_DATETIME_FORMAT" }}</p>
+      <p><strong>{% translate "Positive-variance lines" %}:</strong> {{ approval.positive_variance_line_count }}</p>
+      <p><strong>{% translate "Negative-variance lines" %}:</strong> {{ approval.negative_variance_line_count }}</p>
+      <p><strong>{% translate "Zero-variance lines" %}:</strong> {{ approval.zero_variance_line_count }}</p>
+      <p><strong>{% translate "Signed inventory-value adjustment" %}:</strong> ETB {{ approval.total_inventory_value_adjustment|floatformat:6 }}</p>
+      <p><strong>{% translate "Evidence checksum" %}:</strong> <code>{{ approval.evidence_checksum }}</code></p>
+      {% if reversal %}
+        <h3>{% translate "Reversal evidence" %}</h3>
+        <p><strong>{% translate "Reason" %}:</strong> {{ reversal.reason }}</p>
+        <p>{{ reversal.reversed_by.user.full_name }} · {{ reversal.reversed_at|date:"SHORT_DATETIME_FORMAT" }}</p>
+      {% endif %}
+    </section>
+  {% endif %}
+
+  {% if can_manage_stock_counts and stock_count.status == "approved" %}
+    <section class="card section-gap">
+      <h2>{% translate "Approved line evidence" %}</h2>
+      <div class="table-wrap">
+        <table>
+          <caption class="visually-hidden">{% translate "Approved stock-count line comparison" %}</caption>
+          <thead>
+            <tr>
+              <th>{% translate "Product and SKU" %}</th>
+              <th>{% translate "System quantity" %}</th>
+              <th>{% translate "Physical quantity" %}</th>
+              <th>{% translate "Quantity variance" %}</th>
+              <th>{% translate "Assigned cost" %}</th>
+              <th>{% translate "Value adjustment" %}</th>
+              <th>{% translate "Explanation" %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in line_rows %}
+              <tr>
+                <td>{{ row.line.product_name_snapshot }} · {{ row.line.variant_label_snapshot }} · {{ row.line.sku_snapshot }}</td>
+                <td>{{ row.line.system_quantity_snapshot }} {{ row.line.get_stock_unit_snapshot_display }}</td>
+                <td>{{ row.line.physical_quantity }} {{ row.line.get_stock_unit_snapshot_display }}</td>
+                <td>{{ row.line.variance_quantity }} {{ row.line.get_stock_unit_snapshot_display }}</td>
+                <td>{% if row.line.assigned_count_adjustment_unit_cost is not None %}ETB {{ row.line.assigned_count_adjustment_unit_cost|floatformat:6 }}{% else %}—{% endif %}</td>
+                <td>{% if row.value_adjustment is not None %}ETB {{ row.value_adjustment|floatformat:6 }}{% else %}—{% endif %}</td>
+                <td>{{ row.line.variance_explanation|default:"—" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% elif not can_manage_stock_counts %}
+    <section class="card section-gap">
+      <h2>{% translate "Blind-count access" %}</h2>
+      <p>{% translate "System quantity, variance, cost, and inventory-value evidence are restricted to owners and managers." %}</p>
+    </section>
+  {% endif %}
+{% endblock %}

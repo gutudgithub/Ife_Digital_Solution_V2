@@ -32,6 +32,10 @@ Runtime configuration is supplied through environment variables:
    movement/balance reconciliation. Also verify a draft and posted expense, one cash expense
    against an open session, one Telebirr expense, a partial supplier payment, a supplier-return
    credit/refund, exact-source reversals, settlement summaries, and cashier non-disclosure.
+   Start a full-branch stock count, verify inventory posting is frozen, complete every blind
+   line including explicit zeroes, submit and review quantity variances by stock unit, approve
+   the exact-cost adjustments, print the internal evidence, reverse it, and reconcile every
+   resulting movement and balance.
    Never use `seed_demo` in production.
 
 The development Compose command runs migrations automatically for convenience. Production
