@@ -65,8 +65,8 @@
 4. Telebirr references are normalized for business-scoped uniqueness but are not provider
    verification or settlement confirmation.
 5. Posted sales, lines, payments, and receipts cannot be edited through normal flows.
-6. Posted-sale corrections are unavailable until Stage 3B adds authorized void, return,
-   refund, and reversal events referencing the original sale.
+6. Posted-sale corrections use authorized return, refund, and reversal events referencing
+   exact original sale lines; original posted evidence remains immutable.
 7. Payment status and sale status are separate.
 8. An internal receipt must not be represented as an official tax invoice.
 

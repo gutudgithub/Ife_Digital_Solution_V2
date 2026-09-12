@@ -124,15 +124,16 @@ The reversal:
 
 - preserves the original return and refund evidence;
 - creates linked compensating outbound inventory movements;
-- uses the current branch moving-average cost and the existing subtract-and-clamp outbound
-  valuation at reversal time;
+- removes the returned quantity at the return movement's assigned inventory cost and
+  recalculates the remaining moving average from remaining quantity and value;
 - records an immutable reversal of the internal refund evidence without claiming that cash
   or Telebirr was recovered from the customer; and
 - makes the original quantities returnable again.
 
-Reversal is rejected if current stock cannot cover the outbound quantity. If returned goods
-have already been sold or otherwise removed, the operator must investigate and correct stock
-through an approved inventory process rather than creating negative stock.
+Reversal is rejected if current stock or inventory value cannot cover the exact compensating
+outbound movement. If returned goods or their restored value have already been consumed, the
+operator must investigate and correct stock through an approved inventory process rather
+than creating negative stock or value.
 
 ## Included
 
