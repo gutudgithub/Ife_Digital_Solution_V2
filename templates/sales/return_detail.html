@@ -90,7 +90,7 @@
       <h2>{% translate "Return reversal" %}</h2>
       <p><strong>{% translate "Reason" %}:</strong> {{ sale_return.reversal.reason }}</p>
       <p>{{ sale_return.reversal.reversed_by.user.full_name }} · {{ sale_return.reversal.posted_at|date:"SHORT_DATETIME_FORMAT" }}</p>
-      <p class="muted">{% translate "The reversal removes the restored stock at the moving-average cost current when the reversal was posted." %}</p>
+      <p class="muted">{% translate "The reversal removes the same quantity and inventory value added by the posted return." %}</p>
     </section>
   {% endif %}
 {% endblock %}

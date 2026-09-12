@@ -391,7 +391,7 @@ class SaleLine(models.Model):
             errors["line_total"] = ValidationError(
                 _("Line total must equal quantity multiplied by selling unit price.")
             )
-        if self.variant_id and self.unit_snapshot:
+        if self.variant_id and self.unit_snapshot and self.quantity is not None:
             try:
                 validate_stock_quantity(self.quantity, self.unit_snapshot)
             except ValidationError as error:
@@ -1032,11 +1032,12 @@ class SaleReturnLine(models.Model):
             errors["variant"] = ValidationError(_("Variant must belong to this business."))
         if self.sale_line_id and self.variant_id and self.sale_line.variant_id != self.variant_id:
             errors["variant"] = ValidationError(_("Variant must match the original sale line."))
-        if self.sale_line_id:
+        if self.sale_line_id and self.returned_quantity is not None:
             try:
                 validate_stock_quantity(self.returned_quantity, self.sale_line.unit_snapshot)
             except ValidationError as error:
                 errors["returned_quantity"] = error
+        if self.sale_line_id:
             if self.product_name_snapshot != self.sale_line.product_name_snapshot:
                 errors["product_name_snapshot"] = ValidationError(
                     _("Product snapshot must match the original sale line.")
@@ -1060,14 +1061,19 @@ class SaleReturnLine(models.Model):
                 errors["original_assigned_inventory_unit_cost"] = ValidationError(
                     _("Inventory cost must match the original sale line.")
                 )
-        expected_total = calculate_sale_line_total(
-            self.returned_quantity,
-            self.original_selling_unit_price,
-        )
-        if self.refund_line_total != expected_total:
-            errors["refund_line_total"] = ValidationError(
-                _("Refund line total must equal quantity multiplied by original selling price.")
+        if (
+            self.returned_quantity is not None
+            and self.original_selling_unit_price is not None
+            and self.refund_line_total is not None
+        ):
+            expected_total = calculate_sale_line_total(
+                self.returned_quantity,
+                self.original_selling_unit_price,
             )
+            if self.refund_line_total != expected_total:
+                errors["refund_line_total"] = ValidationError(
+                    _("Refund line total must equal quantity multiplied by original selling price.")
+                )
         if errors:
             raise ValidationError(errors)
 

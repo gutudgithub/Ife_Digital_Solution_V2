@@ -494,7 +494,7 @@ class GoodsReceiptLine(models.Model):
                 errors["unit_snapshot"] = ValidationError(
                     _("Stock unit must match the approved purchase line.")
                 )
-        if self.unit_snapshot:
+        if self.unit_snapshot and self.received_quantity is not None:
             try:
                 validate_stock_quantity(self.received_quantity, self.unit_snapshot)
             except ValidationError as error:
@@ -942,7 +942,7 @@ class PurchaseReturnLine(models.Model):
                     )
         if self.variant_id and self.variant.business_id != self.business_id:
             errors["variant"] = ValidationError(_("Variant must belong to this business."))
-        if self.receipt_line_id and self.variant_id:
+        if self.receipt_line_id and self.variant_id and self.returned_quantity is not None:
             if self.receipt_line.variant_id != self.variant_id:
                 errors["variant"] = ValidationError(_("Variant must match the receipt line."))
             try:

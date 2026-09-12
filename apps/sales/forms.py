@@ -264,20 +264,21 @@ class SaleReturnLineForm(forms.ModelForm):
     def _post_clean(self) -> None:
         sale_line = self.cleaned_data.get("sale_line")
         quantity = self.cleaned_data.get("returned_quantity")
-        if isinstance(sale_line, SaleLine) and isinstance(quantity, Decimal):
+        if isinstance(sale_line, SaleLine):
             self.instance.business = sale_line.business
             self.instance.variant = sale_line.variant
             self.instance.product_name_snapshot = sale_line.product_name_snapshot
             self.instance.sku_snapshot = sale_line.sku_snapshot
             self.instance.unit_snapshot = sale_line.unit_snapshot
             self.instance.original_selling_unit_price = sale_line.selling_unit_price
-            self.instance.refund_line_total = calculate_sale_line_total(
-                quantity,
-                sale_line.selling_unit_price,
-            )
             self.instance.original_assigned_inventory_unit_cost = (
                 sale_line.assigned_inventory_unit_cost
             )
+            if isinstance(quantity, Decimal):
+                self.instance.refund_line_total = calculate_sale_line_total(
+                    quantity,
+                    sale_line.selling_unit_price,
+                )
         super()._post_clean()  # type: ignore[misc]
 
     def scope_to_sale(self, sale: Sale) -> None:

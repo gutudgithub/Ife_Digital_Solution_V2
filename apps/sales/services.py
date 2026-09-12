@@ -990,6 +990,7 @@ def reverse_sale_return(
             SaleReturnReversalInventoryItem(
                 variant=line.variant,
                 quantity=line.returned_quantity,
+                unit_cost=line.original_assigned_inventory_unit_cost,
                 unit_snapshot=line.unit_snapshot,
                 source_id=line.id,
             )

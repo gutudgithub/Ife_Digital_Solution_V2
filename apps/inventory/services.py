@@ -90,6 +90,7 @@ class SaleReturnInventoryItem:
 class SaleReturnReversalInventoryItem:
     variant: ProductVariant
     quantity: Decimal
+    unit_cost: Decimal
     unit_snapshot: str
     source_id: UUID
 
@@ -285,6 +286,40 @@ def _apply_outbound(
         )
         new_average = Decimal("0.000000") if new_value == 0 else assigned_cost
     value_delta = _value(new_value - balance.inventory_value)
+    balance.quantity_on_hand = new_quantity
+    balance.inventory_value = new_value
+    balance.average_unit_cost = new_average
+    with _translate_inventory_constraint_errors():
+        balance.save(
+            update_fields=("quantity_on_hand", "inventory_value", "average_unit_cost", "updated_at")
+        )
+    return assigned_cost, value_delta
+
+
+def _apply_outbound_at_cost(
+    *,
+    balance: InventoryBalance,
+    quantity: Decimal,
+    unit_cost: Decimal,
+) -> tuple[Decimal, Decimal]:
+    outbound_quantity = _quantity(quantity)
+    if balance.quantity_on_hand < outbound_quantity:
+        raise ValidationError(_("This operation would make stock negative."))
+    assigned_cost = _cost(unit_cost)
+    outbound_value = _value(outbound_quantity * assigned_cost)
+    if balance.inventory_value < outbound_value:
+        raise ValidationError(_("This operation would make inventory value negative."))
+    new_quantity = _quantity(balance.quantity_on_hand - outbound_quantity)
+    new_value = _value(balance.inventory_value - outbound_value)
+    if new_quantity == 0:
+        if new_value != 0:
+            raise ValidationError(
+                _("This operation cannot preserve inventory value at zero stock.")
+            )
+        new_average = Decimal("0.000000")
+    else:
+        new_average = Decimal("0.000000") if new_value == 0 else _cost(new_value / new_quantity)
+    value_delta = -outbound_value
     balance.quantity_on_hand = new_quantity
     balance.inventory_value = new_value
     balance.average_unit_cost = new_average
@@ -551,6 +586,8 @@ def record_sale_return_reversal_inventory(
         if item.variant.stock_unit != item.unit_snapshot:
             raise ValidationError(_("The variant stock unit changed after sale posting."))
         validate_stock_quantity(item.quantity, item.unit_snapshot)
+        if item.unit_cost < 0:
+            raise ValidationError(_("Reversal cost cannot be negative."))
     _lock_variants([item.variant for item in items])
 
     balances: dict[UUID, InventoryBalance] = {}
@@ -564,9 +601,10 @@ def record_sale_return_reversal_inventory(
 
     movements: list[InventoryMovement] = []
     for item in items:
-        assigned_cost, value_delta = _apply_outbound(
+        assigned_cost, value_delta = _apply_outbound_at_cost(
             balance=balances[item.variant.id],
             quantity=item.quantity,
+            unit_cost=item.unit_cost,
         )
         with _translate_inventory_constraint_errors():
             movement = InventoryMovement.objects.create(

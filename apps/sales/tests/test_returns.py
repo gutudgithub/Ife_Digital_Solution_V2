@@ -308,14 +308,8 @@ class SaleReturnServiceTests(TestCase):
                 idempotency_key=key,
             )
 
-    def test_return_reversal_uses_current_average_and_requires_stock(self) -> None:
-        sale_return = post_sale_return(
-            actor=self.owner,
-            sale_return=self._draft_return(),
-            refund_method="cash",
-            telebirr_reference="",
-            idempotency_key=uuid.uuid4(),
-        )
+    def test_return_reversal_conserves_return_value_and_requires_stock(self) -> None:
+        sale_return = self._draft_return()
         post_inventory_adjustment(
             actor=self.owner,
             branch=self.branch,
@@ -326,9 +320,21 @@ class SaleReturnServiceTests(TestCase):
             reason="New stock",
             idempotency_key=uuid.uuid4(),
         )
-        balance_before = InventoryBalance.objects.get(
+        balance_before_return = InventoryBalance.objects.get(
             branch=self.branch,
             variant=self.first_variant,
+        )
+        sale_return = post_sale_return(
+            actor=self.owner,
+            sale_return=sale_return,
+            refund_method="cash",
+            telebirr_reference="",
+            idempotency_key=uuid.uuid4(),
+        )
+        return_line = sale_return.lines.get()
+        return_movement = InventoryMovement.objects.get(
+            movement_type=InventoryMovementType.SALE_RETURN,
+            source_id=return_line.id,
         )
         reversal = reverse_sale_return(
             actor=self.owner,
@@ -338,9 +344,26 @@ class SaleReturnServiceTests(TestCase):
         )
         movement = InventoryMovement.objects.get(
             movement_type=InventoryMovementType.SALE_RETURN_REVERSAL,
-            source_id=sale_return.lines.get().id,
+            source_id=return_line.id,
         )
-        self.assertEqual(movement.unit_cost, balance_before.average_unit_cost)
+        balance_after = InventoryBalance.objects.get(
+            branch=self.branch,
+            variant=self.first_variant,
+        )
+        self.assertEqual(movement.unit_cost, return_movement.unit_cost)
+        self.assertEqual(movement.value_delta, -return_movement.value_delta)
+        self.assertEqual(
+            balance_after.inventory_value,
+            balance_before_return.inventory_value,
+        )
+        self.assertEqual(
+            balance_after.quantity_on_hand,
+            balance_before_return.quantity_on_hand,
+        )
+        self.assertEqual(
+            balance_after.average_unit_cost,
+            balance_before_return.average_unit_cost,
+        )
         self.assertIsInstance(reversal, SaleReturnReversal)
         sale_return.refresh_from_db()
         self.assertEqual(sale_return.status, SaleReturnStatus.REVERSED)
@@ -374,6 +397,59 @@ class SaleReturnServiceTests(TestCase):
             )
         other_return.refresh_from_db()
         self.assertEqual(other_return.status, SaleReturnStatus.POSTED)
+
+    def test_return_reversal_rejects_insufficient_inventory_value(self) -> None:
+        sale_return = post_sale_return(
+            actor=self.owner,
+            sale_return=self._draft_return(),
+            refund_method="cash",
+            telebirr_reference="",
+            idempotency_key=uuid.uuid4(),
+        )
+        post_inventory_adjustment(
+            actor=self.owner,
+            branch=self.branch,
+            variant=self.first_variant,
+            operation_type="adjustment_in",
+            quantity=Decimal("100"),
+            unit_cost=Decimal("0"),
+            reason="Free stock",
+            idempotency_key=uuid.uuid4(),
+        )
+        post_inventory_adjustment(
+            actor=self.owner,
+            branch=self.branch,
+            variant=self.first_variant,
+            operation_type="adjustment_out",
+            quantity=Decimal("100"),
+            reason="Stock removed",
+            idempotency_key=uuid.uuid4(),
+        )
+        balance = InventoryBalance.objects.get(
+            branch=self.branch,
+            variant=self.first_variant,
+        )
+        line = sale_return.lines.get()
+        self.assertGreaterEqual(balance.quantity_on_hand, line.returned_quantity)
+        self.assertLess(balance.inventory_value, line.inventory_value_delta)
+
+        with self.assertRaisesMessage(ValidationError, "inventory value negative"):
+            reverse_sale_return(
+                actor=self.owner,
+                sale_return=sale_return,
+                reason="Cannot preserve value",
+                idempotency_key=uuid.uuid4(),
+            )
+
+        sale_return.refresh_from_db()
+        self.assertEqual(sale_return.status, SaleReturnStatus.POSTED)
+        self.assertFalse(SaleReturnReversal.objects.filter(sale_return=sale_return).exists())
+        self.assertFalse(
+            InventoryMovement.objects.filter(
+                movement_type=InventoryMovementType.SALE_RETURN_REVERSAL,
+                source_id=line.id,
+            ).exists()
+        )
 
     def test_cashier_is_draft_only_and_stock_employee_has_no_access(self) -> None:
         sale_return = self._draft_return()
@@ -454,6 +530,38 @@ class SaleReturnServiceTests(TestCase):
         self.assertNotContains(detail, "Inventory value restoration")
         self.assertEqual(post_response.status_code, 403)
         self.assertEqual(reversal_response.status_code, 403)
+
+    def test_return_form_rejects_zero_negative_and_blank_quantities(self) -> None:
+        sale = self._posted_sale()
+        line = sale.lines.get(variant=self.first_variant)
+        self.client.force_login(self.cashier.user)
+
+        for quantity, message in (
+            ("0", "Return quantity must be greater than zero."),
+            ("-1", "Return quantity must be greater than zero."),
+            ("", "This field is required."),
+        ):
+            with self.subTest(quantity=quantity):
+                response = self.client.post(
+                    reverse(
+                        "sales:return-create",
+                        args=[sale.id, SaleReturnPurpose.CUSTOMER_RETURN],
+                    ),
+                    {
+                        "return_date": timezone.localdate().isoformat(),
+                        "reason": "Customer returned saleable item",
+                        "lines-TOTAL_FORMS": "1",
+                        "lines-INITIAL_FORMS": "0",
+                        "lines-MIN_NUM_FORMS": "1",
+                        "lines-MAX_NUM_FORMS": "1000",
+                        "lines-0-sale_line": str(line.id),
+                        "lines-0-returned_quantity": quantity,
+                    },
+                )
+
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, message)
+        self.assertFalse(SaleReturn.objects.exists())
 
     def test_owner_ui_posts_return_and_receipt_disclaims_provider_and_tax_status(self) -> None:
         sale_return = self._draft_return()

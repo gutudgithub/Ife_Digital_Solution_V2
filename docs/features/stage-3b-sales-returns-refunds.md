@@ -67,6 +67,12 @@ original outbound event's assigned cost. The returned selling amount and restore
 value remain separate operational facts and must not be labeled profit, loss, margin, or
 taxable income.
 
+The product owner approved the matching reversal policy on 12 September 2026: reversing a
+posted return removes stock at the return movement's assigned cost, not the then-current
+moving average. The outbound movement therefore negates the posted return's quantity and
+inventory-value deltas exactly, and the remaining balance average is recalculated from its
+remaining quantity and value.
+
 ### 4. Refund exactly the original selling amount for returned quantity
 
 The refund amount is the sum of each returned quantity multiplied by the immutable original
@@ -250,9 +256,10 @@ immutable.
 2. Require a nonblank reason and caller-supplied idempotency key.
 3. Lock the return, variants, and balances in deterministic order.
 4. Reject a second reversal.
-5. Require current branch stock to cover every reversal quantity.
-6. Remove restored quantity using the current moving-average cost and existing
-   subtract-and-clamp outbound valuation.
+5. Require current branch stock and inventory value to cover every reversal quantity and
+   the exact value originally restored.
+6. Remove restored quantity at the return movement's assigned inventory unit cost, reversing
+   exactly the quantity and inventory value added by the posted return.
 7. Create linked outbound movements and immutable refund-evidence reversal records.
 8. Mark the return `reversed` without deleting or editing original records.
 9. Reversed return quantities become returnable again.
@@ -314,8 +321,10 @@ derived from cost visibility.
 19. Posted returns, refund evidence, receipts, reversals, and movements reject normal
     edit/delete flows.
 20. A posted return can be reversed only once.
-21. Return reversal cannot make stock negative and rolls back atomically on failure.
-22. Return reversal uses the current moving-average outbound path.
+21. Return reversal cannot make stock or inventory value negative and rolls back atomically
+    on failure.
+22. Return reversal uses the return movement's assigned cost and exactly conserves the
+    posted return's quantity and inventory-value effect.
 23. Reversed quantities become returnable again.
 24. Cashiers cannot post refunds, reverse returns, create full sale reversals, access other
     branches, or view inventory costs or values.

@@ -166,14 +166,16 @@ normal instance edits/deletes.
   posted return, with business-scoped normalized Telebirr reference uniqueness.
 - `InternalReturnReceipt`: immutable internal return/refund record linked to the original
   internal receipt and explicitly not an official tax invoice or tax credit note.
-- `SaleReturnReversal`: one immutable compensating record that removes restored stock using
-  the current moving-average outbound path and preserves the original refund evidence.
+- `SaleReturnReversal`: one immutable compensating record that removes restored stock at the
+  return movement's assigned cost, conserves the return's inventory-value effect, and
+  preserves the original refund evidence.
 - `SaleReturnPostingKey`: business-wide idempotency claim shared by return posting and
   return reversal operations.
 
 Posted returns restore quantity at the original sale-line assigned inventory cost. Return
-reversals do not edit the sale or return; they create linked outbound movements and make the
-quantities returnable again. Service transactions lock source sales, lines, variants, and
+reversals remove that same quantity and value, recalculate the remaining moving average, do
+not edit the sale or return, and make the quantities returnable again. Service transactions
+lock source sales, lines, variants, and
 balances deterministically.
 
 ## Remaining planned ledger entities

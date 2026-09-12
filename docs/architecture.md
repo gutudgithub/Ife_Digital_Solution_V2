@@ -75,8 +75,9 @@ records one full cash or Telebirr payment, emits one outbound movement per line,
 one internal receipt in a single transaction. Stage 3B preserves that evidence and records
 returns through exact source-line compensating events, exact refund evidence, and internal
 return receipts. Return posting restores stock at the original sale-line assigned cost;
-reversing a return uses the current moving-average outbound path. Neither receipt is an
-official tax invoice or tax credit note.
+reversing a return removes the same quantity and inventory value at that assigned cost, then
+recalculates the remaining moving average. Neither receipt is an official tax invoice or tax
+credit note.
 
 ## Localization
 
