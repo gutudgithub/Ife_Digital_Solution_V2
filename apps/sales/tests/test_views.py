@@ -1,5 +1,6 @@
 import uuid
 from decimal import Decimal
+from unittest.mock import PropertyMock, patch
 
 from django.test import Client, TestCase
 from django.urls import reverse
@@ -205,23 +206,29 @@ class SalesViewTests(TestCase):
         other_sale = self._draft(actor=self.owner_membership, branch=self.other_branch)
         self.client.force_login(self.cashier)
 
-        self.assertEqual(
-            self.client.get(reverse("sales:sale-detail", args=[other_sale.id])).status_code,
-            404,
-        )
-        response = self.client.post(
-            reverse("sales:sale-create"),
-            {
-                "branch": str(self.other_branch.id),
-                "sale_date": str(timezone.localdate()),
-                "lines-TOTAL_FORMS": "1",
-                "lines-INITIAL_FORMS": "0",
-                "lines-MIN_NUM_FORMS": "1",
-                "lines-MAX_NUM_FORMS": "1000",
-                "lines-0-variant": str(self.variant.id),
-                "lines-0-quantity": "1",
-            },
-        )
+        with patch.object(
+            BusinessMembership,
+            "can_view_sale_cost",
+            new_callable=PropertyMock,
+            return_value=True,
+        ):
+            self.assertEqual(
+                self.client.get(reverse("sales:sale-detail", args=[other_sale.id])).status_code,
+                404,
+            )
+            response = self.client.post(
+                reverse("sales:sale-create"),
+                {
+                    "branch": str(self.other_branch.id),
+                    "sale_date": str(timezone.localdate()),
+                    "lines-TOTAL_FORMS": "1",
+                    "lines-INITIAL_FORMS": "0",
+                    "lines-MIN_NUM_FORMS": "1",
+                    "lines-MAX_NUM_FORMS": "1000",
+                    "lines-0-variant": str(self.variant.id),
+                    "lines-0-quantity": "1",
+                },
+            )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Select a valid choice")
 
@@ -252,6 +259,29 @@ class SalesViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Select a valid choice")
+        self.assertFalse(Sale.objects.exists())
+
+    def test_sale_form_reports_nonpositive_quantity_without_constraint_name(self) -> None:
+        self.client.force_login(self.owner)
+
+        for quantity in ("0", "-1"):
+            response = self.client.post(
+                reverse("sales:sale-create"),
+                {
+                    "branch": str(self.branch.id),
+                    "sale_date": str(timezone.localdate()),
+                    "lines-TOTAL_FORMS": "1",
+                    "lines-INITIAL_FORMS": "0",
+                    "lines-MIN_NUM_FORMS": "1",
+                    "lines-MAX_NUM_FORMS": "1000",
+                    "lines-0-variant": str(self.variant.id),
+                    "lines-0-quantity": quantity,
+                },
+            )
+
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, "Sale quantity must be greater than zero.")
+            self.assertNotContains(response, "sales_line_quantity_positive")
         self.assertFalse(Sale.objects.exists())
 
     def test_telebirr_error_is_accessibly_associated_with_field(self) -> None:

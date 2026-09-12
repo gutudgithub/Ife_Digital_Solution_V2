@@ -15,6 +15,13 @@ from apps.catalog.models import ProductVariant, StockUnit, validate_stock_quanti
 MONEY_QUANTUM = Decimal("0.01")
 
 
+def calculate_sale_line_total(quantity: Decimal, selling_unit_price: Decimal) -> Decimal:
+    return (quantity * selling_unit_price).quantize(
+        MONEY_QUANTUM,
+        rounding=ROUND_HALF_UP,
+    )
+
+
 class SaleStatus(models.TextChoices):
     DRAFT = "draft", _("Draft")
     POSTED = "posted", _("Posted")
@@ -250,6 +257,14 @@ class Sale(models.Model):
             and self.posting_key.business_id != self.business_id
         ):
             errors["posting_key"] = ValidationError(_("Posting key must belong to this business."))
+        if not self._state.adding:
+            line_total = self.lines.aggregate(total=models.Sum("line_total"))["total"] or Decimal(
+                "0.00"
+            )
+            if self.total_amount != line_total:
+                errors["total_amount"] = ValidationError(
+                    _("Sale total must equal the sum of its line totals.")
+                )
         if errors:
             raise ValidationError(errors)
 
@@ -324,10 +339,7 @@ class SaleLine(models.Model):
         sale_status = Sale.objects.filter(pk=self.sale_id).values_list("status", flat=True).first()
         if sale_status != SaleStatus.DRAFT:
             raise ValidationError(_("Posted or cancelled sale lines cannot be modified."))
-        self.line_total = (self.quantity * self.selling_unit_price).quantize(
-            MONEY_QUANTUM,
-            rounding=ROUND_HALF_UP,
-        )
+        self.line_total = calculate_sale_line_total(self.quantity, self.selling_unit_price)
         self.full_clean()
         super().save(
             force_insert=force_insert,
@@ -353,6 +365,15 @@ class SaleLine(models.Model):
             errors["sale"] = ValidationError(_("Sale must belong to this business."))
         if self.variant_id and self.variant.business_id != self.business_id:
             errors["variant"] = ValidationError(_("Variant must belong to this business."))
+        if (
+            self.quantity is not None
+            and self.selling_unit_price is not None
+            and self.line_total is not None
+            and self.line_total != calculate_sale_line_total(self.quantity, self.selling_unit_price)
+        ):
+            errors["line_total"] = ValidationError(
+                _("Line total must equal quantity multiplied by selling unit price.")
+            )
         if self.variant_id and self.unit_snapshot:
             try:
                 validate_stock_quantity(self.quantity, self.unit_snapshot)

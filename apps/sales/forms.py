@@ -1,5 +1,6 @@
 import uuid
 from collections.abc import Mapping
+from decimal import Decimal
 from typing import cast
 
 from django import forms
@@ -10,12 +11,18 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.businesses.models import Branch, Business, BusinessMembership
 from apps.catalog.models import ProductVariant
-from apps.sales.models import Sale, SaleLine, SalePaymentMethod, SaleStatus
+from apps.sales.models import (
+    Sale,
+    SaleLine,
+    SalePaymentMethod,
+    SaleStatus,
+    calculate_sale_line_total,
+)
 
 
 def sale_branch_queryset(membership: BusinessMembership) -> QuerySet[Branch]:
     branches = Branch.objects.filter(business=membership.business, is_active=True)
-    if membership.can_view_sale_cost:
+    if membership.can_sell_across_branches:
         return branches
     if membership.assigned_branch_id:
         return branches.filter(pk=membership.assigned_branch_id)
@@ -41,9 +48,31 @@ class SaleForm(forms.ModelForm):
 
 
 class SaleLineForm(forms.ModelForm):
+    quantity = forms.DecimalField(
+        min_value=Decimal("0.001"),
+        max_digits=18,
+        decimal_places=3,
+        label=_("Quantity"),
+        error_messages={"min_value": _("Sale quantity must be greater than zero.")},
+    )
+
     class Meta:
         model = SaleLine
         fields = ("variant", "quantity")
+
+    def _post_clean(self) -> None:
+        variant = self.cleaned_data.get("variant")
+        quantity = self.cleaned_data.get("quantity")
+        if isinstance(variant, ProductVariant) and isinstance(quantity, Decimal):
+            self.instance.product_name_snapshot = variant.product.name
+            self.instance.sku_snapshot = variant.sku
+            self.instance.unit_snapshot = variant.stock_unit
+            self.instance.selling_unit_price = variant.selling_price
+            self.instance.line_total = calculate_sale_line_total(
+                quantity,
+                variant.selling_price,
+            )
+        super()._post_clean()  # type: ignore[misc]
 
     def scope_to_business(self, business: Business) -> None:
         variant_field = cast(forms.ModelChoiceField, self.fields["variant"])

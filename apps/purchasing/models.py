@@ -311,7 +311,7 @@ class PurchaseLine(models.Model):
             errors["purchase"] = ValidationError(_("Purchase must belong to this business."))
         if self.variant_id and self.variant.business_id != self.business_id:
             errors["variant"] = ValidationError(_("Variant must belong to this business."))
-        if self.variant_id:
+        if self.variant_id and self.ordered_quantity is not None:
             try:
                 validate_stock_quantity(self.ordered_quantity, self.variant.stock_unit)
             except ValidationError as error:

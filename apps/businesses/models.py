@@ -153,6 +153,10 @@ class BusinessMembership(models.Model):
         }
 
     @property
+    def can_sell_across_branches(self) -> bool:
+        return self.role in {MembershipRole.OWNER, MembershipRole.MANAGER}
+
+    @property
     def can_view_sale_cost(self) -> bool:
         return self.role in {MembershipRole.OWNER, MembershipRole.MANAGER}
 

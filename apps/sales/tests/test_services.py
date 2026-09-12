@@ -2,7 +2,7 @@ import uuid
 from decimal import Decimal
 from queue import Queue
 from threading import Barrier, Thread
-from unittest.mock import patch
+from unittest.mock import PropertyMock, patch
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import connections
@@ -169,7 +169,15 @@ class SalesServiceTests(TestCase):
             self._draft()
 
     def test_cashier_is_branch_scoped_and_stock_employee_has_no_sales_access(self) -> None:
-        with self.assertRaises(PermissionDenied):
+        with (
+            patch.object(
+                BusinessMembership,
+                "can_view_sale_cost",
+                new_callable=PropertyMock,
+                return_value=True,
+            ),
+            self.assertRaises(PermissionDenied),
+        ):
             self._draft(branch=self.other_branch)
         with self.assertRaises(PermissionDenied):
             self._draft(actor=self.stock_membership)

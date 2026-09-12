@@ -64,6 +64,14 @@ class PurchaseForm(forms.ModelForm):
 
 
 class PurchaseLineForm(forms.ModelForm):
+    ordered_quantity = forms.DecimalField(
+        min_value=Decimal("0.001"),
+        max_digits=18,
+        decimal_places=3,
+        label=_("Ordered quantity"),
+        error_messages={"min_value": _("Ordered quantity must be greater than zero.")},
+    )
+
     class Meta:
         model = PurchaseLine
         fields = ("variant", "ordered_quantity", "unit_cost")

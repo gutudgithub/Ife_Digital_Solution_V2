@@ -379,6 +379,34 @@ class StageTwoViewTests(TestCase):
             Decimal("2.000"),
         )
 
+    def test_purchase_form_reports_nonpositive_quantity_without_constraint_name(self) -> None:
+        self.client.force_login(self.owner)
+
+        for quantity in ("0", "-1"):
+            response = self.client.post(
+                reverse("purchasing:purchase-create"),
+                {
+                    "branch": str(self.branch.id),
+                    "supplier": str(self.supplier.id),
+                    "purchase_date": str(timezone.localdate()),
+                    "expected_date": "",
+                    "supplier_reference": "",
+                    "settlement_terms": "",
+                    "lines-TOTAL_FORMS": "1",
+                    "lines-INITIAL_FORMS": "0",
+                    "lines-MIN_NUM_FORMS": "1",
+                    "lines-MAX_NUM_FORMS": "1000",
+                    "lines-0-variant": str(self.variant.id),
+                    "lines-0-ordered_quantity": quantity,
+                    "lines-0-unit_cost": "700",
+                },
+            )
+
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, "Ordered quantity must be greater than zero.")
+            self.assertNotContains(response, "purchasing_line_quantity_positive")
+        self.assertEqual(Purchase.objects.count(), 1)
+
     def _receive_return_source(
         self,
         quantity: Decimal = Decimal("2"),

@@ -116,3 +116,22 @@ class SalesModelTests(TestCase):
 
         with self.assertRaisesMessage(ValidationError, "Variant must belong"):
             line.save()
+
+    def test_sale_line_total_must_match_quantized_quantity_and_price(self) -> None:
+        line = self.sale.lines.get()
+        line.line_total = Decimal("1999.99")
+
+        with self.assertRaisesMessage(
+            ValidationError,
+            "Line total must equal quantity multiplied by selling unit price.",
+        ):
+            line.full_clean()
+
+    def test_sale_total_must_match_line_totals(self) -> None:
+        self.sale.total_amount = Decimal("1999.99")
+
+        with self.assertRaisesMessage(
+            ValidationError,
+            "Sale total must equal the sum of its line totals.",
+        ):
+            self.sale.full_clean()

@@ -50,7 +50,7 @@ def _visible_sales(
     membership: BusinessMembership,
 ) -> QuerySet[Sale]:
     sales = Sale.objects.filter(business=business)
-    if membership.can_view_sale_cost:
+    if membership.can_sell_across_branches:
         return sales
     if membership.assigned_branch_id:
         return sales.filter(branch_id=membership.assigned_branch_id)

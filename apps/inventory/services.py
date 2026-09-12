@@ -142,7 +142,7 @@ def ensure_sale_branch_access(actor: BusinessMembership, branch: Branch) -> None
         raise PermissionDenied(_("Sales require an active branch."))
     if not actor.can_sell:
         raise PermissionDenied(_("Sales permission is required."))
-    if actor.can_view_sale_cost:
+    if actor.can_sell_across_branches:
         return
     assigned_branch = actor.assigned_branch
     if assigned_branch is not None:
