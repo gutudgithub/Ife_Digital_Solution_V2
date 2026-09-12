@@ -2,7 +2,8 @@
 
 ## Status
 
-Approved by the product owner on 12 September 2026.
+Approved by the product owner, implemented, and independently approved by Claude with no
+outstanding findings on 12 September 2026.
 
 ## Name
 
@@ -665,9 +666,41 @@ evidence, tenant/branch isolation, role boundaries, idempotency, PostgreSQL conc
 rollback, immutable evidence, cashier non-disclosure, operational labels, and excluded
 accounting/tax/provider claims.
 
-## Product-owner decision requested
+## Product-owner decision
 
-Approve, revise, or defer this Stage 4B scope. Approval authorizes only the bounded workflow
-above. It does not authorize Stage 4C stock counts, Stage 5 performance analytics, statutory
-accounting, tax workflows, banking, payment-provider integration, AI, customer ordering,
-delivery, or professional services.
+The product owner approved this recommended Stage 4B scope as written. That approval
+authorizes only this brief and does not authorize Stage 4C stock counts, Stage 5 performance
+analytics, statutory accounting, tax workflows, banking, payment-provider integration, AI,
+customer ordering, delivery, or professional services.
+
+## Implementation record
+
+The implementation adds business-scoped expense categories, draft and posted operating
+expenses, purchase-linked supplier payments, exact-return-linked supplier credits and
+refunds, immutable reversals, and business-scoped cross-operation posting keys.
+
+Cash methods create source-linked signed movements in the locked original cash session.
+Telebirr and non-cash credit evidence do not affect physical cash. Purchase and return locks
+serialize settlement posting against cancellation and reversal, while supplier-reference,
+inventory-value reduction, and accepted settlement remain separate operational evidence.
+
+The first real branch cash session requires owner/manager physical-count evidence. The
+server-rendered interfaces enforce role and tenant boundaries, preserve generic cashier
+source labels, provide print-friendly internal evidence, and do not claim certified
+accounting, provider confirmation, tax treatment, profit, or margin.
+
+## Independent review record
+
+Claude independently approved Stage 4B after probing six-decimal sum-then-quantize behavior,
+cumulative settlement and reversal capacity, purchase and return lock ordering, exact
+original-session cash reversal, Telebirr boundaries, tenant and role isolation, and
+PostgreSQL concurrency.
+
+Review hardening added a translated field-level positive-amount error to the operating
+expense form and regression coverage that rejects zero and negative submissions without
+exposing a database constraint message. No Stage 1 through Stage 4B findings remain
+outstanding.
+
+Before Stage 4C implementation, its brief must explicitly name count-versus-system stock
+variance and decide whether an approved count adjustment uses the current moving-average
+cost or a separately evidenced counted-cost basis.

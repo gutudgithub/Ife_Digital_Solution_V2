@@ -200,7 +200,7 @@ class ExpenseViewTests(TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, "Expense amount must be greater than zero.")
                 self.assertContains(response, 'aria-invalid="true"')
-                self.assertNotContains(response, "expenses_operating_expense_amount_positive")
+                self.assertNotContains(response, "Constraint")
         self.assertFalse(OperatingExpense.objects.exists())
 
     def test_expense_filters_paginate_and_preserve_query_parameters(self) -> None:
