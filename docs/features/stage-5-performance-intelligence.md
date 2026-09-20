@@ -2,8 +2,14 @@
 
 ## Status
 
-Proposed for product-owner and accountant approval. No implementation is authorized until
-the formula and naming decisions in this brief are approved.
+Approved by the product owner and implemented on 20 September 2026. Claude independently
+reviewed the implementation and approved it after the listed export, translation, and
+documentation fixes.
+
+Accountant review of the operational formulas, naming, and exclusions remains outstanding.
+Until that review is recorded, pilot users must treat the reported result and margins as
+unapproved operational measures and must not use them as statutory or certified financial
+outputs.
 
 ## Objective
 

@@ -34,7 +34,7 @@
         {% translate "Operational net result is an internal operational measure, not statutory net profit, a tax return, or certified financial statements. It excludes payroll, depreciation, financing, tax, accrual, and owner-drawing classifications." %}
       </p>
       <p>
-        {% blocktranslate with generated=report.generated_at|date:"DATETIME_FORMAT" version=report.formula_version %}
+        {% blocktranslate trimmed with generated=report.generated_at|date:"DATETIME_FORMAT" version=report.formula_version %}
           Generated {{ generated }} using formula version {{ version }}.
         {% endblocktranslate %}
       </p>

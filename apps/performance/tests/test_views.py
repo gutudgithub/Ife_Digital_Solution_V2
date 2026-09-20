@@ -1,6 +1,8 @@
+import csv
 import uuid
 from datetime import date
 from decimal import Decimal
+from io import StringIO
 
 from django.test import Client, TestCase
 from django.urls import reverse
@@ -175,18 +177,78 @@ class PerformanceViewTests(TestCase):
 
     def test_csv_exports_use_permission_parity_and_exact_decimal_headers(self) -> None:
         self.client.force_login(self.owner_user)
+        dashboard = self.client.get(self._url())
+        report = dashboard.context["report"]
+        self.assertEqual(
+            report.metrics.net_assigned_inventory_cost,
+            Decimal("500.123456"),
+        )
+        self.assertEqual(
+            report.metrics.gross_operating_result,
+            Decimal("999.876544"),
+        )
+        self.assertEqual(
+            report.metrics.operational_net_result,
+            Decimal("999.876544"),
+        )
+
         response = self.client.get(self._url("performance:time-series-csv"))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
         content = response.content.decode("utf-8-sig")
         self.assertIn("operational_net_result_etb", content)
-        self.assertIn("500.123456", content)
+        time_rows = list(csv.DictReader(StringIO(content)))
+        self.assertEqual(len(time_rows), 30)
+        activity_row = next(row for row in time_rows if row["net_sales_etb"] == "1500.00")
+        self.assertEqual(
+            {
+                field: activity_row[field]
+                for field in (
+                    "gross_sales_etb",
+                    "sale_refunds_and_reversals_etb",
+                    "net_sales_etb",
+                    "net_assigned_inventory_cost_etb",
+                    "gross_operating_result_etb",
+                    "net_operating_expenses_etb",
+                    "operational_net_result_etb",
+                )
+            },
+            {
+                "gross_sales_etb": "1500.00",
+                "sale_refunds_and_reversals_etb": "0.00",
+                "net_sales_etb": "1500.00",
+                "net_assigned_inventory_cost_etb": "500.12",
+                "gross_operating_result_etb": "999.88",
+                "net_operating_expenses_etb": "0.00",
+                "operational_net_result_etb": "999.88",
+            },
+        )
 
         response = self.client.get(self._url("performance:products-csv"))
         self.assertEqual(response.status_code, 200)
         product_content = response.content.decode("utf-8-sig")
         self.assertIn("net_assigned_inventory_cost_etb", product_content)
-        self.assertIn("500.123456", product_content)
+        product_rows = list(csv.DictReader(StringIO(product_content)))
+        self.assertEqual(len(product_rows), 1)
+        self.assertEqual(
+            {
+                field: product_rows[0][field]
+                for field in (
+                    "gross_sales_etb",
+                    "sale_refunds_and_reversals_etb",
+                    "net_sales_etb",
+                    "net_assigned_inventory_cost_etb",
+                    "gross_operating_result_etb",
+                )
+            },
+            {
+                "gross_sales_etb": "1500.00",
+                "sale_refunds_and_reversals_etb": "0.00",
+                "net_sales_etb": "1500.00",
+                "net_assigned_inventory_cost_etb": "500.12",
+                "gross_operating_result_etb": "999.88",
+            },
+        )
 
         client = Client()
         client.force_login(self.cashier_user)

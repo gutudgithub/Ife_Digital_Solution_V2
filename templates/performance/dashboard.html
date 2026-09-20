@@ -111,7 +111,7 @@
     <section class="card" aria-labelledby="inventory-context-title">
       <h2 id="inventory-context-title">{% translate "Current inventory context" %}</h2>
       <p class="helptext">
-        {% blocktranslate with generated=report.inventory.generated_at|date:"DATETIME_FORMAT" %}
+        {% blocktranslate trimmed with generated=report.inventory.generated_at|date:"DATETIME_FORMAT" %}
           Current point-in-time balances generated {{ generated }}; they are not historical closing balances.
         {% endblocktranslate %}
       </p>

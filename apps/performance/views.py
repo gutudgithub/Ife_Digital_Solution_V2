@@ -1,5 +1,6 @@
 import csv
 from datetime import date
+from decimal import ROUND_HALF_UP, Decimal
 from typing import cast
 
 from django.contrib.auth.decorators import login_required
@@ -20,6 +21,8 @@ from apps.performance.services import (
     ReportSelection,
     build_performance_report,
 )
+
+MONEY_QUANTUM = Decimal("0.01")
 
 
 def _tenant(request: HttpRequest) -> tuple[Business, BusinessMembership]:
@@ -200,6 +203,10 @@ def _csv_response(filename: str) -> HttpResponse:
     return response
 
 
+def _csv_money(value: Decimal) -> str:
+    return f"{value.quantize(MONEY_QUANTUM, rounding=ROUND_HALF_UP):.2f}"
+
+
 @login_required
 def time_series_csv(request: HttpRequest) -> HttpResponse:
     business, _membership = _tenant(request)
@@ -241,13 +248,13 @@ def time_series_csv(request: HttpRequest) -> HttpResponse:
                 report.formula_version,
                 bucket.start_date.isoformat(),
                 bucket.end_date.isoformat(),
-                bucket.metrics.gross_sales,
-                bucket.metrics.sale_refunds_and_reversals,
-                bucket.metrics.net_sales,
-                bucket.metrics.net_assigned_inventory_cost,
-                bucket.metrics.gross_operating_result,
-                bucket.metrics.net_operating_expenses,
-                bucket.metrics.operational_net_result,
+                _csv_money(bucket.metrics.gross_sales),
+                _csv_money(bucket.metrics.sale_refunds_and_reversals),
+                _csv_money(bucket.metrics.net_sales),
+                _csv_money(bucket.metrics.net_assigned_inventory_cost),
+                _csv_money(bucket.metrics.gross_operating_result),
+                _csv_money(bucket.metrics.net_operating_expenses),
+                _csv_money(bucket.metrics.operational_net_result),
                 bucket.metrics.gross_margin_percentage
                 if bucket.metrics.gross_margin_percentage is not None
                 else "",
@@ -311,11 +318,11 @@ def product_performance_csv(request: HttpRequest) -> HttpResponse:
                 product.gross_quantity_sold,
                 product.returned_quantity,
                 product.net_quantity_sold,
-                product.gross_sales,
-                product.sale_refunds_and_reversals,
-                product.net_sales,
-                product.net_assigned_inventory_cost,
-                product.gross_operating_result,
+                _csv_money(product.gross_sales),
+                _csv_money(product.sale_refunds_and_reversals),
+                _csv_money(product.net_sales),
+                _csv_money(product.net_assigned_inventory_cost),
+                _csv_money(product.gross_operating_result),
                 product.gross_margin_percentage
                 if product.gross_margin_percentage is not None
                 else "",

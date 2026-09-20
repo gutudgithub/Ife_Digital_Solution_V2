@@ -2,7 +2,8 @@
 
 ## Status
 
-Recommended for product-owner approval. Not approved and not implemented.
+Approved by the product owner, implemented, and independently approved by Claude with no
+outstanding findings on 12 September 2026.
 
 ## Objective
 
@@ -521,10 +522,9 @@ immutable evidence, role isolation, and PostgreSQL concurrency behavior. All 252
 tests and all required quality checks passed, and no Stage 1 through Stage 4C findings remain
 outstanding.
 
-Stage 5 performance intelligence remains separately gated. An accountant must approve the
-definitions and treatment of revenue, inventory cost, returns, expenses, cash variance,
-supplier-reference differences, and stock-count adjustments before profit, margin, net
-profit, growth, or time-series graphs are implemented.
+Stage 5 performance intelligence was subsequently approved by the product owner and
+implemented as explicitly bounded operational measures. Accountant review of its formulas
+and exclusions remains outstanding before pilot decision use.
 
 Native-speaker review remains required for translated user-facing strings before pilot
 release.

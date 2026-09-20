@@ -56,7 +56,7 @@
         <a href="{% querystring page=product_page.previous_page_number %}">{% translate "Previous" %}</a>
       {% endif %}
       <span>
-        {% blocktranslate with current=product_page.number total=product_page.paginator.num_pages %}
+        {% blocktranslate trimmed with current=product_page.number total=product_page.paginator.num_pages %}
           Page {{ current }} of {{ total }}
         {% endblocktranslate %}
       </span>
