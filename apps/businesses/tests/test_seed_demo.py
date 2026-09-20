@@ -19,9 +19,12 @@ from apps.inventory.models import (
     InventoryMovement,
     StockCountApproval,
     StockCountLine,
+    StockCountReversal,
     StockCountSession,
     StockCountStatus,
 )
+from apps.performance.forms import TimeBucket
+from apps.performance.services import ReportSelection, build_performance_report
 from apps.purchasing.models import GoodsReceipt, Purchase, PurchaseReturn, Supplier
 from apps.sales.models import (
     InternalReceipt,
@@ -29,6 +32,7 @@ from apps.sales.models import (
     Sale,
     SalePayment,
     SaleReturn,
+    SaleReturnReversal,
     SaleReturnStatus,
     SaleStatus,
 )
@@ -59,26 +63,37 @@ class SeedDemoCommandTests(TestCase):
         self.assertEqual(Purchase.objects.filter(business=business).count(), 1)
         self.assertEqual(GoodsReceipt.objects.filter(business=business).count(), 1)
         self.assertEqual(PurchaseReturn.objects.filter(business=business).count(), 1)
-        self.assertEqual(ExpenseCategory.objects.filter(business=business).count(), 1)
-        self.assertEqual(OperatingExpense.objects.filter(business=business).count(), 1)
+        self.assertEqual(ExpenseCategory.objects.filter(business=business).count(), 2)
+        self.assertEqual(OperatingExpense.objects.filter(business=business).count(), 2)
         self.assertEqual(SupplierPayment.objects.filter(business=business).count(), 1)
         self.assertEqual(
             SupplierReturnSettlement.objects.filter(business=business).count(),
             1,
         )
-        self.assertEqual(Sale.objects.filter(business=business).count(), 1)
+        self.assertEqual(Sale.objects.filter(business=business).count(), 4)
         self.assertEqual(
-            Sale.objects.get(business=business).status,
-            SaleStatus.POSTED,
+            Sale.objects.filter(business=business, status=SaleStatus.POSTED).count(),
+            4,
         )
-        self.assertEqual(SalePayment.objects.filter(business=business).count(), 1)
-        self.assertEqual(InternalReceipt.objects.filter(business=business).count(), 1)
-        self.assertEqual(SaleReturn.objects.filter(business=business).count(), 1)
+        self.assertEqual(SalePayment.objects.filter(business=business).count(), 4)
+        self.assertEqual(InternalReceipt.objects.filter(business=business).count(), 4)
+        self.assertEqual(SaleReturn.objects.filter(business=business).count(), 2)
         self.assertEqual(
-            SaleReturn.objects.get(business=business).status,
-            SaleReturnStatus.POSTED,
+            SaleReturn.objects.filter(
+                business=business,
+                status=SaleReturnStatus.POSTED,
+            ).count(),
+            1,
         )
-        self.assertEqual(InternalReturnReceipt.objects.filter(business=business).count(), 1)
+        self.assertEqual(
+            SaleReturn.objects.filter(
+                business=business,
+                status=SaleReturnStatus.REVERSED,
+            ).count(),
+            1,
+        )
+        self.assertEqual(SaleReturnReversal.objects.filter(business=business).count(), 1)
+        self.assertEqual(InternalReturnReceipt.objects.filter(business=business).count(), 2)
         self.assertEqual(CashSession.objects.filter(business=business).count(), 1)
         self.assertEqual(
             CashSession.objects.get(business=business).status,
@@ -87,19 +102,19 @@ class SeedDemoCommandTests(TestCase):
         self.assertEqual(CashMovement.objects.filter(business=business).count(), 5)
         closure = CashSessionClosure.objects.get(business=business)
         self.assertEqual(closure.expected_cash, Decimal("500.00"))
-        self.assertEqual(closure.actual_cash, Decimal("500.00"))
-        self.assertEqual(closure.variance, Decimal("0.00"))
-        self.assertEqual(InventoryMovement.objects.filter(business=business).count(), 7)
+        self.assertEqual(closure.actual_cash, Decimal("490.00"))
+        self.assertEqual(closure.variance, Decimal("-10.00"))
+        self.assertEqual(InventoryMovement.objects.filter(business=business).count(), 14)
         balance = InventoryBalance.objects.get(
             business=business,
             variant__sku="TSHIRT-BLK-M",
         )
-        self.assertEqual(balance.quantity_on_hand, Decimal("6.000"))
+        self.assertEqual(balance.quantity_on_hand, Decimal("1.000"))
         shoe_balance = InventoryBalance.objects.get(
             business=business,
             variant__sku="SHOE-BRN-42",
         )
-        self.assertEqual(shoe_balance.quantity_on_hand, Decimal("7.000"))
+        self.assertEqual(shoe_balance.quantity_on_hand, Decimal("6.000"))
         self.assertEqual(StockCountSession.objects.filter(business=business).count(), 1)
         self.assertEqual(
             StockCountSession.objects.get(business=business).status,
@@ -107,6 +122,25 @@ class SeedDemoCommandTests(TestCase):
         )
         self.assertEqual(StockCountLine.objects.filter(business=business).count(), 4)
         self.assertEqual(StockCountApproval.objects.filter(business=business).count(), 1)
+        self.assertEqual(StockCountReversal.objects.filter(business=business).count(), 1)
+        report_sale_dates = list(
+            Sale.objects.filter(business=business).values_list("sale_date", flat=True)
+        )
+        report = build_performance_report(
+            ReportSelection(
+                business=business,
+                branches=(Branch.objects.get(business=business),),
+                start_date=min(report_sale_dates),
+                end_date=max(report_sale_dates),
+                bucket=TimeBucket.DAILY,
+            )
+        )
+        self.assertGreaterEqual(len(report.buckets), 3)
+        self.assertEqual(report.metrics.net_sales, Decimal("5100.00"))
+        self.assertEqual(report.metrics.net_operating_expenses, Decimal("150.00"))
+        self.assertEqual(report.controls.cash_variance, Decimal("-10.00"))
+        self.assertNotEqual(report.controls.stock_count_adjustment_value, Decimal("0.00"))
+        self.assertNotEqual(report.controls.stock_count_reversal_value, Decimal("0.00"))
         self.assertEqual(
             (
                 BusinessMembership.objects.get(business=business, user=owner).role,

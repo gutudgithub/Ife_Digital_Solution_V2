@@ -19,21 +19,20 @@ The current release establishes:
 - business-scoped SKU uniqueness;
 - initial dashboard, product list, and product creation;
 - translatable interfaces for future English, Amharic, and Afaan Oromoo catalogs.
+- immutable purchasing, inventory, sales, return, cash, expense, supplier-settlement, and
+  stock-count evidence;
+- owner/manager performance intelligence with assigned-cost results, margins, growth,
+  accessible time-series graphs, exports, and print output.
 
-The approved Stage 1 continuation adds basic online attendance with branch-scoped check-in,
-check-out, status, manager corrections, and audit history.
+Basic online attendance includes branch-scoped check-in, check-out, status, manager
+corrections, and audit history.
 
 ## Pilot operational release
 
-The next vertical slices should deliver, in this order:
-
-1. inventory movement ledger and controlled stock adjustments;
-2. atomic sales, payment recording, and internal receipts;
-3. cash-session open and close with expected/actual variance;
-4. returns, refunds, voids, and reversal controls;
-5. stock and cash reconciliation;
-6. employee activity and operational reports;
-7. backup, restore, monitoring, support, and pilot-readiness evidence.
+The completed operational vertical slices cover inventory, sales, returns, cash close,
+expenses, supplier settlement, stock reconciliation, attendance, and performance reporting.
+Backup, restore, monitoring, support, accountant review, translation review, and
+pilot-readiness evidence remain release gates.
 
 ## Deferred scope
 

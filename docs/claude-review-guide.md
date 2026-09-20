@@ -27,6 +27,13 @@ Provide:
 9. tests and regression risk;
 10. maintainability and unnecessary complexity.
 
+For Stage 5, independently reconcile summary KPIs to source events, time buckets, SKU rows,
+expense categories, and current balances. Check six-decimal assigned costs and `ROUND_HALF_UP`
+display behavior, Addis Ababa correction dates, previous-period growth, zero/negative
+denominators, branch and role isolation, CSV parity, graph text alternatives, and the
+separation of operational controls from result. Reject statutory net-profit, tax, audited,
+or certified-accounting claims.
+
 ## Finding format
 
 Each finding should contain:

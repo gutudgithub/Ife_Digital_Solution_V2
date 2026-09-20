@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 from decimal import Decimal
 
 from django.conf import settings
@@ -25,6 +26,7 @@ from apps.expenses.models import (
     ExpenseCategory,
     ExpenseSettlementPostingKey,
     OperatingExpense,
+    OperatingExpenseReversal,
     OperationalPaymentMethod,
     SupplierPayment,
     SupplierReturnSettlement,
@@ -35,10 +37,12 @@ from apps.expenses.services import (
     post_operating_expense,
     post_supplier_payment,
     post_supplier_return_settlement,
+    reverse_operating_expense,
 )
 from apps.inventory.models import (
     StockCountApproval,
     StockCountPostingKey,
+    StockCountReversal,
     StockCountSession,
 )
 from apps.inventory.services import (
@@ -46,6 +50,7 @@ from apps.inventory.services import (
     post_opening_balance,
     record_stock_count_quantity,
     record_stock_count_review_evidence,
+    reverse_stock_count,
     start_stock_count,
     submit_stock_count,
 )
@@ -64,7 +69,13 @@ from apps.purchasing.services import (
 from apps.purchasing.services import (
     ReturnQuantity as PurchaseReturnQuantity,
 )
-from apps.sales.models import Sale, SalePostingKey, SaleReturnPostingKey, SaleReturnPurpose
+from apps.sales.models import (
+    Sale,
+    SalePostingKey,
+    SaleReturnPostingKey,
+    SaleReturnPurpose,
+    SaleReturnReversal,
+)
 from apps.sales.services import (
     ReturnQuantity as SaleReturnQuantity,
 )
@@ -72,6 +83,7 @@ from apps.sales.services import (
     SaleQuantity,
     post_sale,
     post_sale_return,
+    reverse_sale_return,
     save_sale_draft,
     save_sale_return_draft,
 )
@@ -453,8 +465,8 @@ class Command(BaseCommand):
             closure = close_cash_session(
                 actor=cashier_membership,
                 session=cash_session,
-                actual_cash=Decimal("500.00"),
-                explanation="",
+                actual_cash=Decimal("490.00"),
+                explanation="The local demo drawer is ten birr short for variance review.",
                 idempotency_key=uuid.UUID("00000000-0000-4000-8000-000000000206"),
             )
             post_opening_balance(
@@ -512,6 +524,136 @@ class Command(BaseCommand):
             else:
                 stock_count = StockCountSession.objects.get(start_key=stock_count_key)
                 stock_count_approval = StockCountApproval.objects.get(session=stock_count)
+            stock_count_reversal_key = uuid.UUID("00000000-0000-4000-8000-000000000222")
+            stock_count_reversal = StockCountReversal.objects.filter(
+                approval=stock_count_approval
+            ).first()
+            if stock_count_reversal is None:
+                stock_count_reversal = reverse_stock_count(
+                    actor=owner_membership,
+                    approval=stock_count_approval,
+                    reason="Demonstrate exact-cost stock-count correction reversal.",
+                    idempotency_key=stock_count_reversal_key,
+                )
+
+            report_sale_dates = (
+                timezone.localdate() - timedelta(days=4),
+                timezone.localdate() - timedelta(days=2),
+                timezone.localdate(),
+            )
+            report_sales: list[Sale] = []
+            for index, (sale_key_suffix, sale_date) in enumerate(
+                zip((215, 216, 217), report_sale_dates, strict=True),
+                start=1,
+            ):
+                performance_sale_key = uuid.UUID(f"00000000-0000-4000-8000-{sale_key_suffix:012d}")
+                performance_posting_key = SalePostingKey.objects.filter(
+                    business=business,
+                    key=performance_sale_key,
+                ).first()
+                if performance_posting_key is None:
+                    performance_sale = save_sale_draft(
+                        actor=owner_membership,
+                        branch=branch,
+                        sale_date=sale_date,
+                        quantities=[
+                            SaleQuantity(
+                                demo_variants["TSHIRT-BLK-M"].id,
+                                Decimal(str(index)),
+                            )
+                        ],
+                    )
+                    performance_sale = post_sale(
+                        actor=owner_membership,
+                        sale=performance_sale,
+                        payment_method="telebirr",
+                        telebirr_reference=f"DEMO-TX-PERFORMANCE-{index:03d}",
+                        idempotency_key=performance_sale_key,
+                    )
+                else:
+                    performance_sale = Sale.objects.get(
+                        business=business,
+                        posting_key=performance_posting_key,
+                    )
+                report_sales.append(performance_sale)
+
+            performance_return_key = uuid.UUID("00000000-0000-4000-8000-000000000218")
+            performance_return_posting_key = SaleReturnPostingKey.objects.filter(
+                business=business,
+                key=performance_return_key,
+            ).first()
+            if performance_return_posting_key is None:
+                report_sale_line = report_sales[0].lines.get()
+                performance_return = save_sale_return_draft(
+                    actor=owner_membership,
+                    sale=report_sales[0],
+                    purpose=SaleReturnPurpose.CUSTOMER_RETURN,
+                    return_date=timezone.localdate() - timedelta(days=1),
+                    reason="Demonstrate a later-period customer return.",
+                    quantities=[SaleReturnQuantity(report_sale_line.id, Decimal("1"))],
+                )
+                performance_return = post_sale_return(
+                    actor=owner_membership,
+                    sale_return=performance_return,
+                    refund_method="telebirr",
+                    telebirr_reference="DEMO-TX-PERFORMANCE-RETURN",
+                    idempotency_key=performance_return_key,
+                )
+            else:
+                performance_return = report_sales[0].returns.get(
+                    posting_key=performance_return_posting_key
+                )
+            performance_return_reversal_key = uuid.UUID("00000000-0000-4000-8000-000000000219")
+            performance_return_reversal = SaleReturnReversal.objects.filter(
+                sale_return=performance_return
+            ).first()
+            if performance_return_reversal is None:
+                performance_return_reversal = reverse_sale_return(
+                    actor=owner_membership,
+                    sale_return=performance_return,
+                    reason="Demonstrate exact-cost customer-return correction.",
+                    idempotency_key=performance_return_reversal_key,
+                )
+
+            transport_category, _ = ExpenseCategory.objects.update_or_create(
+                business=business,
+                name="Transport",
+                defaults={"is_active": True},
+            )
+            performance_expense_key = uuid.UUID("00000000-0000-4000-8000-000000000220")
+            performance_expense_posting_key = ExpenseSettlementPostingKey.objects.filter(
+                business=business,
+                key=performance_expense_key,
+            ).first()
+            if performance_expense_posting_key is None:
+                performance_expense = create_operating_expense_draft(
+                    actor=owner_membership,
+                    branch=branch,
+                    category=transport_category,
+                    payee="Demo Transport Provider",
+                    description="Performance-report correction example.",
+                    amount=Decimal("75.00"),
+                )
+                performance_expense = post_operating_expense(
+                    actor=owner_membership,
+                    expense=performance_expense,
+                    method=OperationalPaymentMethod.TELEBIRR,
+                    telebirr_reference="DEMO-TX-PERFORMANCE-EXPENSE",
+                    idempotency_key=performance_expense_key,
+                )
+            else:
+                performance_expense = OperatingExpense.objects.get(
+                    business=business,
+                    posting_key=performance_expense_posting_key,
+                )
+            performance_expense_reversal_key = uuid.UUID("00000000-0000-4000-8000-000000000221")
+            if not OperatingExpenseReversal.objects.filter(expense=performance_expense).exists():
+                reverse_operating_expense(
+                    actor=owner_membership,
+                    expense=performance_expense,
+                    reason="Demonstrate an operating-expense correction.",
+                    idempotency_key=performance_expense_reversal_key,
+                )
 
         self.stdout.write(self.style.SUCCESS("Local demo data is ready."))
         self.stdout.write("Owner: owner@demo.ife.local")
@@ -527,6 +669,10 @@ class Command(BaseCommand):
         self.stdout.write(f"Supplier return credit: {supplier_settlement.id}")
         self.stdout.write(f"Closed cash session: {closure.session.business_date}")
         self.stdout.write(f"Approved stock count: {stock_count_approval.id}")
+        self.stdout.write(f"Reversed stock count: {stock_count_reversal.id}")
+        self.stdout.write(f"Performance sale buckets: {len(report_sales)}")
+        self.stdout.write(f"Reversed performance return: {performance_return_reversal.id}")
+        self.stdout.write("Performance dashboard: /performance/")
 
     @staticmethod
     def _upsert_user(*, email: str, full_name: str, password: str) -> User:

@@ -25,9 +25,10 @@ The initial modules are:
   and controlled reopening.
 - `expenses`: paid operating expenses, purchase-linked supplier payments, supplier-return
   credits/refunds, and their immutable reversals.
+- `performance`: read-only owner/manager reporting built from existing immutable evidence,
+  current inventory balances, and server-rendered accessible charts and exports.
 
-Future modules should follow ledger boundaries rather than generic CRUD groupings:
-reconciliation, audit, and reporting.
+Future modules should follow ledger boundaries rather than generic CRUD groupings.
 
 ## Tenant boundary
 
@@ -62,9 +63,10 @@ Current role capabilities:
 | Open and close assigned-branch cash sessions | Yes | Yes | Yes | No |
 | Post manual cash movements or reopen sessions | Yes | Yes | No | No |
 | Manage expenses and supplier settlement | Yes | Yes | No | No |
+| View performance, assigned costs, result, and exports | Yes | Yes | No | No |
 | Platform administration | Staff permission only | Staff permission only | Staff permission only | Staff permission only |
 
-Later slices must define explicit capabilities for employee administration and report access.
+Later slices must define explicit capabilities for employee administration.
 
 ## Financial architecture
 
@@ -105,6 +107,13 @@ immutable quantity, value, and moving-average cost snapshots. Stock employees en
 blind physical quantities. Managers review quantity variances grouped by stock unit and a
 separate signed ETB inventory-value adjustment. Approval posts nonzero differences at the
 assigned snapshot or evidenced exceptional cost; full reversal uses the same exact costs.
+
+Stage 5 creates no reporting ledger, snapshot table, or editable KPI row. Its typed read
+service selects tenant- and branch-scoped posted source events, applies Addis Ababa event
+dates, and returns one immutable result object reused by the dashboard, CSV exports, and
+print view. Historical assigned cost comes only from sale and return evidence. Current
+inventory context comes from balances. Operational controls are disclosed separately and do
+not enter gross or operational result.
 
 ## Localization
 

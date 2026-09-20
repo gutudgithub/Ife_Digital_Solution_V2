@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Performance summary" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <h1>{% translate "Performance summary" %}</h1>
+      {% if report %}
+        <p>{{ report.selection.business.name }} — {{ report.selection.branch_label }}</p>
+        <p>{{ report.selection.start_date }} – {{ report.selection.end_date }}</p>
+      {% endif %}
+    </div>
+    <button class="print-hidden" type="button" onclick="window.print()">{% translate "Print" %}</button>
+  </div>
+  {% if report %}
+    {% include "performance/_summary.html" %}
+    {% include "performance/_time_table.html" %}
+    {% include "performance/_product_table.html" %}
+    <section class="card">
+      <h2>{% translate "Operational controls — excluded from result formulas" %}</h2>
+      <dl class="definition-list">
+        <div><dt>{% translate "Cash-closure variance" %}</dt><dd>{{ report.controls.cash_variance|floatformat:2 }} ETB</dd></div>
+        <div><dt>{% translate "Unresolved supplier-return reference" %}</dt><dd>{{ report.controls.unresolved_supplier_return_reference|floatformat:2 }} ETB</dd></div>
+        <div><dt>{% translate "Manual inventory adjustment value" %}</dt><dd>{{ report.controls.manual_inventory_adjustment_value|floatformat:6 }} ETB</dd></div>
+        <div><dt>{% translate "Stock-count adjustment value" %}</dt><dd>{{ report.controls.stock_count_adjustment_value|floatformat:6 }} ETB</dd></div>
+        <div><dt>{% translate "Stock-count reversal value" %}</dt><dd>{{ report.controls.stock_count_reversal_value|floatformat:6 }} ETB</dd></div>
+      </dl>
+    </section>
+    <aside class="card report-disclaimer">
+      <h2>{% translate "Reporting boundary" %}</h2>
+      <p>
+        {% translate "Operational net result is an internal operational measure, not statutory net profit, a tax return, or certified financial statements. It excludes payroll, depreciation, financing, tax, accrual, and owner-drawing classifications." %}
+      </p>
+      <p>
+        {% blocktranslate with generated=report.generated_at|date:"DATETIME_FORMAT" version=report.formula_version %}
+          Generated {{ generated }} using formula version {{ version }}.
+        {% endblocktranslate %}
+      </p>
+    </aside>
+  {% else %}
+    <div class="card" role="alert">
+      <h2>{% translate "The report could not be generated." %}</h2>
+      {{ filter_form.errors }}
+    </div>
+  {% endif %}
+{% endblock %}

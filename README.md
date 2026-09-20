@@ -4,8 +4,8 @@ Ife Digital Solution is a business-control platform for Ethiopian small business
 foundation is reusable for inventory-based retail while the first pilot is tailored to
 clothing and footwear.
 
-This repository contains the independently reviewed Stages 1 through 4B and the implemented
-Stage 4C stock-count reconciliation slice:
+This repository contains the independently reviewed Stages 1 through 4C and the implemented
+Stage 5 performance-intelligence slice:
 
 - email-based authentication and Django administration;
 - business and branch records;
@@ -29,10 +29,14 @@ Stage 4C stock-count reconciliation slice:
 - paid operating expenses and purchase-linked supplier settlement evidence;
 - complete blind branch stock counts, inventory-posting freezes, approval, and exact-cost
   reversal evidence;
+- owner/manager performance intelligence with reconciled net sales, assigned inventory cost,
+  operational result, margins, growth, SKU and expense analysis, accessible graphs, CSV, and
+  print output;
 - English, Amharic, and Afaan Oromoo locale configuration;
 - PostgreSQL-compatible settings, Docker Compose, CI, and pre-commit checks.
 
-Costing, performance analytics, and later reports remain separately gated delivery slices.
+Later customer, public, offline, multi-branch, SaaS, and production-launch stages remain
+separately gated delivery slices.
 
 ## Requirements
 
@@ -63,11 +67,13 @@ Open `http://localhost:8000/login/` and sign in with the password you chose:
 - stock employee: `stock@demo.ife.local`.
 
 The owner can manage products, suppliers, purchases, receiving, returns, expenses, supplier
-settlement, cash sessions, stock counts, sales, history, and attendance. The seeded purchase
+settlement, cash sessions, stock counts, sales, history, attendance, and performance reports.
+The seeded purchase
 `DEMO-PUR-001` includes a posted receipt and one posted supplier return, so inventory,
 supplier activity, cost history, and return screens have evidence immediately. The demo also
-posts one fully paid cash sale, a customer return, their internal receipts, expense and
-supplier-settlement evidence, a closed cash session, and an approved full-branch stock count.
+posts cash and Telebirr sales across multiple dates, customer returns and a return reversal,
+two expense categories and an expense reversal, supplier-settlement evidence, a closed cash
+session with variance, and approved/reversed stock-count evidence.
 The stock employee can receive approved purchases, prepare return drafts, enter blind stock
 counts, and submit complete counts for the assigned branch, but cannot approve or reverse
 counts, post/reverse returns, adjust stock, or view inventory values.
@@ -100,7 +106,8 @@ The dashboard is at `/`, the product catalog at `/catalog/`, inventory and movem
 at `/inventory/`, purchasing at `/purchasing/`, purchase returns at
 `/purchasing/returns/`, sales at `/sales/`, cash sessions at `/cash/`, expenses at
 `/expenses/`, stock counts at `/inventory/counts/`, and attendance at `/attendance/`. Sale
-corrections are listed at `/sales/returns/`.
+corrections are listed at `/sales/returns/`. Owner/manager performance intelligence is at
+`/performance/`.
 
 ## Local setup with PostgreSQL and Docker
 
@@ -146,6 +153,7 @@ python manage.py check --deploy
 - [Data model](docs/data-model.md)
 - [Security and privacy](docs/security-privacy.md)
 - [Operations](docs/operations.md)
+- [Owner-to-cashier operating guide](docs/operating-guide.md)
 - [Roadmap](docs/roadmap.md)
 - [Claude review guide](docs/claude-review-guide.md)
 - [Architecture decisions](docs/decisions/)

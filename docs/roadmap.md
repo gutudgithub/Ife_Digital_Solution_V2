@@ -51,11 +51,12 @@ Stage 4 is split into independently reviewable controls:
   branch stock counts, an inventory-posting freeze, explicitly named quantity variance,
   count-start moving-average valuation, and exact-cost adjustment reversal.
 
-Stage 5 is proposed as one complete owner/manager performance-intelligence stage: reconciled
+Stage 5 is implemented and awaiting independent approval as one complete owner/manager
+performance-intelligence stage: reconciled
 net sales, assigned cost, gross and operational result, margin, growth, accessible
 time-series graphs, SKU and expense analysis, inventory context, separately disclosed
-operational controls, CSV, and print output. Implementation remains gated on approval of the
-formula and naming decisions in its feature brief.
+operational controls, CSV, and print output. The approved formula and naming decisions are
+recorded in its feature brief.
 
 Customer ordering, delivery, professional services, AI, payroll, and statutory employment
 administration remain excluded.

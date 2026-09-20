@@ -203,3 +203,7 @@ class BusinessMembership(models.Model):
     @property
     def can_manage_supplier_settlement(self) -> bool:
         return self.role in {MembershipRole.OWNER, MembershipRole.MANAGER}
+
+    @property
+    def can_view_performance(self) -> bool:
+        return self.role in {MembershipRole.OWNER, MembershipRole.MANAGER}

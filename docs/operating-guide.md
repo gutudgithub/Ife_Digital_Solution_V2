@@ -1,0 +1,92 @@
+# Owner-to-cashier operating guide
+
+## Owner or manager setup
+
+1. Sign in and confirm the active business.
+2. Create categories, products, size/color variants, selling prices, stock units, and low-stock
+   thresholds.
+3. Create suppliers and expense categories.
+4. Create users and assign active owner, manager, cashier, or stock-employee memberships and
+   an operating branch.
+5. Record opening inventory only from verified physical evidence.
+6. Before the first real cash session, physically count the drawer and record the opening-basis
+   note. Do not use the demo seed with real customer data.
+
+## Normal purchasing and inventory workflow
+
+1. Owner/manager creates and approves a purchase.
+2. Owner/manager or stock employee receives only physically received quantities.
+3. Review inventory balances and immutable movements.
+4. Prepare receipt-linked supplier returns when needed; only owner/manager posts or reverses
+   them.
+5. Record supplier payments, credits, or refunds separately from inventory value.
+6. Use manual stock adjustments only with verified evidence and a clear reason.
+
+## Start-of-day cash workflow
+
+1. Owner, manager, or cashier opens the assigned branch cash session.
+2. Enter the physically counted opening float.
+3. Owner/manager may record physical cash added or removed with a reason.
+4. Telebirr activity never changes expected drawer cash.
+
+## Cashier sales workflow
+
+1. Open **Sales** and create a sale for the assigned branch.
+2. Confirm variant, quantity, current price, and cash or Telebirr method.
+3. For cash, confirm a branch cash session is open.
+4. For Telebirr, enter the manually observed reference; the application does not verify the
+   provider transfer.
+5. Post the sale and give the customer the internal receipt. It is not an official tax invoice.
+6. Prepare customer-return drafts against exact sale lines. An owner or manager posts refunds,
+   full sale reversals, and return reversals.
+
+## Expenses and supplier settlement
+
+1. Owner/manager creates a draft operating expense in the correct category.
+2. Post it only when fully paid by cash or manually referenced Telebirr.
+3. Cash expenses require the open branch session and reduce expected cash.
+4. Reverse incorrect evidence; never edit a posted record.
+5. Treat supplier reference, inventory-value reduction, and accepted settlement as separate
+   operational values.
+
+## End-of-day cash close
+
+1. Stop physical cash activity and count the drawer.
+2. Compare actual cash with expected cash.
+3. Explain every nonzero variance.
+4. Close the session. Reopening requires owner/manager authorization and preserves the earlier
+   closure.
+5. A return reversal does not claim that refunded physical cash was recovered.
+
+## Full stock count
+
+1. Owner/manager starts a complete branch stock count. Inventory posting is frozen.
+2. Stock employee counts every line blind and enters explicit zero where nothing is found.
+3. Submit the complete count.
+4. Owner/manager reviews quantity variance by stock unit and ETB value adjustment separately.
+5. Approve only supported differences. Corrections use a full exact-cost reversal and a new
+   count; approval history is never edited.
+
+## Performance review
+
+1. Owner/manager opens **Performance**.
+2. Select an inclusive date range up to 366 days, authorized branch or all branches, and daily,
+   Monday-weekly, or calendar-month buckets.
+3. Reconcile summary metrics with the exact time-series table, SKU rows, expense categories,
+   and current inventory context.
+4. Use graphs for trends and the exact table for accessible source values.
+5. Review cash variance, unresolved supplier-reference evidence, manual adjustments, and
+   stock-count values only in **Operational controls**; they are not included in result.
+6. Download time-series or SKU CSV, or print the summary, only for authorized operational use.
+7. Read **Operational net result** as a bounded operational measure, not statutory net profit,
+   an income statement, a tax return, or certified accounts.
+
+## Role boundaries
+
+- Owner/manager: operational management, posting/reversal authority, costs, values, performance,
+  exports, and reconciliation.
+- Cashier: assigned-branch sales, return drafts, cash-session open/close, and personal
+  attendance; no assigned cost, margin, result, supplier, or inventory-value access.
+- Stock employee: assigned-branch receiving, supplier-return drafts, blind count entry, and
+  submission; no costs, values, result, approval, or reversal authority.
+- Platform staff status alone grants no tenant operational access.

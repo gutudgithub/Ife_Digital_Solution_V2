@@ -34,6 +34,9 @@
               <a href="{% url 'expenses:expense-list' %}">{% translate "Expenses" %}</a>
               <a href="{% url 'expenses:settlement-activity' %}">{% translate "Supplier settlement" %}</a>
             {% endif %}
+            {% if active_membership.can_view_performance %}
+              <a href="{% url 'performance:dashboard' %}">{% translate "Performance" %}</a>
+            {% endif %}
             <a href="{% url 'attendance:attendance-list' %}">{% translate "Attendance" %}</a>
             <form method="post" action="{% url 'logout' %}">
               {% csrf_token %}

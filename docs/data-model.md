@@ -234,6 +234,19 @@ inventory freeze. Approval creates at most one movement for each nonzero line va
 variance creates no movement. Quantity summaries remain grouped by stock unit, while signed
 inventory-value adjustment remains six-decimal ETB evidence.
 
+## Implemented Stage 5 read model
+
+Stage 5 adds no database model or migration. `apps.performance` builds typed, immutable
+in-memory results from posted sales, sale returns and reversals, operating expenses and
+reversals, inventory balances and movements, cash closures, supplier-return settlements, and
+stock-count approvals and reversals.
+
+The same `PerformanceReport` result feeds HTML, CSV, and print output. It contains selection
+scope, reconciled summary metrics, comparable-period growth, time buckets, SKU rows,
+expense-category rows, current inventory context, separately disclosed operational controls,
+generation timestamp, and formula version. Historical rows remain reproducible from source
+evidence rather than mutable report snapshots.
+
 ## Remaining planned ledger entities
 
 Future slices should add:

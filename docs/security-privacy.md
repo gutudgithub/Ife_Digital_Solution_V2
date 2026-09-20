@@ -14,6 +14,14 @@
 - secrets loaded from environment variables and excluded from version control;
 - non-root application process in the container;
 - automated tenant-isolation and role-permission tests.
+- owner/manager-only performance endpoints and exports, with no assigned-cost or result
+  disclosure to cashiers, stock employees, inactive members, or unrelated platform staff;
+- report branch choices derived only from the active tenant and validated again in the
+  reporting service.
+
+Performance CSV files contain commercially sensitive sales, cost, margin, expense, and
+inventory-value evidence. Operators must store and share exports under the same access and
+retention controls as the application; the product does not create public export links.
 
 ## Required before real customer data
 

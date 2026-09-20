@@ -123,6 +123,30 @@
 8. A purchase with active supplier payments cannot be cancelled, and a purchase return with
    active supplier settlement cannot be reversed; reverse the linked evidence first.
 
+## Performance intelligence
+
+1. Only active owner and manager memberships may view performance, assigned costs, results,
+   graphs, print output, or CSV exports.
+2. Reports are scoped to the server-selected business and authorized active branches; a
+   submitted cross-business branch is invalid.
+3. Report ranges are inclusive and limited to 366 days. Daily, Monday-based weekly, and
+   calendar-month buckets are supported.
+4. Sales use sale date; returns use return date; return and expense reversals use their Addis
+   Ababa local posting date. Corrections do not rewrite earlier periods.
+5. Net sales equal posted gross sales minus returns plus return reversals.
+6. Net assigned inventory cost uses immutable sale-line assigned cost and exact return and
+   return-reversal evidence, never current catalog cost or current moving average.
+7. Gross operating result equals net sales minus net assigned inventory cost. Operational
+   net result subtracts posted operating expenses net of their reversals.
+8. Margin is unavailable when net sales are zero or negative. Growth is unavailable when the
+   previous comparable bucket is zero with a nonzero current value or is negative.
+9. Cash variance, supplier-reference differences, manual inventory adjustments, stock-count
+   adjustments, stock-count reversals, opening stock, drawer additions/removals, supplier
+   payments, receipts, and purchase returns are operational controls, not result inputs.
+10. Quantities are grouped by stock unit. Unlike units are never added together.
+11. “Operational net result” is not statutory net profit, an income statement, tax evidence,
+    or certified accounting output.
+
 ## Time, currency, and audit
 
 1. The pilot currency is ETB.

@@ -35,7 +35,12 @@ Runtime configuration is supplied through environment variables:
    Start a full-branch stock count, verify inventory posting is frozen, complete every blind
    line including explicit zeroes, submit and review quantity variances by stock unit, approve
    the exact-cost adjustments, print the internal evidence, reverse it, and reconcile every
-   resulting movement and balance.
+   resulting movement and balance. As an owner and manager, run daily, Monday-weekly, and
+   calendar-month performance reports across single and multiple authorized branches; compare
+   KPI totals with time buckets, SKU rows, expense categories, and inventory balances; verify
+   operational controls remain separate; download both CSV exports; and print the summary.
+   Confirm cashier, stock-employee, inactive-member, unrelated-staff, and cross-business
+   branch access is denied without cost or result leakage.
    Never use `seed_demo` in production.
 
 The development Compose command runs migrations automatically for convenience. Production

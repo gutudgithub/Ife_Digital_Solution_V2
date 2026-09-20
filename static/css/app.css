@@ -258,6 +258,122 @@ a {
   width: 1px;
 }
 
+.metrics-grid {
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+}
+
+.metric small {
+  display: block;
+  margin-top: 0.4rem;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.report-context,
+.button-row,
+.chart-legend,
+.chart-scale {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.report-context {
+  margin-bottom: 1rem;
+}
+
+.chart-grid,
+.report-two-column {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 28rem), 1fr));
+}
+
+.report-chart {
+  min-width: 0;
+}
+
+.line-chart {
+  display: block;
+  width: 100%;
+  min-height: 14rem;
+  background: #fff;
+  border: 1px solid var(--border);
+}
+
+.chart-axis {
+  stroke: #94a3b8;
+  stroke-width: 1;
+}
+
+.chart-line {
+  fill: none;
+  stroke-width: 3;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.chart-point {
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.chart-series--sales {
+  stroke: #2563eb;
+  fill: #2563eb;
+  background: #2563eb;
+}
+
+.chart-series--gross {
+  stroke: #059669;
+  fill: #059669;
+  background: #059669;
+}
+
+.chart-series--operating {
+  stroke: #c2410c;
+  fill: #c2410c;
+  background: #c2410c;
+}
+
+.chart-swatch {
+  display: inline-block;
+  width: 0.8rem;
+  height: 0.8rem;
+  margin-right: 0.3rem;
+  border-radius: 50%;
+}
+
+.chart-scale {
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.definition-list {
+  margin: 0;
+}
+
+.definition-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.definition-list dt {
+  font-weight: 600;
+}
+
+.definition-list dd {
+  margin: 0;
+  text-align: right;
+}
+
+.report-disclaimer {
+  border-left: 0.35rem solid #c2410c;
+}
+
 .table-wrap {
   overflow-x: auto;
 }

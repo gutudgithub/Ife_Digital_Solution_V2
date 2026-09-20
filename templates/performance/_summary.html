@@ -1,0 +1,68 @@
+{% load i18n %}
+<section aria-labelledby="performance-summary-title">
+  <h2 id="performance-summary-title">{% translate "Performance summary" %}</h2>
+  <div class="grid metrics-grid">
+    <article class="metric">
+      <span>{% translate "Net sales" %}</span>
+      <strong>{{ report.metrics.net_sales|floatformat:2 }} ETB</strong>
+      <small>
+        {% translate "Gross sales" %} {{ report.metrics.gross_sales|floatformat:2 }}
+        − {% translate "refunds and reversals" %} {{ report.metrics.sale_refunds_and_reversals|floatformat:2 }}
+      </small>
+    </article>
+    <article class="metric">
+      <span>{% translate "Net assigned inventory cost" %}</span>
+      <strong>{{ report.metrics.net_assigned_inventory_cost|floatformat:6 }} ETB</strong>
+      <small>{% translate "Uses immutable sale and return cost evidence." %}</small>
+    </article>
+    <article class="metric">
+      <span>{% translate "Gross operating result" %}</span>
+      <strong>{{ report.metrics.gross_operating_result|floatformat:2 }} ETB</strong>
+      <small>{% translate "Net sales less net assigned inventory cost." %}</small>
+    </article>
+    <article class="metric">
+      <span>{% translate "Net operating expenses" %}</span>
+      <strong>{{ report.metrics.net_operating_expenses|floatformat:2 }} ETB</strong>
+      <small>{% translate "Posted expenses less expense reversals." %}</small>
+    </article>
+    <article class="metric">
+      <span>{% translate "Operational net result" %}</span>
+      <strong>{{ report.metrics.operational_net_result|floatformat:2 }} ETB</strong>
+      <small>{% translate "Gross operating result less net operating expenses." %}</small>
+    </article>
+    <article class="metric">
+      <span>{% translate "Gross margin" %}</span>
+      <strong>
+        {% if report.metrics.gross_margin_percentage is not None %}
+          {{ report.metrics.gross_margin_percentage|floatformat:2 }}%
+        {% else %}
+          {% translate "Not available" %}
+        {% endif %}
+      </strong>
+    </article>
+    <article class="metric">
+      <span>{% translate "Operating margin" %}</span>
+      <strong>
+        {% if report.metrics.operating_margin_percentage is not None %}
+          {{ report.metrics.operating_margin_percentage|floatformat:2 }}%
+        {% else %}
+          {% translate "Not available" %}
+        {% endif %}
+      </strong>
+    </article>
+    <article class="metric">
+      <span>{% translate "Comparable-period net-sales growth" %}</span>
+      <strong>
+        {% if report.net_sales_growth_percentage is not None %}
+          {{ report.net_sales_growth_percentage|floatformat:2 }}%
+        {% else %}
+          {% translate "Not available" %}
+        {% endif %}
+      </strong>
+      <small>
+        {% translate "Previous comparable net sales" %}:
+        {{ report.comparison_net_sales|floatformat:2 }} ETB
+      </small>
+    </article>
+  </div>
+</section>
