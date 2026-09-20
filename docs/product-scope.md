@@ -40,7 +40,7 @@ The following require pilot evidence and separate approval:
 
 - official tax or electronic invoices;
 - statutory accounting or VAT filing;
-- customer accounts and public ordering;
+- customer accounts, loyalty, promotions, consent, and public ordering;
 - payment-provider integrations;
 - multiple active branches;
 - delivery workflows;
@@ -50,6 +50,10 @@ The following require pilot evidence and separate approval:
 - AI assistance;
 - payroll, wages, leave administration, and statutory employment reporting;
 - advanced accounting.
+
+Public business-profile and catalog browsing is proposed separately for Stage 7. That
+read-only storefront must not collect customer identity, accept orders or payments, expose
+private operational data, or imply that off-platform contact is an Ife transaction.
 
 ## Acceptance ownership
 
