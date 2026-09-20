@@ -37,6 +37,12 @@
             {% if active_membership.can_view_performance %}
               <a href="{% url 'performance:dashboard' %}">{% translate "Performance" %}</a>
             {% endif %}
+            {% if active_membership.can_manage_public_profile %}
+              <a href="{% url 'public_profiles:manage' %}">{% translate "Public profile" %}</a>
+            {% endif %}
+            {% if perms.public_profiles.review_public_verification or perms.public_profiles.suspend_public_profile %}
+              <a href="{% url 'public_profiles:staff-queue' %}">{% translate "Profile review" %}</a>
+            {% endif %}
             <a href="{% url 'attendance:attendance-list' %}">{% translate "Attendance" %}</a>
             <form method="post" action="{% url 'logout' %}">
               {% csrf_token %}

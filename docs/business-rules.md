@@ -147,6 +147,33 @@
 11. “Operational net result” is not statutory net profit, an income statement, tax evidence,
     or certified accounting output.
 
+## Public profile and storefront
+
+1. Owners control publication, unpublication, search indexing, and appeals. Managers may
+   prepare profile content, opening hours, contact links, product visibility, and price
+   visibility.
+2. Cashiers and stock employees have no public-profile management authority.
+3. Published profiles require an active business, display name, description, and at least
+   one public contact method. Suspension is separate from owner publication state.
+4. Inactive, draft, unpublished, suspended, and unknown public identifiers return the same
+   not-found behavior.
+5. Public product URLs use immutable sidecar UUIDs, never internal product IDs. Only active,
+   selected products and active variants are projected.
+6. Selling prices are hidden by default and appear only when enabled per product. Cost,
+   stock, SKU, branch, supplier, staff, customer, and operational evidence is never public.
+7. QR payloads contain only configured canonical HTTPS public URLs. A visible URL fallback
+   accompanies printable QR material.
+8. Platform verification and suspension require separate dedicated permissions; staff
+   status alone grants neither.
+9. Public verification shows only the specific indicator type, review date, and expiry.
+   Evidence, staff identity, private notes, rejection reasons, and appeals remain private.
+10. Changing a reviewed contact or location makes the corresponding indicator stale.
+11. Receipt verification proves only that a random-token internal receipt record exists,
+    its business display name, internal number, type, issue time, and current status. It is
+    not tax, payment-provider, or settlement verification.
+12. Storefront analytics retain aggregate recorded opens only. They are not unique visitors,
+    customers, conversions, or consent records.
+
 ## Time, currency, and audit
 
 1. The pilot currency is ETB.

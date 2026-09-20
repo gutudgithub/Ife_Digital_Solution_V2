@@ -55,6 +55,14 @@
       <p><strong>{% translate "Telebirr refund reference" %}:</strong> {{ receipt.telebirr_reference }}</p>
     {% endif %}
     <p class="muted">{% translate "Refund evidence is manually entered and does not verify provider acceptance, completion, settlement, or reconciliation." %}</p>
+    {% if public_url %}
+      <section class="card">
+        <h2>{% translate "Public record verification" %}</h2>
+        <img src="{% url 'public_profiles:return-receipt-qr' public_identity.public_token %}" alt="{% translate 'QR code for minimal public return-receipt verification' %}">
+        <p class="break-anywhere">{{ public_url }}</p>
+        <p class="muted">{% translate "The public page shows only the business display name, internal receipt identifier, issue date, receipt type, and record status." %}</p>
+      </section>
+    {% endif %}
     <p class="print-hidden"><a href="{% url 'sales:return-detail' receipt.sale_return.id %}">{% translate "Back to return" %}</a></p>
   </article>
 {% endblock %}

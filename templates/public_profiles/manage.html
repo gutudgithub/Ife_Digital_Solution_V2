@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Public profile" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{{ active_business.name }}</p>
+      <h1>{% translate "Public profile and storefront" %}</h1>
+      <p class="muted">{% translate "Prepare public information and selected products without exposing operational records." %}</p>
+    </div>
+    <div class="action-row">
+      <a class="button button--secondary" href="{% url 'public_profiles:preview' %}">{% translate "Preview" %}</a>
+      <a class="button button--secondary" href="{% url 'public_profiles:profile-qr' %}">{% translate "Download profile QR" %}</a>
+      <a class="button button--secondary" href="{% url 'public_profiles:poster' %}">{% translate "Print poster" %}</a>
+    </div>
+  </div>
+
+  <section class="card">
+    <h2>{% translate "Publication" %}</h2>
+    <dl class="definition-list">
+      <div><dt>{% translate "Status" %}</dt><dd>{{ profile.get_publication_status_display }}</dd></div>
+      <div><dt>{% translate "Platform suspension" %}</dt><dd>{% if profile.is_suspended %}{% translate "Suspended" %}{% else %}{% translate "No" %}{% endif %}</dd></div>
+      <div><dt>{% translate "Share URL" %}</dt><dd class="break-anywhere">{{ public_url }}</dd></div>
+      <div><dt>{% translate "Search indexing" %}</dt><dd>{% if profile.allow_search_indexing %}{% translate "Allowed" %}{% else %}{% translate "Noindex" %}{% endif %}</dd></div>
+    </dl>
+    {% if readiness_missing %}
+      <p>{% translate "Before publishing, complete:" %}</p>
+      <ul>{% for item in readiness_missing %}<li>{{ item }}</li>{% endfor %}</ul>
+    {% else %}
+      <p>{% translate "The required publication fields are complete." %}</p>
+    {% endif %}
+    {% if is_owner %}
+      <div class="action-row">
+        {% if profile.publication_status == "published" %}
+          <form method="post" action="{% url 'public_profiles:unpublish' %}">
+            {% csrf_token %}
+            <button class="button button--secondary" type="submit">{% translate "Unpublish now" %}</button>
+          </form>
+        {% else %}
+          <form method="post" action="{% url 'public_profiles:publish' %}">
+            {% csrf_token %}
+            <button class="button" type="submit">{% translate "Publish" %}</button>
+          </form>
+        {% endif %}
+        <form method="post" action="{% url 'public_profiles:indexing' %}">
+          {% csrf_token %}
+          <label>
+            <input type="checkbox" name="enabled" {% if profile.allow_search_indexing %}checked{% endif %}>
+            {% translate "Allow eligible profile in the public sitemap" %}
+          </label>
+          <button class="button button--secondary" type="submit">{% translate "Save indexing preference" %}</button>
+        </form>
+      </div>
+    {% else %}
+      <p class="muted">{% translate "Managers may prepare content. Only an owner may publish, unpublish, enable indexing, request verification, or appeal." %}</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>{% translate "Business identity and public contact" %}</h2>
+    <form method="post" action="{% url 'public_profiles:profile-update' %}" class="form-card">
+      {% csrf_token %}
+      {{ profile_form.as_p }}
+      <button class="button" type="submit">{% translate "Save profile draft" %}</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>{% translate "Opening hours" %}</h2>
+    <form method="post" action="{% url 'public_profiles:hours-update' %}" class="form-card">
+      {% csrf_token %}
+      {{ hour_formset.management_form }}
+      <div class="hours-grid">
+        {% for form in hour_formset %}
+          <fieldset class="line-form">
+            <legend>{{ form.weekday_label.value }}</legend>
+            {{ form.non_field_errors }}
+            {{ form.weekday }}
+            {{ form.weekday_label.as_hidden }}
+            <div>{{ form.is_closed.errors }}{{ form.is_closed.label_tag }}{{ form.is_closed }}</div>
+            <div>{{ form.opens_at.errors }}{{ form.opens_at.label_tag }}{{ form.opens_at }}</div>
+            <div>{{ form.closes_at.errors }}{{ form.closes_at.label_tag }}{{ form.closes_at }}</div>
+          </fieldset>
+        {% endfor %}
+      </div>
+      <button class="button" type="submit">{% translate "Save opening hours" %}</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>{% translate "Social and contact links" %}</h2>
+    <p class="muted">{% translate "Only secure HTTPS links are accepted. No embedded third-party widgets are loaded." %}</p>
+    <form method="post" action="{% url 'public_profiles:links-update' %}" class="form-card">
+      {% csrf_token %}
+      {{ link_formset.management_form }}
+      {% for form in link_formset %}
+        <fieldset class="line-form">
+          <legend>{{ form.link_type.value|title }}</legend>
+          {{ form.non_field_errors }}
+          {{ form.link_type.as_hidden }}
+          <div>{{ form.label.errors }}{{ form.label.label_tag }}{{ form.label }}</div>
+          <div>{{ form.url.errors }}{{ form.url.label_tag }}{{ form.url }}</div>
+          <div>{{ form.is_active.errors }}{{ form.is_active.label_tag }}{{ form.is_active }}</div>
+        </fieldset>
+      {% endfor %}
+      <button class="button" type="submit">{% translate "Save public links" %}</button>
+    </form>
+  </section>
+
+  <section class="card table-wrap">
+    <h2>{% translate "Public products" %}</h2>
+    <p class="muted">{% translate "Internal SKU, stock balance, cost, supplier, sales, and profitability data are never included." %}</p>
+    <table>
+      <thead>
+        <tr>
+          <th>{% translate "Product" %}</th>
+          <th>{% translate "Active" %}</th>
+          <th>{% translate "Public controls" %}</th>
+          <th>{% translate "QR" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for product in products %}
+          <tr>
+            <td>{{ product.name }}</td>
+            <td>{% if product.is_active %}{% translate "Yes" %}{% else %}{% translate "No" %}{% endif %}</td>
+            <td>
+              <form method="post" action="{% url 'public_profiles:product-update' product.id %}">
+                {% csrf_token %}
+                <label>
+                  <input type="checkbox" name="visible" {% if product.public_visibility %}checked{% endif %}>
+                  {% translate "Show publicly" %}
+                </label>
+                <label>
+                  <input type="checkbox" name="show_public_prices" {% if product.show_public_prices %}checked{% endif %}>
+                  {% translate "Show current prices" %}
+                </label>
+                <button class="button button--secondary" type="submit">{% translate "Save" %}</button>
+              </form>
+            </td>
+            <td>
+              {% if product.public_visibility and product.public_identity %}
+                <a href="{% url 'public_profiles:product-qr' product.id %}">{% translate "Download SVG" %}</a>
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4">{% translate "No products exist." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>{% translate "Verification indicators" %}</h2>
+    <p class="muted">{% translate "Verification is specific and staff-reviewed. Evidence references, private notes, staff identity, and rejection reasons are never public." %}</p>
+    {% if is_owner %}
+      <form method="post" action="{% url 'public_profiles:verification-request' %}" class="form-card">
+        {% csrf_token %}
+        {{ verification_form.as_p }}
+        <button class="button" type="submit">{% translate "Request review or appeal" %}</button>
+      </form>
+    {% endif %}
+    <div class="history-list">
+      {% for item in requests %}
+        <article class="history-entry">
+          <strong>{{ item.get_indicator_type_display }}</strong> · {{ item.get_status_display }}
+          <p>{{ item.request_reason }}</p>
+          <p class="muted">{{ item.created_at }}</p>
+          {% if is_owner and item.status != "pending" %}
+            <form method="post" action="{% url 'public_profiles:verification-request' %}">
+              {% csrf_token %}
+              <input type="hidden" name="indicator_type" value="{{ item.indicator_type }}">
+              <input type="hidden" name="parent_request_id" value="{{ item.id }}">
+              <label for="appeal-{{ item.id }}">{% translate "Correction or appeal reason" %}</label>
+              <textarea id="appeal-{{ item.id }}" name="reason" required></textarea>
+              <button class="button button--secondary" type="submit">{% translate "Submit appeal" %}</button>
+            </form>
+          {% endif %}
+        </article>
+      {% empty %}
+        <p>{% translate "No verification requests have been submitted." %}</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="card table-wrap">
+    <h2>{% translate "Aggregate storefront opens" %}</h2>
+    <p class="muted">{% translate "Totals are recorded opens, not unique people or verified customers. Bots and repeated opens may inflate counts. No IP address, user agent, referrer, cookie, session identifier, device fingerprint, or visitor identity is stored." %}</p>
+    <table>
+      <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Metric" %}</th><th>{% translate "Source" %}</th><th>{% translate "Opens" %}</th></tr></thead>
+      <tbody>
+        {% for row in metric_rows %}
+          <tr><td>{{ row.local_date }}</td><td>{{ row.metric }}</td><td>{{ row.source }}</td><td>{{ row.total }}</td></tr>
+        {% empty %}
+          <tr><td colspan="4">{% translate "No public opens have been recorded." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>{% translate "Immutable public-profile history" %}</h2>
+    <div class="history-list">
+      {% for event in events %}
+        <article class="history-entry">
+          <strong>{{ event.get_action_display }}</strong>
+          <p class="muted">{{ event.created_at }} · {{ event.get_actor_kind_display }}</p>
+        </article>
+      {% empty %}
+        <p>{% translate "No public-profile events have been recorded." %}</p>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

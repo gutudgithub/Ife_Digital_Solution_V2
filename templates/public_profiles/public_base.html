@@ -1,0 +1,30 @@
+{% load i18n static %}
+<!doctype html>
+<html lang="{{ LANGUAGE_CODE }}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}{% translate "Public business profile" %}{% endblock %}</title>
+    {% if canonical_url %}<link rel="canonical" href="{{ canonical_url }}">{% endif %}
+    {% if canonical_url %}<meta property="og:url" content="{{ canonical_url }}">{% endif %}
+    <meta property="og:type" content="website">
+    {% block metadata %}{% endblock %}
+    <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  </head>
+  <body class="public-site">
+    <header class="site-header">
+      <div class="site-header__inner">
+        <a class="brand" href="/">{% translate "Ife Digital Solution" %}</a>
+      </div>
+    </header>
+    <main class="page public-page">
+      {% block content %}{% endblock %}
+    </main>
+    <footer class="public-footer">
+      <p>{% translate "Browsing only. Contact and any off-platform arrangement are not an Ife transaction." %}</p>
+      {% if support_url %}
+        <a href="{{ support_url }}">{% translate "Request a correction or report misuse" %}</a>
+      {% endif %}
+    </footer>
+  </body>
+</html>

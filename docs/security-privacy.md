@@ -18,10 +18,21 @@
   disclosure to cashiers, stock employees, inactive members, or unrelated platform staff;
 - report branch choices derived only from the active tenant and validated again in the
   reporting service.
+- public pages use UUID4 sidecar identifiers, explicit field projections, generic not-found
+  behavior, no-store HTML, HTTPS-only canonical QR targets, and no visitor identifier;
+- publication/indexing remains owner-controlled, while verification and suspension require
+  separate dedicated platform permissions; `is_staff` alone grants neither.
 
 Performance CSV files contain commercially sensitive sales, cost, margin, expense, and
 inventory-value evidence. Operators must store and share exports under the same access and
 retention controls as the application; the product does not create public export links.
+
+Public pages may contain only voluntarily published profile/contact/location fields,
+opening hours, selected catalog descriptions, active variant labels, optional selling
+prices, and specific current verification indicators. They must never expose internal
+business/branch IDs, SKU, cost, stock, exact availability, supplier/staff/customer identity,
+operational ledgers, receipt contents, Telebirr references, verification evidence, or
+private reasons. Aggregate storefront metrics are recorded opens, not unique people.
 
 ## Required before real customer data
 

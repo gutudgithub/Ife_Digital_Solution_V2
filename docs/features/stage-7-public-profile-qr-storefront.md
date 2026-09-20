@@ -2,9 +2,9 @@
 
 ## Status
 
-Proposed for product-owner approval. Stage 6 customer, loyalty, promotion, points-ledger,
-and consent work is intentionally deferred. No Stage 7 implementation is authorized until
-the product owner approves the decisions and boundaries in this brief.
+Approved by the product owner and implemented. Stage 6 customer, loyalty, promotion,
+points-ledger, and consent work remains intentionally deferred. Independent Claude review
+is pending.
 
 Privacy, security, native-language, and production-deployment review remain release gates
 even after implementation and independent code review.

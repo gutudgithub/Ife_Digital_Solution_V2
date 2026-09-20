@@ -90,3 +90,23 @@
 - Stock employee: assigned-branch receiving, supplier-return drafts, blind count entry, and
   submission; no costs, values, result, approval, or reversal authority.
 - Platform staff status alone grants no tenant operational access.
+
+## Owner public-storefront workflow
+
+1. Open **Public profile** and enter only information approved for anonymous publication.
+2. Add opening hours and secure HTTPS contact/social links.
+3. Select public products. Enable public prices only where the current catalog selling price
+   should be visible.
+4. Use **Preview** and inspect the profile, product pages, price behavior, and public-data
+   disclaimers.
+5. Publish only after the readiness panel is complete. Search indexing remains off unless
+   the owner explicitly enables it.
+6. Download SVG QR material or print the poster; keep the visible URL fallback.
+7. Submit specific contact, location, or business-document verification requests when
+   needed. Verification is evidence review, not legal or government certification.
+8. Use **Unpublish** immediately if public information is wrong or exposure must stop.
+9. Review aggregate opens as recorded requests, not unique people or customers.
+
+Managers may edit, preview, select products, control public-price visibility, and download
+QR material. They cannot publish, unpublish, enable indexing, or appeal. Cashiers and stock
+employees have no public-profile management access.

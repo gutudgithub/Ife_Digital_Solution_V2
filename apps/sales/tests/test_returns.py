@@ -640,6 +640,7 @@ class SaleReturnServiceTests(TestCase):
             receipt_response,
             "does not verify provider acceptance, completion, settlement, or reconciliation",
         )
+        self.assertNotContains(receipt_response, "Public record verification")
 
 
 @skipUnlessDBFeature("has_select_for_update")

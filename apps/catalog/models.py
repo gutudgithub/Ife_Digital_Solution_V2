@@ -67,6 +67,7 @@ class Product(models.Model):
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     public_visibility = models.BooleanField(default=False)
+    show_public_prices = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

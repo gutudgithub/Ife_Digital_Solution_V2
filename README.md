@@ -4,8 +4,8 @@ Ife Digital Solution is a business-control platform for Ethiopian small business
 foundation is reusable for inventory-based retail while the first pilot is tailored to
 clothing and footwear.
 
-This repository contains the independently reviewed Stages 1 through 4C and the implemented
-Stage 5 performance-intelligence slice:
+This repository contains the independently reviewed Stages 1 through 5 and the implemented
+Stage 7 public-storefront slice:
 
 - email-based authentication and Django administration;
 - business and branch records;
@@ -32,11 +32,14 @@ Stage 5 performance-intelligence slice:
 - owner/manager performance intelligence with reconciled net sales, assigned inventory cost,
   operational result, margins, growth, SKU and expense analysis, accessible graphs, CSV, and
   print output;
+- owner-controlled public business profiles, selected catalog browsing, optional public
+  prices, SVG QR codes, specific staff-reviewed indicators, aggregate opens, and minimal
+  internal-receipt verification;
 - English, Amharic, and Afaan Oromoo locale configuration;
 - PostgreSQL-compatible settings, Docker Compose, CI, and pre-commit checks.
 
-Later customer, public, offline, multi-branch, SaaS, and production-launch stages remain
-separately gated delivery slices.
+Customer and loyalty work remains deferred. Offline, multi-branch, SaaS, and
+production-launch stages remain separately gated delivery slices.
 
 ## Requirements
 
@@ -74,6 +77,9 @@ supplier activity, cost history, and return screens have evidence immediately. T
 posts cash and Telebirr sales across multiple dates, customer returns and a return reversal,
 two expense categories and an expense reversal, supplier-settlement evidence, a closed cash
 session with variance, and approved/reversed stock-count evidence.
+It also publishes a demo storefront with two products, showing prices for one and hiding
+prices for the other. The owner manages it at `/public-profile/`; `seed_demo` prints its
+stable public URL.
 The stock employee can receive approved purchases, prepare return drafts, enter blind stock
 counts, and submit complete counts for the assigned branch, but cannot approve or reverse
 counts, post/reverse returns, adjust stock, or view inventory values.
@@ -107,7 +113,7 @@ at `/inventory/`, purchasing at `/purchasing/`, purchase returns at
 `/purchasing/returns/`, sales at `/sales/`, cash sessions at `/cash/`, expenses at
 `/expenses/`, stock counts at `/inventory/counts/`, and attendance at `/attendance/`. Sale
 corrections are listed at `/sales/returns/`. Owner/manager performance intelligence is at
-`/performance/`.
+`/performance/`. Public-profile management is at `/public-profile/`.
 
 ## Local setup with PostgreSQL and Docker
 

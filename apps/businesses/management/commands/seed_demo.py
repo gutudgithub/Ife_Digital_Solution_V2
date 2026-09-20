@@ -1,5 +1,5 @@
 import uuid
-from datetime import timedelta
+from datetime import time, timedelta
 from decimal import Decimal
 
 from django.conf import settings
@@ -53,6 +53,16 @@ from apps.inventory.services import (
     reverse_stock_count,
     start_stock_count,
     submit_stock_count,
+)
+from apps.public_profiles.services import (
+    OpeningHourData,
+    ProfileDraftData,
+    get_or_create_profile,
+    profile_public_url,
+    publish_profile,
+    set_product_publication,
+    update_opening_hours,
+    update_profile,
 )
 from apps.purchasing.models import (
     Purchase,
@@ -655,6 +665,50 @@ class Command(BaseCommand):
                     idempotency_key=performance_expense_reversal_key,
                 )
 
+            public_profile = get_or_create_profile(owner_membership)
+            public_profile = update_profile(
+                actor=owner_membership,
+                profile=public_profile,
+                data=ProfileDraftData(
+                    display_name="Ife Demo Fashion",
+                    description=(
+                        "A local demonstration clothing and footwear storefront. "
+                        "Contact the business directly to ask about products."
+                    ),
+                    phone="+251 900 000 000",
+                    email="shop@demo.ife.local",
+                    website="",
+                    address="Demo Market, Addis Ababa",
+                    map_url="",
+                    supported_languages=("en",),
+                ),
+            )
+            update_opening_hours(
+                actor=owner_membership,
+                profile=public_profile,
+                hours=tuple(
+                    OpeningHourData(
+                        weekday=weekday,
+                        is_closed=weekday == 6,
+                        opens_at=None if weekday == 6 else time(9),
+                        closes_at=None if weekday == 6 else time(18),
+                    )
+                    for weekday in range(7)
+                ),
+            )
+            for product in (shirt, shoes):
+                set_product_publication(
+                    actor=owner_membership,
+                    profile=public_profile,
+                    product=product,
+                    visible=True,
+                    show_public_prices=product == shirt,
+                )
+            public_profile = publish_profile(
+                actor=owner_membership,
+                profile=public_profile,
+            )
+
         self.stdout.write(self.style.SUCCESS("Local demo data is ready."))
         self.stdout.write("Owner: owner@demo.ife.local")
         self.stdout.write("Cashier: cashier@demo.ife.local")
@@ -673,6 +727,8 @@ class Command(BaseCommand):
         self.stdout.write(f"Performance sale buckets: {len(report_sales)}")
         self.stdout.write(f"Reversed performance return: {performance_return_reversal.id}")
         self.stdout.write("Performance dashboard: /performance/")
+        self.stdout.write("Public-profile management: /public-profile/")
+        self.stdout.write(f"Published storefront: {profile_public_url(public_profile)}")
 
     @staticmethod
     def _upsert_user(*, email: str, full_name: str, password: str) -> User:

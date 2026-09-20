@@ -247,6 +247,26 @@ expense-category rows, current inventory context, separately disclosed operation
 generation timestamp, and formula version. Historical rows remain reproducible from source
 evidence rather than mutable report snapshots.
 
+## Implemented Stage 7 public-storefront entities
+
+- `PublicBusinessProfile`: one business-scoped draft/published/unpublished projection with
+  immutable public UUID, owner indexing preference, and separate platform suspension state.
+- `PublicOpeningHour` and `PublicContactLink`: business-scoped public schedule and secure
+  contact/social projections.
+- `PublicProductIdentity`: tenant-scoped immutable public UUID sidecar for a selected product.
+- `PublicProfileEvent`: immutable publication, content, visibility, indexing, suspension,
+  verification-staleness, and appeal history.
+- `PublicVerificationRequest` and `PublicVerificationDecision`: private owner requests and
+  immutable staff decisions for contact, location, or business-document indicators.
+- `PublicStorefrontDailyMetric`: aggregate business/profile/date/source/type counts with an
+  optional public product target and no visitor identifier.
+- `PublicSaleReceiptIdentity` and `PublicReturnReceiptIdentity`: immutable random-token
+  sidecars for minimal public existence verification.
+
+The private product, sale, return, receipt, and business identifiers remain internal. Public
+responses are constructed from typed allowlisted projections rather than serializing these
+models directly.
+
 ## Remaining planned ledger entities
 
 Future slices should add:

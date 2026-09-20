@@ -23,6 +23,9 @@ The current release establishes:
   stock-count evidence;
 - owner/manager performance intelligence with assigned-cost results, margins, growth,
   accessible time-series graphs, exports, and print output.
+- owner-controlled public business profiles with selected products, optional prices, SVG QR
+  sharing, specific reviewed indicators, aggregate non-identifying opens, and minimal
+  internal-receipt verification.
 
 Basic online attendance includes branch-scoped check-in, check-out, status, manager
 corrections, and audit history.
@@ -51,9 +54,9 @@ The following require pilot evidence and separate approval:
 - payroll, wages, leave administration, and statutory employment reporting;
 - advanced accounting.
 
-Public business-profile and catalog browsing is proposed separately for Stage 7. That
-read-only storefront must not collect customer identity, accept orders or payments, expose
-private operational data, or imply that off-platform contact is an Ife transaction.
+The Stage 7 read-only storefront collects no customer identity, accepts no orders or
+payments, exposes no private operational data, and does not imply that off-platform contact
+is an Ife transaction.
 
 ## Acceptance ownership
 

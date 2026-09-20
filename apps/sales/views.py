@@ -16,6 +16,14 @@ from apps.businesses.models import Branch, Business, BusinessMembership
 from apps.businesses.types import TenantRequest
 from apps.catalog.models import ProductVariant
 from apps.forms import add_accessible_error_attributes
+from apps.public_profiles.models import (
+    PublicReturnReceiptIdentity,
+    PublicSaleReceiptIdentity,
+)
+from apps.public_profiles.services import (
+    return_receipt_public_url,
+    sale_receipt_public_url,
+)
 from apps.sales.forms import (
     BaseSaleLineFormSet,
     BaseSaleReturnLineFormSet,
@@ -394,12 +402,21 @@ def receipt_detail(request: HttpRequest, receipt_id: UUID) -> HttpResponse:
         ),
         pk=receipt_id,
     )
+    public_identity = PublicSaleReceiptIdentity.objects.filter(receipt=receipt).first()
+    public_url = ""
+    if public_identity is not None:
+        try:
+            public_url = sale_receipt_public_url(public_identity)
+        except ValidationError:
+            pass
     return render(
         request,
         "sales/receipt_detail.html",
         {
             "receipt": receipt,
             "lines": receipt.sale.lines.all(),
+            "public_identity": public_identity,
+            "public_url": public_url,
         },
     )
 
@@ -707,11 +724,20 @@ def return_receipt_detail(request: HttpRequest, receipt_id: UUID) -> HttpRespons
         ),
         pk=receipt_id,
     )
+    public_identity = PublicReturnReceiptIdentity.objects.filter(receipt=receipt).first()
+    public_url = ""
+    if public_identity is not None:
+        try:
+            public_url = return_receipt_public_url(public_identity)
+        except ValidationError:
+            pass
     return render(
         request,
         "sales/return_receipt_detail.html",
         {
             "receipt": receipt,
             "lines": receipt.sale_return.lines.all(),
+            "public_identity": public_identity,
+            "public_url": public_url,
         },
     )

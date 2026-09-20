@@ -27,6 +27,8 @@ The initial modules are:
   credits/refunds, and their immutable reversals.
 - `performance`: read-only owner/manager reporting built from existing immutable evidence,
   current inventory balances, and server-rendered accessible charts and exports.
+- `public_profiles`: owner-managed public profile and product projections, stable public and
+  receipt identities, reviewed indicators, SVG QR targets, and anonymous aggregate metrics.
 
 Future modules should follow ledger boundaries rather than generic CRUD groupings.
 
@@ -64,6 +66,8 @@ Current role capabilities:
 | Post manual cash movements or reopen sessions | Yes | Yes | No | No |
 | Manage expenses and supplier settlement | Yes | Yes | No | No |
 | View performance, assigned costs, result, and exports | Yes | Yes | No | No |
+| Prepare public profile content and select products | Yes | Yes | No | No |
+| Publish, unpublish, control indexing, and appeal | Yes | No | No | No |
 | Platform administration | Staff permission only | Staff permission only | Staff permission only | Staff permission only |
 
 Later slices must define explicit capabilities for employee administration.
@@ -114,6 +118,12 @@ dates, and returns one immutable result object reused by the dashboard, CSV expo
 print view. Historical assigned cost comes only from sale and return evidence. Current
 inventory context comes from balances. Operational controls are disclosed separately and do
 not enter gross or operational result.
+
+Stage 7 stores public projections separately from the private catalog. Immutable UUID4
+sidecars prevent internal product and receipt identifiers from entering public URLs. Public
+reads use an explicit allowlist, while publication, verification, suspension, and aggregate
+metric writes go through typed atomic services. Anonymous metrics store only business,
+profile, optional product, local date, source category, metric type, and count.
 
 ## Localization
 

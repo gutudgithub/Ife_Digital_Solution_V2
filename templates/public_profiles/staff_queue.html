@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Public profile review" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Dedicated platform permissions required" %}</p>
+      <h1>{% translate "Public profile review" %}</h1>
+    </div>
+  </div>
+  {% if can_review %}
+  <section class="card">
+    <h2>{% translate "Pending verification requests" %}</h2>
+    {% for item in pending_requests %}
+      <article class="history-entry">
+        <h3>{{ item.profile.display_name }} · {{ item.get_indicator_type_display }}</h3>
+        <p>{{ item.request_reason }}</p>
+        <p class="muted">{% translate "Private request from" %} {{ item.requester.user.email }} · {{ item.created_at }}</p>
+        <form method="post" action="{% url 'public_profiles:staff-decide' item.id %}" class="form-card">
+          {% csrf_token %}
+          {{ decision_form.as_p }}
+          <button class="button" type="submit">{% translate "Record decision" %}</button>
+        </form>
+      </article>
+    {% empty %}
+      <p>{% translate "No verification requests are pending." %}</p>
+    {% endfor %}
+  </section>
+  {% endif %}
+  <section class="card">
+    <h2>{% translate "Public exposure controls" %}</h2>
+    {% for profile in profiles %}
+      <article class="history-entry">
+        <h3>{{ profile.display_name }}</h3>
+        <p>{{ profile.get_publication_status_display }} · {% if profile.is_suspended %}{% translate "Suspended" %}{% else %}{% translate "Not suspended" %}{% endif %}</p>
+        {% if can_review %}
+          <form method="post" action="{% url 'public_profiles:staff-verification-lifecycle' profile.id %}" class="form-card">
+            {% csrf_token %}
+            {{ lifecycle_form.as_p }}
+            <button class="button button--secondary" type="submit">{% translate "Record verification lifecycle event" %}</button>
+          </form>
+        {% endif %}
+        {% if can_suspend %}
+          {% if profile.is_suspended %}
+            <form method="post" action="{% url 'public_profiles:staff-reinstate' profile.id %}">
+              {% csrf_token %}
+              <button class="button button--secondary" type="submit">{% translate "Reinstate" %}</button>
+            </form>
+          {% else %}
+            <form method="post" action="{% url 'public_profiles:staff-suspend' profile.id %}" class="form-card">
+              {% csrf_token %}
+              {{ suspension_form.as_p }}
+              <button class="button" type="submit">{% translate "Suspend exposure" %}</button>
+            </form>
+          {% endif %}
+        {% endif %}
+      </article>
+    {% empty %}
+      <p>{% translate "No public profiles exist." %}</p>
+    {% endfor %}
+  </section>
+{% endblock %}

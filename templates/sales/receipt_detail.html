@@ -54,6 +54,14 @@
       <p><strong>{% translate "Telebirr reference" %}:</strong> {{ receipt.telebirr_reference }}</p>
       <p class="muted">{% translate "The Telebirr reference was entered manually and is not provider verification." %}</p>
     {% endif %}
+    {% if public_url %}
+      <section class="card">
+        <h2>{% translate "Public record verification" %}</h2>
+        <img src="{% url 'public_profiles:sale-receipt-qr' public_identity.public_token %}" alt="{% translate 'QR code for minimal public receipt verification' %}">
+        <p class="break-anywhere">{{ public_url }}</p>
+        <p class="muted">{% translate "The public page shows only the business display name, internal receipt identifier, issue date, receipt type, and record status." %}</p>
+      </section>
+    {% endif %}
     <p class="print-hidden"><a href="{% url 'sales:sale-detail' receipt.sale.id %}">{% translate "Back to sale" %}</a></p>
   </article>
 {% endblock %}

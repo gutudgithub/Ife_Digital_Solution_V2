@@ -28,6 +28,10 @@ from apps.inventory.services import (
     record_sale_return_inventory,
     record_sale_return_reversal_inventory,
 )
+from apps.public_profiles.services import (
+    get_or_create_return_receipt_identity,
+    get_or_create_sale_receipt_identity,
+)
 from apps.sales.models import (
     InternalReceipt,
     InternalReturnReceipt,
@@ -490,7 +494,7 @@ def post_sale(
             posted_at=timestamp,
         )
     with _translate_sales_constraint_errors():
-        InternalReceipt.objects.create(
+        receipt = InternalReceipt.objects.create(
             business=actor.business,
             branch=locked_sale.branch,
             sale=locked_sale,
@@ -501,6 +505,7 @@ def post_sale(
             issued_by=actor,
             issued_at=timestamp,
         )
+    get_or_create_sale_receipt_identity(receipt)
     locked_sale.status = SaleStatus.POSTED
     locked_sale.payment_status = SalePaymentStatus.PAID
     locked_sale.posting_key = posting_key
@@ -945,7 +950,7 @@ def post_sale_return(
             posted_at=timestamp,
         )
     with _translate_sales_constraint_errors():
-        InternalReturnReceipt.objects.create(
+        return_receipt = InternalReturnReceipt.objects.create(
             business=actor.business,
             branch=locked.branch,
             sale_return=locked,
@@ -957,6 +962,7 @@ def post_sale_return(
             issued_by=actor,
             issued_at=timestamp,
         )
+    get_or_create_return_receipt_identity(return_receipt)
     locked.status = SaleReturnStatus.POSTED
     locked.posting_key = posting_key
     locked.posted_by = actor

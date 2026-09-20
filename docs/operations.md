@@ -15,6 +15,8 @@ Runtime configuration is supplied through environment variables:
 | `POSTGRES_PASSWORD` | database credential |
 | `POSTGRES_HOST` | database host; unset selects SQLite |
 | `POSTGRES_PORT` | database port |
+| `PUBLIC_SITE_ORIGIN` | canonical public HTTPS origin used in links and QR payloads |
+| `PUBLIC_SUPPORT_URL` | optional HTTPS support link shown on public pages |
 
 ## Deployment sequence
 
@@ -41,6 +43,14 @@ Runtime configuration is supplied through environment variables:
    operational controls remain separate; download both CSV exports; and print the summary.
    Confirm cashier, stock-employee, inactive-member, unrelated-staff, and cross-business
    branch access is denied without cost or result leakage.
+   As an owner, complete and publish a public profile, select products, hide one product's
+   prices, print profile/product QR material, and immediately unpublish it. As a manager,
+   verify draft editing is allowed but publication, indexing, and appeals are denied. Check
+   generic not-found behavior for draft, unpublished, suspended, and unknown identifiers.
+   Exercise dedicated verification and suspension permissions independently; verify public
+   pages never expose SKU, cost, stock, branch, staff, supplier, receipt contents, Telebirr
+   reference, or private verification evidence. Verify receipt tokens expose only the
+   approved minimal fields.
    Never use `seed_demo` in production.
 
 The development Compose command runs migrations automatically for convenience. Production
@@ -74,3 +84,28 @@ Production requires:
 Define owners, contact paths, severity levels, customer communication, data-breach
 assessment, rollback procedures, and post-incident review. Pilot onboarding must include
 support hours, training, feedback capture, and a safe path back to manual operations.
+
+## Public storefront operations
+
+- Configure `PUBLIC_SITE_ORIGIN` as the exact externally served HTTPS origin before issuing
+  QR material. Unsafe or missing production configuration must fail closed.
+- An owner can remove exposure immediately with **Public profile → Unpublish**. Search
+  engines and third-party caches may retain earlier copies; use their removal processes
+  separately when necessary.
+- Authorized platform staff can suspend exposure independently of owner publication state.
+  Reinstatement never republishes a profile the owner had unpublished.
+- Verification correction uses a new owner request; authorized staff then approve, reject,
+  renew, revoke, or expire the specific indicator. Never place documents, personal data, or
+  secrets in evidence references or private reasons.
+- Run `python manage.py prune_public_storefront_metrics` on a scheduled maintenance cadence.
+  The configured retention is 24 months.
+- Run `python manage.py backfill_public_receipt_identities` once after deployment and after
+  any controlled import of historical internal receipts.
+- After release, open a profile URL and its SVG QR target using the public origin, then verify
+  one sale and one return receipt token. Confirm all public HTML is served with `no-store`.
+- A suspected leak requires immediate platform suspension, evidence preservation, incident
+  assessment, correction, cache/search removal requests where applicable, and documented
+  reinstatement approval.
+- Backups and restore drills must include profiles, contact/opening-hour rows, immutable
+  events, verification requests/decisions, aggregate metrics, and sale/return receipt
+  identity sidecars.

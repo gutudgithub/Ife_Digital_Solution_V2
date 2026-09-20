@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     "apps.cash",
     "apps.expenses",
     "apps.performance",
+    "apps.public_profiles",
 ]
 
 MIDDLEWARE = [
@@ -126,6 +127,10 @@ AUTH_USER_MODEL = "accounts.User"
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "dashboard"
 LOGOUT_REDIRECT_URL = "login"
+
+PUBLIC_SITE_ORIGIN = os.environ.get("PUBLIC_SITE_ORIGIN", "http://localhost:8000").rstrip("/")
+PUBLIC_SUPPORT_URL = os.environ.get("PUBLIC_SUPPORT_URL", "")
+PUBLIC_METRIC_RETENTION_MONTHS = 24
 
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True

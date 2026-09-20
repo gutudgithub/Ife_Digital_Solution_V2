@@ -1,0 +1,110 @@
+{% extends "public_profiles/public_base.html" %}
+{% load i18n %}
+
+{% block title %}{{ page.display_name }} · {% translate "Public profile" %}{% endblock %}
+{% block metadata %}
+  <meta property="og:title" content="{{ page.display_name }}">
+  <meta property="og:description" content="{{ page.description|truncatechars:180 }}">
+{% endblock %}
+
+{% block content %}
+  {% if preview %}
+    <div class="card preview-banner" role="status">
+      {% translate "Private preview. Publication and suspension rules are not applied here." %}
+    </div>
+  {% endif %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Public business profile" %}</p>
+      <h1>{{ page.display_name }}</h1>
+      <p>{{ page.description|linebreaksbr }}</p>
+    </div>
+  </div>
+
+  {% if page.verifications %}
+    <section class="card" aria-labelledby="verification-heading">
+      <h2 id="verification-heading">{% translate "Reviewed information" %}</h2>
+      <p class="muted">{% translate "These indicators describe specific information reviewed by platform staff. They do not certify legality, ownership, product quality, payment settlement, tax status, or transaction safety." %}</p>
+      <ul class="badge-list">
+        {% for indicator in page.verifications %}
+          <li>
+            <strong>{{ indicator.label }}</strong>
+            · {% blocktranslate with reviewed=indicator.reviewed_on %}Reviewed {{ reviewed }}{% endblocktranslate %}
+            {% if indicator.expires_on %}
+              · {% blocktranslate with expiry=indicator.expires_on %}Expires {{ expiry }}{% endblocktranslate %}
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
+  <div class="grid grid--two">
+    <section class="card" aria-labelledby="contact-heading">
+      <h2 id="contact-heading">{% translate "Contact" %}</h2>
+      <dl class="definition-list">
+        {% if page.phone %}<div><dt>{% translate "Phone" %}</dt><dd>{{ page.phone }}</dd></div>{% endif %}
+        {% if page.email %}<div><dt>{% translate "Email" %}</dt><dd><a href="mailto:{{ page.email }}">{{ page.email }}</a></dd></div>{% endif %}
+        {% if page.website %}<div><dt>{% translate "Website" %}</dt><dd><a href="{{ page.website }}" rel="noopener noreferrer">{{ page.website }}</a></dd></div>{% endif %}
+        {% if page.address %}<div><dt>{% translate "Address" %}</dt><dd>{{ page.address }}</dd></div>{% endif %}
+        {% if page.map_url %}<div><dt>{% translate "Map" %}</dt><dd><a href="{{ page.map_url }}" rel="noopener noreferrer">{% translate "Open secure map link" %}</a></dd></div>{% endif %}
+      </dl>
+      {% if page.contact_links %}
+        <ul>
+          {% for link in page.contact_links %}
+            <li><a href="{{ link.url }}" rel="noopener noreferrer">{{ link.label }}</a></li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </section>
+
+    <section class="card" aria-labelledby="hours-heading">
+      <h2 id="hours-heading">{% translate "Opening hours" %}</h2>
+      {% if page.opening_hours %}
+        <dl class="definition-list">
+          {% for hour in page.opening_hours %}
+            <div>
+              <dt>{{ hour.weekday }}</dt>
+              <dd>
+                {% if hour.is_closed %}
+                  {% translate "Closed" %}
+                {% else %}
+                  {{ hour.opens_at|time:"H:i" }}–{{ hour.closes_at|time:"H:i" }}
+                {% endif %}
+              </dd>
+            </div>
+          {% endfor %}
+        </dl>
+      {% else %}
+        <p class="muted">{% translate "Contact the business for current opening hours." %}</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <section aria-labelledby="products-heading">
+    <div class="page-heading">
+      <div>
+        <h2 id="products-heading">{% translate "Selected products" %}</h2>
+        <p class="muted">{% translate "Availability is not shown. Contact the business to confirm current stock and pricing." %}</p>
+      </div>
+    </div>
+    <div class="public-products">
+      {% for product in page.products %}
+        <article class="card product-card">
+          {% if product.category %}<p class="eyebrow">{{ product.category }}</p>{% endif %}
+          <h3>
+            <a href="{% url 'public_profiles:public-product' page.public_id product.public_id %}">{{ product.name }}</a>
+          </h3>
+          <p>{{ product.description|truncatechars:220 }}</p>
+          {% if product.show_public_prices %}
+            <p>{% translate "Current listed prices are shown on the product page." %}</p>
+          {% else %}
+            <p>{% translate "Contact the business for current pricing." %}</p>
+          {% endif %}
+        </article>
+      {% empty %}
+        <div class="card"><p>{% translate "No products are currently selected for public display." %}</p></div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

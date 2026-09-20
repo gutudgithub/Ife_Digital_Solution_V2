@@ -457,3 +457,65 @@ textarea {
     padding-block: 0.8rem;
   }
 }
+
+.public-page {
+  max-width: 1080px;
+}
+
+.public-footer {
+  color: var(--muted);
+  margin: 2rem auto;
+  max-width: 1080px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.public-products {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.product-card h3 {
+  margin-top: 0.25rem;
+}
+
+.grid--two {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.badge-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  list-style: none;
+  padding: 0;
+}
+
+.badge-list li,
+.preview-banner {
+  border-left: 0.35rem solid var(--accent);
+}
+
+.hours-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.qr-poster {
+  margin: 2rem auto;
+  max-width: 620px;
+  text-align: center;
+}
+
+.qr-poster img {
+  height: auto;
+  max-width: 360px;
+  width: 100%;
+}
+
+.qr-text-url,
+.break-anywhere {
+  overflow-wrap: anywhere;
+}

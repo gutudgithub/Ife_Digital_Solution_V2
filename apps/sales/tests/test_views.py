@@ -151,6 +151,7 @@ class SalesViewTests(TestCase):
         )
         self.assertContains(receipt_response, "DEMO TX 001")
         self.assertContains(receipt_response, "ETB 3600.00")
+        self.assertNotContains(receipt_response, "Public record verification")
 
     def test_cashier_never_sees_inventory_cost_or_value(self) -> None:
         sale = post_sale(
