@@ -107,6 +107,31 @@
 12. The first real branch session requires an owner/manager physical drawer count and an
     immutable opening-basis note; no historical transaction receives a synthetic session.
 
+## Offline sale continuity
+
+1. An offline entry is browser-local draft data, not a server sale, payment, receipt, cash
+   movement, inventory movement, or performance event.
+2. Local catalog and draft records are partitioned by the current business and selected
+   authorized branch and expire after seven days.
+3. Local storage contains selling labels/prices and entered sale data only; it excludes cost,
+   stock balance, suppliers, private documents, customers, staff data, and performance output.
+4. Synchronization is manual and creates only an ordinary server sale draft through the
+   existing sale-draft service.
+5. The server ignores submitted identity claims for authorization and revalidates the active
+   membership, business, branch, role capability, variants, quantities, payment shape, and
+   draft age.
+6. Exact replay returns the same synchronization evidence and sale. Reusing the key or local
+   draft identity for changed content is rejected.
+7. Current catalog prices are authoritative. Snapshot changes produce an explicit
+   `needs_review` result; they are never silently used as price overrides.
+8. Stock is not reserved or checked for draft synchronization. The normal online posting
+   service still rejects insufficient stock and enforces cash, payment, receipt, and ledger
+   rules.
+9. Synced local copies remain until operator acknowledgement. Rejected copies remain until
+   corrected or discarded. There is no unattended background synchronization.
+10. Signing out requests browser cache and storage clearing. Shared-device use requires a
+    business-controlled OS account and browser profile.
+
 ## Operating expenses and supplier settlement
 
 1. Draft expenses have no reporting or cash effect.

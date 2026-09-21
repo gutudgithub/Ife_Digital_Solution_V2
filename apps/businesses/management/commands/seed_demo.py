@@ -785,6 +785,7 @@ class Command(BaseCommand):
         self.stdout.write(f"Published storefront: {profile_public_url(public_profile)}")
         self.stdout.write(f"Document awaiting confirmation: {captured_document.id}")
         self.stdout.write("Document inbox: /documents/")
+        self.stdout.write("Offline sales preparation: /offline/sales/")
 
     @staticmethod
     def _upsert_user(*, email: str, full_name: str, password: str) -> User:

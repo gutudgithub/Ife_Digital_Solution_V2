@@ -31,6 +31,8 @@ The initial modules are:
   receipt identities, reviewed indicators, SVG QR targets, and anonymous aggregate metrics.
 - `documents`: private source custody, malware-scan state, typed human transcription,
   immutable revisions, owner confirmation, and operational provenance.
+- `offline`: immutable business-scoped synchronization claims and evidence for local
+  cashier sale drafts; it creates ordinary `sales.Sale` drafts but never posts them.
 
 Future modules should follow ledger boundaries rather than generic CRUD groupings.
 
@@ -72,6 +74,7 @@ Current role capabilities:
 | Publish, unpublish, control indexing, and appeal | Yes | No | No | No |
 | Upload, transcribe, and review private documents | Yes | Yes | No | No |
 | Confirm document transcription | Yes | No | No | No |
+| Prepare and synchronize offline sale drafts | Yes | Yes | Assigned branch | No |
 | Platform administration | Staff permission only | Staff permission only | Staff permission only | Staff permission only |
 
 Later slices must define explicit capabilities for employee administration.
@@ -136,6 +139,13 @@ transcription and creates a normal purchase or expense draft, while opening-stoc
 confirmation remains separate from atomic posting through the existing inventory service.
 Source-derived drafts cannot be edited; correction requires cancellation and a preserved
 replacement transcription.
+
+Stage 9A keeps local draft and catalog data in a versioned IndexedDB database partitioned by
+business and branch. A service worker scoped to `/offline/` caches only an allowlisted shell
+and explicitly authorized offline-sales HTML; catalog JSON remains no-store and is copied
+only into the tenant/branch-partitioned local store. Synchronization revalidates current
+membership, business, branch, variants, decimal quantities, payment shape, age, and
+idempotency before calling the ordinary sale-draft service. It never calls sale posting.
 
 ## Localization
 

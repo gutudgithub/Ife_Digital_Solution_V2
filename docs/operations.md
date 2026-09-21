@@ -64,7 +64,29 @@ Runtime configuration is supplied through environment variables:
    with an expense and opening-stock source; verify confirmation has no ledger effect,
    opening-stock posting is atomic, replacement requires target cancellation, cashier/stock
    access is denied, and no private source data appears on public routes.
+   While online, prepare the cashier offline-sales screen and catalog. Disconnect the test
+   browser, create and retain a local draft, inspect the provisional non-receipt warning,
+   reconnect, synchronize manually, and verify only a normal sale draft appears. Confirm no
+   stock, cash, payment, receipt, or performance evidence exists until the ordinary online
+   posting flow runs. Replay the same draft, exercise a price conflict and rejected draft,
+   switch business/branch context to verify local queue isolation, then sign out and confirm
+   browser storage/cache clearing is requested.
    Never use `seed_demo` in production.
+
+## Offline-sales operations
+
+- Serve production traffic over HTTPS. The service worker is scoped to `/offline/` and must
+  not be broadened without a security review.
+- Operators must visit the branch-specific offline-sales screen while connected before an
+  outage. A missing or older-than-seven-days catalog cannot prepare new local drafts.
+- Synchronization is operator-initiated. Do not add background sync, offline posting, or
+  automatic conflict resolution as an operational workaround.
+- Treat every provisional note as non-receipt local evidence. Train staff to complete the
+  normal online posting flow after synchronization.
+- Signing out sends `Clear-Site-Data` for cache and storage. Business devices should also use
+  controlled OS accounts, locked browser profiles, and normal device-retirement wiping.
+- Before pilot, record whether the business accepts provisional notes during outages and
+  complete native-language review of every warning and conflict message.
 
 The development Compose command runs migrations automatically for convenience. Production
 must not let every replica race to run migrations.

@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% load i18n static %}
+
+{% block title %}{% translate "Offline sales drafts" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Stage 9A continuity" %}</p>
+      <h1>{% translate "Offline sales drafts" %}</h1>
+      <p class="muted">{% translate "Prepare local drafts during a connection outage, then review and synchronize them when online." %}</p>
+    </div>
+    <a class="button button--secondary" href="{% url 'sales:sale-list' %}">{% translate "Server sales" %}</a>
+  </div>
+
+  <section class="card receipt-notice" role="note">
+    <strong>{% translate "Draft only — not a receipt or completed sale." %}</strong>
+    <p>{% translate "Saving or synchronizing an offline draft does not move inventory, record cash, accept payment, create a receipt, or affect performance reports. Complete the ordinary online posting flow after review." %}</p>
+  </section>
+
+  {% if branches|length > 1 %}
+    <section class="card section-gap">
+      <form method="get" class="filter-form">
+        <input type="hidden" name="business" value="{{ active_business.id }}">
+        <div class="form-row">
+          <label for="offline-branch">{% translate "Branch used while offline" %}</label>
+          <select id="offline-branch" name="branch" required>
+            <option value="">{% translate "Select a branch" %}</option>
+            {% for option in branches %}
+              <option value="{{ option.id }}"{% if branch.id == option.id %} selected{% endif %}>{{ option.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button class="button button--secondary" type="submit">{% translate "Prepare branch" %}</button>
+      </form>
+    </section>
+  {% endif %}
+
+  {% if branch %}
+    <div id="offline-sales-app"
+         class="offline-app section-gap"
+         data-business-id="{{ active_business.id }}"
+         data-branch-id="{{ branch.id }}"
+         data-role="{{ active_membership.role }}"
+         data-catalog-url="{% url 'offline:catalog' %}?branch={{ branch.id }}"
+         data-sync-url="{% url 'offline:sync-sale' %}"
+         data-loading="{% translate 'Loading the authorized catalog…' %}"
+         data-catalog-ready="{% translate 'The offline catalog is ready.' %}"
+         data-catalog-missing="{% translate 'Connect once to prepare the offline catalog for this branch.' %}"
+         data-invalid-lines="{% translate 'Add at least one valid quantity with no more than three decimal places.' %}"
+         data-draft-saved="{% translate 'The draft was saved only on this device.' %}"
+         data-sync-failed="{% translate 'Synchronization failed. The local draft was retained.' %}"
+         data-discard-confirm="{% translate 'Discard this local draft permanently?' %}"
+         data-expired="{% translate 'Expired drafts older than seven days were removed from this device.' %}"
+         data-price-changed="{% translate 'A catalog selling price changed. Review the server draft before posting.' %}"
+         data-label-changed="{% translate 'A product or variant label changed.' %}"
+         data-product-label="{% translate 'Product variant' %}"
+         data-quantity-label="{% translate 'Quantity' %}"
+         data-select-product="{% translate 'Select a product variant' %}"
+         data-remove-line="{% translate 'Remove line' %}"
+         data-snapshot-price="{% translate 'Offline price snapshot' %}"
+         data-pending="{% translate 'Pending' %}"
+         data-synced="{% translate 'Synced' %}"
+         data-needs-review="{% translate 'Needs review' %}"
+         data-rejected="{% translate 'Rejected' %}"
+         data-sync="{% translate 'Synchronize' %}"
+         data-provisional="{% translate 'Provisional note' %}"
+         data-discard="{% translate 'Discard' %}"
+         data-copy="{% translate 'Copy to corrected draft' %}"
+         data-acknowledge="{% translate 'Acknowledge and remove' %}"
+         data-empty-queue="{% translate 'No local drafts are stored for this browser.' %}"
+         data-line-count="{% translate 'line(s)' %}"
+         data-open-server-draft="{% translate 'Open server draft' %}"
+         data-cash="{% translate 'Cash' %}"
+         data-telebirr="{% translate 'Telebirr' %}"
+         data-not-receipt="{% translate 'PROVISIONAL OFFLINE NOTE — NOT A RECEIPT, NOT PAYMENT EVIDENCE, NOT A COMPLETED SALE' %}">
+      <section class="card">
+        <div class="attendance-actions">
+          <div>
+            <p class="eyebrow">{% translate "Prepared branch" %}</p>
+            <h2>{{ branch.name }}</h2>
+          </div>
+          <p id="offline-catalog-status" class="muted" role="status" aria-live="polite"></p>
+        </div>
+        <form id="offline-sale-form">
+          {% csrf_token %}
+          <div id="offline-lines" class="offline-lines"></div>
+          <button id="add-offline-line" class="button button--secondary" type="button">{% translate "Add product line" %}</button>
+          <div class="grid section-gap">
+            <div class="form-row">
+              <label for="offline-payment-method">{% translate "Expected payment method" %}</label>
+              <select id="offline-payment-method" required>
+                {% for value, label in payment_methods %}
+                  <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-row">
+              <label for="offline-telebirr-reference">{% translate "Telebirr reference entered by operator" %}</label>
+              <input id="offline-telebirr-reference" maxlength="120" autocomplete="off">
+            </div>
+          </div>
+          <div class="action-row">
+            <button class="button" type="submit">{% translate "Save local draft" %}</button>
+            <button id="sync-all-offline" class="button button--secondary" type="button">{% translate "Synchronize pending drafts" %}</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card section-gap">
+        <h2>{% translate "Drafts on this device" %}</h2>
+        <p class="muted">{% translate "Rejected drafts stay local until you copy, correct, or discard them. Synced copies remain until you acknowledge and remove them." %}</p>
+        <div id="offline-queue" class="offline-queue" aria-live="polite"></div>
+      </section>
+
+      <section id="offline-provisional-note" class="card receipt section-gap" hidden>
+        <p id="offline-provisional-warning" class="receipt-notice"></p>
+        <h2>{% translate "Offline sale draft note" %}</h2>
+        <dl class="receipt-meta">
+          <div><dt>{% translate "Branch" %}</dt><dd>{{ branch.name }}</dd></div>
+          <div><dt>{% translate "Local creation time" %}</dt><dd id="offline-note-created"></dd></div>
+          <div><dt>{% translate "Expected payment" %}</dt><dd id="offline-note-payment"></dd></div>
+        </dl>
+        <div id="offline-note-lines" class="table-wrap"></div>
+        <p>{% translate "This note is provisional local evidence only. It does not confirm stock availability, payment, receipt issuance, tax status, or server acceptance." %}</p>
+        <button id="print-offline-note" class="button print-hidden" type="button">{% translate "Print provisional note" %}</button>
+      </section>
+    </div>
+  {% else %}
+    <section class="card section-gap">
+      <p>{% translate "Select one authorized branch while online before preparing offline sales drafts." %}</p>
+    </section>
+  {% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+  {% if branch %}<script src="{% static 'js/offline-sales.js' %}" defer></script>{% endif %}
+{% endblock %}

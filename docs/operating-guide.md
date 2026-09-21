@@ -59,6 +59,25 @@
 6. Prepare customer-return drafts against exact sale lines. An owner or manager posts refunds,
    full sale reversals, and return reversals.
 
+## Offline cashier continuity
+
+1. Before an outage, sign in on a business-controlled device and open **Offline sales** while
+   connected. Owners/managers select the branch. Wait for “The offline catalog is ready.”
+2. During an outage, use only the prepared offline screen. Enter variants, positive
+   quantities, and the expected cash or manually observed Telebirr reference, then save the
+   local draft.
+3. If needed, show or print the provisional note. Explain that it is not posted, not a
+   receipt, not payment evidence, and does not confirm stock.
+4. After reconnection, review each pending local draft and select **Synchronize** or
+   **Synchronize pending drafts**. Nothing synchronizes in the background.
+5. Open every server draft. Review any price/catalog conflict, confirm the actual payment and
+   current stock conditions, then use the normal online posting flow.
+6. Remove a synced local copy only with **Acknowledge and remove**. Copy a rejected draft,
+   correct it, and create a new local identity; discard only when the entry is no longer
+   needed.
+7. Local drafts expire after seven days. Signing out requests browser storage/cache clearing.
+   Do not use offline drafts in a shared browser profile or uncontrolled OS account.
+
 ## Expenses and supplier settlement
 
 1. Owner/manager creates a draft operating expense in the correct category.

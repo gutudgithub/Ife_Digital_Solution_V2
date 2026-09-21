@@ -288,6 +288,19 @@ active fingerprints are unique per business, confirmation keys are unique per bu
 confirmed source-derived evidence is frozen. Operational posting remains in the existing
 purchasing, expense, and inventory ledgers.
 
+## Implemented Stage 9A offline-sync entities
+
+- `OfflineSaleSyncKey`: immutable direct business scope, client idempotency UUID, local draft
+  UUID, and canonical payload hash. Business/key and business/local-draft pairs are unique.
+- `OfflineSaleSync`: immutable business, branch, actor, one-to-one sync claim, optional
+  ordinary sale draft, sync status, offline/sync timestamps, sanitized snapshot, and bounded
+  conflict messages.
+
+The status/sale constraints allow a sale only for `synced` or `needs_review` evidence and
+require no sale for `rejected` evidence. Related business and branch scope is validated on
+save. Browser-side IndexedDB is not authoritative; every submitted identity and catalog
+reference is revalidated by the synchronization service.
+
 ## Remaining planned ledger entities
 
 Future slices should add:

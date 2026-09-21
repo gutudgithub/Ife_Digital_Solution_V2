@@ -23,7 +23,7 @@ operational notes, and independent Claude review.
 | 6 | Customers, loyalty, promotions, and consent | Deferred by the product owner; points-ledger and privacy work remains separately gated |
 | 7 | Public business profile, QR storefront, and verification | Implemented and independently approved; release gates remain |
 | 8 | Document capture and human-confirmed digitization | Product-owner approved and implemented; independent review and production policy gates remain |
-| 9 | Offline PWA and synchronization | Planned; Stage 9A proposed as offline cashier sales continuity |
+| 9 | Offline PWA and synchronization | Stage 9A approved and implemented; independent review and pilot gates remain |
 | 10 | Multi-branch transfers and consolidated control | Planned; branch isolation and transfer lifecycle must pass |
 | 11 | SaaS plans, onboarding, support, and administration | Planned; subscription lifecycle and safe suspension must pass |
 | 12 | Localization, accessibility, security, recovery, and pilot | Planned; real users must complete normal operations safely |
@@ -73,12 +73,13 @@ capture remain excluded. Independent Claude review, production private-object st
 malware-scanner operations, retention/legal approval, security/privacy review, and
 native-language review remain release gates.
 
-Stage 9 should be split into independently reviewable offline slices. The recommended first
-slice, Stage 9A, is offline cashier sales continuity: installable PWA basics, a narrow local
-sale-draft queue, manual synchronization to ordinary server sale drafts, and explicit
+Stage 9 is split into independently reviewable offline slices. Stage 9A is implemented as
+offline cashier sales continuity: installable PWA basics, a narrow tenant/branch-partitioned
+local sale-draft queue, manual synchronization to ordinary server sale drafts, and explicit
 conflict results. It does not authorize offline posting, inventory movement, cash-session
 movement, receipt creation, document capture, attendance, stock counts, expenses, or public
-profile workflows.
+profile workflows. Independent review, HTTPS, operator training, provisional-note process
+approval, and native-language review remain gates.
 
 Customer ordering, delivery, professional services, AI, payroll, and statutory employment
 administration remain excluded.

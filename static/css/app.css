@@ -579,3 +579,86 @@ textarea {
 .break-anywhere {
   overflow-wrap: anywhere;
 }
+
+.connection-status {
+  background: #fff7e6;
+  border-bottom: 1px solid #f2c46d;
+  color: #7a3e00;
+  font-weight: 800;
+  padding: 0.55rem 1rem;
+  text-align: center;
+}
+
+.offline-app {
+  display: grid;
+  gap: 1rem;
+}
+
+.offline-lines {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.offline-line,
+.offline-draft-card {
+  align-items: end;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(220px, 2fr) minmax(120px, 1fr) auto;
+  padding: 0.85rem;
+}
+
+.offline-draft-card {
+  align-items: start;
+  grid-template-columns: 1fr auto;
+  margin-top: 0.75rem;
+}
+
+.offline-draft-card p {
+  margin: 0.25rem 0;
+}
+
+.offline-draft-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.offline-status {
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 0.2rem 0.55rem;
+  text-transform: uppercase;
+}
+
+.offline-status--pending {
+  background: #e8eef7;
+  color: var(--brand);
+}
+
+.offline-status--synced {
+  background: #e8f5ec;
+  color: #236334;
+}
+
+.offline-status--needs_review,
+.offline-status--rejected {
+  background: #fff1e8;
+  color: #8a3b00;
+}
+
+@media (max-width: 680px) {
+  .offline-line,
+  .offline-draft-card {
+    grid-template-columns: 1fr;
+  }
+
+  .offline-draft-actions {
+    justify-content: flex-start;
+  }
+}

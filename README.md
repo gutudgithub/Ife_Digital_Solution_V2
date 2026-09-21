@@ -5,7 +5,7 @@ foundation is reusable for inventory-based retail while the first pilot is tailo
 clothing and footwear.
 
 This repository contains the independently reviewed Stages 1 through 5 and 7, plus the
-implemented Stage 8 private-document slice:
+implemented Stage 8 private-document and Stage 9A offline-sales slices:
 
 - email-based authentication and Django administration;
 - business and branch records;
@@ -38,11 +38,14 @@ implemented Stage 8 private-document slice:
 - private JPEG, PNG, and PDF capture, fail-closed scanning, human transcription, owner
   confirmation, and source-to-operational-record traceability for purchases, expenses, and
   opening stock;
+- an installable offline-sales PWA screen with a tenant/branch-partitioned IndexedDB draft
+  queue, narrow catalog snapshot, manual idempotent synchronization, and explicit conflict
+  review before normal online posting;
 - English, Amharic, and Afaan Oromoo locale configuration;
 - PostgreSQL-compatible settings, Docker Compose, CI, and pre-commit checks.
 
-Customer and loyalty work remains deferred. Offline, multi-branch, SaaS, and
-production-launch stages remain separately gated delivery slices.
+Customer and loyalty work remains deferred. Broader offline workflows, multi-branch
+transfers, SaaS, and production launch remain separately gated delivery slices.
 
 ## Requirements
 
@@ -91,6 +94,10 @@ counts, post/reverse returns, adjust stock, or view inventory values.
 The cashier can record assigned-branch sales, prepare customer-return drafts, and record
 personal attendance but cannot post refunds, create full sale reversals, see suppliers,
 purchase returns, purchase costs, movement history, average costs, or inventory values.
+While online, the cashier can open `/offline/sales/` to prepare the authorized catalog.
+During a short outage, that prepared screen stores local drafts only. After reconnection,
+the cashier synchronizes them into normal server drafts and separately reviews/posts them
+online. A provisional offline note is not a receipt or proof of payment.
 When finished, stop the containers with `docker compose down`.
 
 ## Local setup with SQLite
@@ -120,6 +127,8 @@ at `/inventory/`, purchasing at `/purchasing/`, purchase returns at
 corrections are listed at `/sales/returns/`. Owner/manager performance intelligence is at
 `/performance/`. Public-profile management is at `/public-profile/`. Private document
 capture and review is at `/documents/`.
+The bounded offline cashier workflow is at `/offline/sales/`; visit it online before testing
+an outage.
 
 ## Local setup with PostgreSQL and Docker
 

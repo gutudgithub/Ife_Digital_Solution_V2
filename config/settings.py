@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "apps.performance",
     "apps.public_profiles",
     "apps.documents",
+    "apps.offline",
 ]
 
 MIDDLEWARE = [

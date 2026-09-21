@@ -2,7 +2,8 @@
 
 ## Status
 
-Recommended for product-owner approval. Not approved and not implemented.
+Approved by the product owner and implemented. Independent Claude review remains required
+before Stage 9A is accepted. Pilot use also remains blocked by the rollout gates below.
 
 Stage 9A is the first bounded offline slice. It intentionally does **not** make the whole
 application offline. It adds installable PWA basics, an offline indicator, a local cashier

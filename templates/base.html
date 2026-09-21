@@ -4,7 +4,10 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#17365d">
     <title>{% block title %}{% translate "Ife Digital Solution" %}{% endblock %}</title>
+    {% if user.is_authenticated and active_membership.can_sell %}<link rel="manifest" href="{% url 'offline:manifest' %}">{% endif %}
+    <link rel="icon" href="{% static 'img/ife-app-icon.svg' %}" type="image/svg+xml">
     <link rel="stylesheet" href="{% static 'css/app.css' %}">
   </head>
   <body>
@@ -21,6 +24,7 @@
             {% endif %}
             {% if active_membership.can_sell %}
               <a href="{% url 'sales:sale-list' %}">{% translate "Sales" %}</a>
+              <a href="{% url 'offline:sales' %}?business={{ active_business.id }}">{% translate "Offline sales" %}</a>
               <a href="{% url 'sales:return-list' %}">{% translate "Sale returns" %}</a>
             {% endif %}
             {% if active_membership.can_use_cash_sessions %}
@@ -55,6 +59,13 @@
         {% endif %}
       </div>
     </header>
+    <div id="connection-status"
+         class="connection-status"
+         data-online="{% translate 'Online' %}"
+         data-offline="{% translate 'Offline — local drafts only' %}"
+         role="status"
+         aria-live="polite"
+         hidden></div>
     <main class="page">
       <div class="messages">
         {% for message in messages %}
@@ -64,5 +75,7 @@
       </div>
       {% block content %}{% endblock %}
     </main>
+    <script src="{% static 'js/pwa-shell.js' %}" defer></script>
+    {% block extra_scripts %}{% endblock %}
   </body>
 </html>
