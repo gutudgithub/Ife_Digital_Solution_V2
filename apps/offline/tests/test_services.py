@@ -85,18 +85,21 @@ class OfflineSaleSyncServiceTests(TestCase):
         idempotency_key: uuid.UUID | None = None,
         branch: Branch | None = None,
         variant: ProductVariant | None = None,
+        drafted_by: BusinessMembership | None = None,
         quantity: str = "2",
         price: str | None = None,
         offline_created_at: datetime | None = None,
     ) -> OfflineSaleDraftInput:
         selected_variant = variant or self.variant
+        drafting_actor = drafted_by or self.cashier_membership
         created_at = offline_created_at or timezone.now() - timedelta(minutes=5)
         return OfflineSaleDraftInput(
             local_draft_id=local_draft_id or uuid.uuid4(),
             idempotency_key=idempotency_key or uuid.uuid4(),
             business_id=self.business.id,
             branch_id=(branch or self.branch).id,
-            role_at_draft=MembershipRole.CASHIER,
+            drafted_by_id=drafting_actor.id,
+            role_at_draft=drafting_actor.role,
             offline_created_at=created_at,
             payment_method="cash",
             telebirr_reference="",
@@ -139,6 +142,19 @@ class OfflineSaleSyncServiceTests(TestCase):
         self.assertEqual(OfflineSaleSyncKey.objects.count(), 1)
         self.assertEqual(OfflineSaleSync.objects.count(), 1)
         self.assertEqual(Sale.objects.count(), 1)
+
+    def test_exact_replay_survives_later_drafting_membership_deactivation(self) -> None:
+        draft = self._input()
+        first = sync_offline_sale(actor=self.owner_membership, draft=draft)
+        self.cashier_membership.is_active = False
+        self.cashier_membership.save(update_fields=("is_active",))
+
+        replay = sync_offline_sale(actor=self.owner_membership, draft=draft)
+
+        self.assertEqual(replay.id, first.id)
+        self.assertEqual(replay.sale_id, first.sale_id)
+        self.assertEqual(OfflineSaleSyncKey.objects.count(), 1)
+        self.assertEqual(OfflineSaleSync.objects.count(), 1)
 
     def test_key_or_local_id_reuse_with_different_payload_is_rejected(self) -> None:
         original = self._input()
@@ -215,6 +231,7 @@ class OfflineSaleSyncServiceTests(TestCase):
             idempotency_key=wrong_business.idempotency_key,
             business_id=uuid.uuid4(),
             branch_id=wrong_business.branch_id,
+            drafted_by_id=wrong_business.drafted_by_id,
             role_at_draft=wrong_business.role_at_draft,
             offline_created_at=wrong_business.offline_created_at,
             payment_method=wrong_business.payment_method,
@@ -238,21 +255,56 @@ class OfflineSaleSyncServiceTests(TestCase):
     def test_owner_can_select_another_active_branch(self) -> None:
         result = sync_offline_sale(
             actor=self.owner_membership,
-            draft=self._input(branch=self.other_branch),
+            draft=self._input(branch=self.other_branch, drafted_by=self.owner_membership),
         )
 
         self.assertEqual(result.branch, self.other_branch)
         assert result.sale is not None
         self.assertEqual(result.sale.branch, self.other_branch)
 
-    def test_expired_future_and_invalid_quantity_drafts_are_not_synchronized(self) -> None:
-        with self.assertRaisesMessage(ValidationError, "expire after seven days"):
-            sync_offline_sale(
-                actor=self.cashier_membership,
-                draft=self._input(
-                    offline_created_at=timezone.now() - timedelta(days=8),
-                ),
-            )
+    def test_owner_syncing_cashier_draft_preserves_drafting_identity(self) -> None:
+        result = sync_offline_sale(
+            actor=self.owner_membership,
+            draft=self._input(),
+        )
+
+        self.assertEqual(result.actor, self.owner_membership)
+        self.assertEqual(result.drafted_by, self.cashier_membership)
+        assert result.sale is not None
+        self.assertEqual(result.sale.created_by, self.cashier_membership)
+
+    def test_another_cashier_cannot_sync_a_cashier_draft(self) -> None:
+        other_cashier_user = User.objects.create_user(
+            email="offline-other-cashier@example.com",
+            password="strong-test-password",
+            full_name="Other Offline Cashier",
+        )
+        other_cashier = BusinessMembership.objects.create(
+            business=self.business,
+            user=other_cashier_user,
+            assigned_branch=self.branch,
+            role=MembershipRole.CASHIER,
+        )
+
+        with self.assertRaisesMessage(ValidationError, "owner or manager"):
+            sync_offline_sale(actor=other_cashier, draft=self._input())
+
+    def test_expired_draft_records_rejected_evidence_without_sale(self) -> None:
+        result = sync_offline_sale(
+            actor=self.cashier_membership,
+            draft=self._input(
+                offline_created_at=timezone.now() - timedelta(days=8),
+            ),
+        )
+
+        self.assertEqual(result.status, OfflineSaleSyncStatus.REJECTED)
+        self.assertIsNone(result.sale_id)
+        self.assertEqual(OfflineSaleSyncKey.objects.count(), 1)
+        self.assertEqual(OfflineSaleSync.objects.count(), 1)
+        self.assertIn("expire after seven days", result.conflict_messages[0])
+        self.assertFalse(Sale.objects.exists())
+
+    def test_future_and_invalid_quantity_drafts_are_not_synchronized(self) -> None:
         with self.assertRaisesMessage(ValidationError, "cannot be in the future"):
             sync_offline_sale(
                 actor=self.cashier_membership,

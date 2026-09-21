@@ -1,4 +1,5 @@
 import uuid
+from datetime import date, timedelta
 from decimal import Decimal
 from unittest.mock import PropertyMock, patch
 
@@ -11,6 +12,11 @@ from apps.businesses.models import Branch, Business, BusinessMembership, Members
 from apps.cash.services import open_cash_session
 from apps.catalog.models import Product, ProductVariant, StockUnit
 from apps.inventory.services import post_opening_balance
+from apps.offline.services import (
+    OfflineSaleDraftInput,
+    OfflineSaleLineInput,
+    sync_offline_sale,
+)
 from apps.sales.models import InternalReceipt, Sale, SaleStatus
 from apps.sales.services import SaleQuantity, post_sale, save_sale_draft
 
@@ -100,13 +106,41 @@ class SalesViewTests(TestCase):
         *,
         actor: BusinessMembership | None = None,
         branch: Branch | None = None,
+        sale_date: date | None = None,
     ) -> Sale:
         return save_sale_draft(
             actor=actor or self.cashier_membership,
             branch=branch or self.branch,
-            sale_date=timezone.localdate(),
+            sale_date=sale_date or timezone.localdate(),
             quantities=[SaleQuantity(self.variant.id, Decimal("1"))],
         )
+
+    def _offline_draft(self) -> Sale:
+        result = sync_offline_sale(
+            actor=self.cashier_membership,
+            draft=OfflineSaleDraftInput(
+                local_draft_id=uuid.uuid4(),
+                idempotency_key=uuid.uuid4(),
+                business_id=self.business.id,
+                branch_id=self.branch.id,
+                drafted_by_id=self.cashier_membership.id,
+                role_at_draft=self.cashier_membership.role,
+                offline_created_at=timezone.now() - timedelta(days=3),
+                payment_method="cash",
+                telebirr_reference="",
+                lines=(
+                    OfflineSaleLineInput(
+                        variant_id=self.variant.id,
+                        quantity="1",
+                        selling_price_snapshot="1800.00",
+                        product_name_snapshot=self.variant.product.name,
+                        variant_label_snapshot=str(self.variant),
+                    ),
+                ),
+            ),
+        )
+        assert result.sale is not None
+        return result.sale
 
     def test_cashier_can_create_post_and_view_internal_receipt(self) -> None:
         self.client.force_login(self.cashier)
@@ -169,6 +203,32 @@ class SalesViewTests(TestCase):
         self.assertNotContains(response, "Assigned inventory unit cost")
         self.assertNotContains(response, "Inventory value reduction")
         self.assertNotContains(response, "700.000000")
+
+    def test_offline_backdated_sale_warns_at_posting_and_cash_session_report(
+        self,
+    ) -> None:
+        sale = self._offline_draft()
+        self.client.force_login(self.cashier)
+
+        post_page = self.client.get(reverse("sales:sale-post", args=[sale.id]))
+
+        self.assertContains(post_page, "Offline-origin draft")
+        self.assertContains(post_page, "Cash-session date differs from the sale date")
+        post_response = self.client.post(
+            reverse("sales:sale-post", args=[sale.id]),
+            {
+                "payment_method": "cash",
+                "telebirr_reference": "",
+                "idempotency_key": str(uuid.uuid4()),
+            },
+        )
+        self.assertEqual(post_response.status_code, 302)
+        session = self.branch.cash_sessions.get(status="open")
+
+        cash_page = self.client.get(reverse("cash:session-detail", args=[session.id]))
+
+        self.assertContains(cash_page, "sale date outside this cash-session business date")
+        self.assertContains(cash_page, "Sale date differs from this cash-session date")
 
     def test_owner_can_view_assigned_cost_without_profit_claims(self) -> None:
         sale = post_sale(

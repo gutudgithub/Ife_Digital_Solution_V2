@@ -140,6 +140,17 @@ def session_detail(request: HttpRequest, session_id: UUID) -> HttpResponse:
         session.movements.select_related("actor__user", "posting_key"),
         50,
     ).get_page(request.GET.get("movement_page"))
+    cash_sale_payment_ids = session.movements.filter(
+        movement_type=CashMovementType.CASH_SALE,
+    ).values("source_id")
+    out_of_session_cash_sale_count = (
+        SalePayment.objects.filter(
+            business=business,
+            id__in=cash_sale_payment_ids,
+        )
+        .exclude(sale__sale_date=session.business_date)
+        .count()
+    )
     source_ids = [
         movement.source_id
         for movement in movement_page.object_list
@@ -212,11 +223,17 @@ def session_detail(request: HttpRequest, session_id: UUID) -> HttpResponse:
     for movement in movement_page.object_list:
         source_label = ""
         source_url = ""
+        date_mismatch = ""
         if movement.movement_type == CashMovementType.CASH_SALE:
             payment = sale_payments.get(movement.source_id)
             if payment is not None:
                 source_label = payment.sale.internal_number
                 source_url = reverse("sales:sale-detail", args=[payment.sale_id])
+                if payment.sale.sale_date != session.business_date:
+                    date_mismatch = str(
+                        _("Sale date differs from this cash-session date: %(sale_date)s.")
+                        % {"sale_date": payment.sale.sale_date}
+                    )
         elif movement.movement_type == CashMovementType.CASH_REFUND:
             refund = refund_evidence.get(movement.source_id)
             if refund is not None:
@@ -289,6 +306,7 @@ def session_detail(request: HttpRequest, session_id: UUID) -> HttpResponse:
                 "movement": movement,
                 "source_label": source_label,
                 "source_url": source_url,
+                "date_mismatch": date_mismatch,
             }
         )
     closures = session.closures.select_related("closed_by__user").prefetch_related("reopening")
@@ -301,6 +319,7 @@ def session_detail(request: HttpRequest, session_id: UUID) -> HttpResponse:
             "movement_rows": movement_rows,
             "movement_page": movement_page,
             "closures": closures,
+            "out_of_session_cash_sale_count": out_of_session_cash_sale_count,
             "can_manage_cash_movements": membership.can_manage_cash_movements,
             "can_reopen_cash_sessions": membership.can_reopen_cash_sessions,
         },

@@ -41,6 +41,7 @@ class OfflineSaleDraftInput:
     idempotency_key: UUID
     business_id: UUID
     branch_id: UUID
+    drafted_by_id: UUID
     role_at_draft: str
     offline_created_at: datetime
     payment_method: str
@@ -77,16 +78,20 @@ def _authorized_branch(*, actor: BusinessMembership, branch_id: UUID) -> Branch:
     return branch
 
 
-def _offline_timestamp(value: datetime) -> datetime:
+def _offline_timestamp(value: datetime, *, enforce_age: bool = True) -> datetime:
     if timezone.is_naive(value):
         raise ValidationError(_("The offline creation time must include a timezone."))
     normalized = value.astimezone(UTC)
     now = timezone.now()
     if normalized > now + MAX_CLOCK_SKEW:
         raise ValidationError(_("The offline creation time cannot be in the future."))
-    if normalized < now - MAX_OFFLINE_DRAFT_AGE:
+    if enforce_age and normalized < now - MAX_OFFLINE_DRAFT_AGE:
         raise ValidationError(_("Offline sale drafts expire after seven days."))
     return normalized
+
+
+def _draft_expired(value: datetime) -> bool:
+    return value < timezone.now() - MAX_OFFLINE_DRAFT_AGE
 
 
 def _payment(method: str, reference: str) -> tuple[str, str]:
@@ -179,8 +184,12 @@ def _normalized_payload(
         "idempotency_key": str(draft.idempotency_key),
         "business_id": str(draft.business_id),
         "branch_id": str(draft.branch_id),
+        "drafted_by_id": str(draft.drafted_by_id),
         "role_at_draft": draft.role_at_draft,
-        "offline_created_at": _offline_timestamp(draft.offline_created_at).isoformat(),
+        "offline_created_at": _offline_timestamp(
+            draft.offline_created_at,
+            enforce_age=False,
+        ).isoformat(),
         "payment_method": payment_method,
         "telebirr_reference": reference,
         "lines": line_snapshots,
@@ -280,6 +289,34 @@ def _catalog_conflicts(
     return sorted(conflicts)
 
 
+def _drafting_actor(
+    *,
+    current_actor: BusinessMembership,
+    draft: OfflineSaleDraftInput,
+    branch: Branch,
+) -> BusinessMembership:
+    drafted_by = (
+        BusinessMembership.objects.select_related("business", "assigned_branch")
+        .filter(
+            pk=draft.drafted_by_id,
+            business=current_actor.business,
+            is_active=True,
+            business__is_active=True,
+        )
+        .first()
+    )
+    if drafted_by is None or not drafted_by.can_sell:
+        raise ValidationError(_("The drafting sales membership is no longer active."))
+    if drafted_by.role != draft.role_at_draft:
+        raise ValidationError(_("The drafting membership role changed before synchronization."))
+    _authorized_branch(actor=drafted_by, branch_id=branch.id)
+    if drafted_by.id != current_actor.id and not current_actor.can_sell_across_branches:
+        raise ValidationError(
+            _("Only an owner or manager can synchronize another operator's offline draft.")
+        )
+    return drafted_by
+
+
 @transaction.atomic
 def sync_offline_sale(
     *,
@@ -301,16 +338,38 @@ def sync_offline_sale(
     existing = OfflineSaleSync.objects.select_related("sale").filter(sync_key=sync_key).first()
     if existing is not None:
         return existing
+    drafted_by = _drafting_actor(
+        current_actor=current_actor,
+        draft=draft,
+        branch=branch,
+    )
+    offline_created_at = _offline_timestamp(
+        draft.offline_created_at,
+        enforce_age=False,
+    )
+    if _draft_expired(offline_created_at):
+        return OfflineSaleSync.objects.create(
+            business=current_actor.business,
+            branch=branch,
+            actor=current_actor,
+            drafted_by=drafted_by,
+            sync_key=sync_key,
+            status=OfflineSaleSyncStatus.REJECTED,
+            offline_created_at=offline_created_at,
+            synced_at=timezone.now(),
+            snapshot=payload,
+            conflict_messages=[_("Offline sale drafts expire after seven days.")],
+        )
 
     try:
         conflicts = _catalog_conflicts(
-            actor=current_actor,
+            actor=drafted_by,
             snapshot_by_variant=snapshot_by_variant,
         )
         sale = save_sale_draft(
-            actor=current_actor,
+            actor=drafted_by,
             branch=branch,
-            sale_date=timezone.localtime(draft.offline_created_at).date(),
+            sale_date=timezone.localtime(offline_created_at).date(),
             quantities=quantities,
         )
     except ValidationError as error:
@@ -318,9 +377,10 @@ def sync_offline_sale(
             business=current_actor.business,
             branch=branch,
             actor=current_actor,
+            drafted_by=drafted_by,
             sync_key=sync_key,
             status=OfflineSaleSyncStatus.REJECTED,
-            offline_created_at=_offline_timestamp(draft.offline_created_at),
+            offline_created_at=offline_created_at,
             synced_at=timezone.now(),
             snapshot=payload,
             conflict_messages=list(error.messages),
@@ -331,10 +391,11 @@ def sync_offline_sale(
         business=current_actor.business,
         branch=branch,
         actor=current_actor,
+        drafted_by=drafted_by,
         sync_key=sync_key,
         sale=sale,
         status=status,
-        offline_created_at=_offline_timestamp(draft.offline_created_at),
+        offline_created_at=offline_created_at,
         synced_at=timezone.now(),
         snapshot=payload,
         conflict_messages=conflicts,

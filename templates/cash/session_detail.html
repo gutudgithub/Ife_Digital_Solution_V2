@@ -36,6 +36,15 @@
       <h2>{% translate "Expected drawer cash" %}</h2>
       <p class="metric">ETB {{ expected_cash|floatformat:2 }}</p>
       <p class="muted">{% translate "Expected cash is the sum of immutable opening, sale, refund, expense, supplier-settlement, and authorized manual movements." %}</p>
+      {% if out_of_session_cash_sale_count %}
+        <p class="receipt-notice">
+          {% blocktranslate trimmed count count=out_of_session_cash_sale_count %}
+            {{ count }} cash sale in this drawer has a sale date outside this cash-session business date.
+          {% plural %}
+            {{ count }} cash sales in this drawer have sale dates outside this cash-session business date.
+          {% endblocktranslate %}
+        </p>
+      {% endif %}
     </article>
   </section>
 
@@ -68,6 +77,7 @@
                 {% else %}
                   —
                 {% endif %}
+                {% if row.date_mismatch %}<p class="muted">{{ row.date_mismatch }}</p>{% endif %}
               </td>
               <td>{{ row.movement.actor.user.full_name }}</td>
               <td>{{ row.movement.reason|default:"—" }}</td>

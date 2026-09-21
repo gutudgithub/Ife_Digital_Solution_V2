@@ -62,6 +62,7 @@ class OfflineSaleSyncConcurrencyTests(TransactionTestCase):
             idempotency_key=uuid.uuid4(),
             business_id=business.id,
             branch_id=branch.id,
+            drafted_by_id=self.membership.id,
             role_at_draft=MembershipRole.CASHIER,
             offline_created_at=timezone.now() - timedelta(minutes=1),
             payment_method="cash",

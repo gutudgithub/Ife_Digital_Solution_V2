@@ -11,6 +11,27 @@
       <p class="muted">{{ sale.internal_number }} · {% blocktranslate trimmed with total=sale.total_amount|floatformat:2 %}Exact payment required: ETB {{ total }}{% endblocktranslate %}</p>
     </div>
   </div>
+  {% if sale.offline_sync %}
+    <section class="card receipt-notice" role="note">
+      <strong>{% translate "Offline-origin draft" %}</strong>
+      <p>
+        {% blocktranslate trimmed with sale_date=sale.sale_date drafted_by=sale.offline_sync.drafted_by.user.full_name created=sale.offline_sync.offline_created_at|date:"SHORT_DATETIME_FORMAT" %}
+          This sale was drafted offline by {{ drafted_by }} on {{ created }} and carries sale date {{ sale_date }}.
+        {% endblocktranslate %}
+      </p>
+      <p>{% translate "Posting now still uses the currently open cash session for cash payments; compare the sale date with the drawer date before posting." %}</p>
+    </section>
+  {% endif %}
+  {% if cash_session_date_mismatch and open_cash_session %}
+    <section class="card receipt-notice" role="alert">
+      <strong>{% translate "Cash-session date differs from the sale date" %}</strong>
+      <p>
+        {% blocktranslate trimmed with sale_date=sale.sale_date session_date=open_cash_session.business_date %}
+          Cash posting will affect the open drawer for {{ session_date }}, while this sale reports on {{ sale_date }}.
+        {% endblocktranslate %}
+      </p>
+    </section>
+  {% endif %}
   <section class="card form-card">
     <p>{% translate "Posting is atomic and immutable. It reduces inventory, records one full payment, and issues one internal receipt." %}</p>
     <p class="muted">{% translate "Corrections use a separate controlled return and refund-evidence workflow after posting." %}</p>

@@ -111,15 +111,17 @@
 
 1. An offline entry is browser-local draft data, not a server sale, payment, receipt, cash
    movement, inventory movement, or performance event.
-2. Local catalog and draft records are partitioned by the current business and selected
-   authorized branch and expire after seven days.
+2. Local catalog and draft records are partitioned by business, authorized branch, and
+   drafting membership. Seven days is the synchronization limit; drafts are never deleted
+   automatically and expired attempts retain rejected server evidence.
 3. Local storage contains selling labels/prices and entered sale data only; it excludes cost,
    stock balance, suppliers, private documents, customers, staff data, and performance output.
 4. Synchronization is manual and creates only an ordinary server sale draft through the
    existing sale-draft service.
-5. The server ignores submitted identity claims for authorization and revalidates the active
+5. The server revalidates both the active synchronizing membership and the recorded drafting
    membership, business, branch, role capability, variants, quantities, payment shape, and
-   draft age.
+   draft age. One cashier cannot synchronize another cashier's draft; owner/manager recovery
+   retains both identities and attributes the sale to the drafting membership.
 6. Exact replay returns the same synchronization evidence and sale. Reusing the key or local
    draft identity for changed content is rejected.
 7. Current catalog prices are authoritative. Snapshot changes produce an explicit

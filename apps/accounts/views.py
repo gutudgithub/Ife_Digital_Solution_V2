@@ -10,5 +10,5 @@ class SecureLogoutView(LogoutView):
         **kwargs: object,
     ) -> HttpResponse:
         response = super().post(request, *args, **kwargs)
-        response.headers["Clear-Site-Data"] = '"cache", "storage"'
+        response.headers["Clear-Site-Data"] = '"cache"'
         return response

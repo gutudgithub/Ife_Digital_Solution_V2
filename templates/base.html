@@ -6,11 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#17365d">
     <title>{% block title %}{% translate "Ife Digital Solution" %}{% endblock %}</title>
-    {% if user.is_authenticated and active_membership.can_sell %}<link rel="manifest" href="{% url 'offline:manifest' %}">{% endif %}
+    {% if user.is_authenticated and active_membership.can_sell %}<link rel="manifest" href="{% url 'offline:manifest' %}" crossorigin="use-credentials">{% endif %}
     <link rel="icon" href="{% static 'img/ife-app-icon.svg' %}" type="image/svg+xml">
     <link rel="stylesheet" href="{% static 'css/app.css' %}">
   </head>
-  <body>
+  <body {% if user.is_authenticated and active_membership %}data-active-membership-id="{{ active_membership.id }}" data-session-expires-in="{{ request.session.get_expiry_age }}" data-service-worker-url="{% url 'offline:service-worker' %}" data-service-worker-scope="/offline/" data-logout-drafts-warning="{% translate 'This browser still has offline sale draft(s) that are not safely completed. Sign out anyway?' %}"{% endif %}>
     <header class="site-header">
       <div class="site-header__inner">
         <a class="brand" href="{% url 'dashboard' %}">{% translate "Ife Digital Solution" %}</a>
@@ -51,7 +51,7 @@
               <a href="{% url 'public_profiles:staff-queue' %}">{% translate "Profile review" %}</a>
             {% endif %}
             <a href="{% url 'attendance:attendance-list' %}">{% translate "Attendance" %}</a>
-            <form method="post" action="{% url 'logout' %}">
+            <form method="post" action="{% url 'logout' %}" data-offline-logout-form>
               {% csrf_token %}
               <button class="link-button" type="submit">{% translate "Sign out" %}</button>
             </form>

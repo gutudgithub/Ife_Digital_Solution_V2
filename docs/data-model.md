@@ -292,9 +292,10 @@ purchasing, expense, and inventory ledgers.
 
 - `OfflineSaleSyncKey`: immutable direct business scope, client idempotency UUID, local draft
   UUID, and canonical payload hash. Business/key and business/local-draft pairs are unique.
-- `OfflineSaleSync`: immutable business, branch, actor, one-to-one sync claim, optional
-  ordinary sale draft, sync status, offline/sync timestamps, sanitized snapshot, and bounded
-  conflict messages.
+- `OfflineSaleSync`: immutable business, branch, synchronizing actor, drafting membership,
+  one-to-one sync claim, optional ordinary sale draft, sync status, offline/sync timestamps,
+  sanitized snapshot, and bounded conflict messages. Expired attempts are rejected evidence
+  with no sale.
 
 The status/sale constraints allow a sale only for `synced` or `needs_review` evidence and
 require no sale for `rejected` evidence. Related business and branch scope is validated on

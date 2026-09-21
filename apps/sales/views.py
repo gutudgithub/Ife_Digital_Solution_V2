@@ -14,6 +14,7 @@ from django.utils.translation import gettext as _
 
 from apps.businesses.models import Branch, Business, BusinessMembership
 from apps.businesses.types import TenantRequest
+from apps.cash.models import CashSession, CashSessionStatus
 from apps.catalog.models import ProductVariant
 from apps.forms import add_accessible_error_attributes
 from apps.public_profiles.models import (
@@ -310,9 +311,21 @@ def sale_post(request: HttpRequest, sale_id: UUID) -> HttpResponse:
     business = cast(Business, tenant_request.active_business)
     membership = cast(BusinessMembership, tenant_request.active_membership)
     sale = get_object_or_404(
-        _visible_sales(business=business, membership=membership).select_related("branch"),
+        _visible_sales(business=business, membership=membership).select_related(
+            "branch",
+            "created_by__user",
+            "offline_sync__drafted_by__user",
+        ),
         pk=sale_id,
         status=SaleStatus.DRAFT,
+    )
+    open_cash_session = CashSession.objects.filter(
+        business=business,
+        branch=sale.branch,
+        status=CashSessionStatus.OPEN,
+    ).first()
+    cash_session_date_mismatch = (
+        open_cash_session is not None and open_cash_session.business_date != sale.sale_date
     )
     form = SalePostForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
@@ -330,7 +343,16 @@ def sale_post(request: HttpRequest, sale_id: UUID) -> HttpResponse:
             messages.success(request, _("Sale posted and paid in full."))
             return redirect("sales:receipt-detail", receipt_id=posted_sale.receipt.id)
     add_accessible_error_attributes(form)
-    return render(request, "sales/sale_post.html", {"sale": sale, "form": form})
+    return render(
+        request,
+        "sales/sale_post.html",
+        {
+            "sale": sale,
+            "form": form,
+            "open_cash_session": open_cash_session,
+            "cash_session_date_mismatch": cash_session_date_mismatch,
+        },
+    )
 
 
 @login_required

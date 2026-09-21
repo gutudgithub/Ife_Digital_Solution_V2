@@ -49,7 +49,7 @@ class OfflineSaleViewTests(TestCase):
             name="Other",
             code="other",
         )
-        BusinessMembership.objects.create(
+        self.cashier_membership = BusinessMembership.objects.create(
             business=self.business,
             user=self.cashier,
             assigned_branch=self.branch,
@@ -79,6 +79,7 @@ class OfflineSaleViewTests(TestCase):
             "idempotency_key": str(uuid.uuid4()),
             "business_id": str(self.business.id),
             "branch_id": str(self.branch.id),
+            "drafted_by_id": str(self.cashier_membership.id),
             "role_at_draft": MembershipRole.CASHIER,
             "offline_created_at": (timezone.now() - timedelta(minutes=1)).isoformat(),
             "payment_method": "cash",
@@ -137,7 +138,13 @@ class OfflineSaleViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["X-Ife-Offline-Cache"], "private-shell")
+        self.assertEqual(response["X-Ife-Offline-Membership"], str(self.cashier_membership.id))
         self.assertContains(response, reverse("offline:manifest"))
+        self.assertContains(response, 'crossorigin="use-credentials"')
+        self.assertContains(response, f'data-membership-id="{self.cashier_membership.id}"')
+        self.assertContains(
+            response, f'data-service-worker-url="{reverse("offline:service-worker")}"'
+        )
         self.assertContains(response, "Offline sales drafts")
         self.assertContains(response, "Draft only — not a receipt or completed sale.")
         self.assertContains(response, "does not move inventory")
@@ -253,12 +260,12 @@ class OfflineSaleViewTests(TestCase):
         self.assertFalse(Sale.objects.exists())
         self.assertFalse(OfflineSaleSync.objects.exists())
 
-    def test_logout_requests_browser_storage_and_cache_clearing(self) -> None:
+    def test_logout_requests_cache_clearing_without_destroying_indexeddb(self) -> None:
         self.client.force_login(self.cashier)
 
         response = self.client.post(reverse("logout"))
 
-        self.assertEqual(response["Clear-Site-Data"], '"cache", "storage"')
+        self.assertEqual(response["Clear-Site-Data"], '"cache"')
 
     def test_offline_queue_script_uses_manual_versioned_indexeddb_storage(self) -> None:
         script_path = finders.find("js/offline-sales.js")
@@ -270,11 +277,34 @@ class OfflineSaleViewTests(TestCase):
         self.assertIn('createObjectStore("drafts"', source)
         self.assertIn("crypto.randomUUID()", source)
         self.assertIn("sevenDays", source)
-        self.assertIn('remove("drafts", draft.local_draft_id)', source)
+        self.assertIn("drafted_by_id: app.dataset.membershipId", source)
+        self.assertIn("drafted_by_id: draft.drafted_by_id", source)
+        self.assertIn("copiedOfflineCreatedAt = draft.offline_created_at", source)
+        self.assertNotIn("removedDraft", source)
+        self.assertNotIn("purgeExpiredData", source)
         self.assertIn("role_at_draft: draft.role", source)
         self.assertIn("draft.business_id === app.dataset.businessId", source)
         self.assertIn("draft.branch_id === app.dataset.branchId", source)
+        self.assertIn("draft.drafted_by_id === app.dataset.membershipId", source)
+        self.assertIn("requirePrivateSession()", source)
+        self.assertIn("async function establishPrivateSession()", source)
+        self.assertIn("if (!response.ok)", source)
+        self.assertIn("rememberPrivateSession();", source)
         self.assertIn('window.addEventListener("pageshow", restorePaymentSelection)', source)
         self.assertNotIn('addEventListener("sync"', source)
         self.assertNotIn("SyncManager", source)
         self.assertNotIn("Number(quantity)", source)
+
+    def test_pwa_shell_uses_reversed_worker_url_and_logout_guard(self) -> None:
+        script_path = finders.find("js/pwa-shell.js")
+        assert isinstance(script_path, str)
+        source = Path(script_path).read_text(encoding="utf-8")
+
+        self.assertIn("document.body.dataset.serviceWorkerUrl", source)
+        self.assertIn("document.body.dataset.serviceWorkerScope", source)
+        self.assertNotIn('register("/offline/service-worker.js"', source)
+        self.assertIn("unsafeLocalDraftCount", source)
+        self.assertIn('clear("catalogs")', source)
+        self.assertNotIn('clear("drafts")', source)
+        self.assertIn("sessionStorage.removeItem(sessionKey)", source)
+        self.assertNotIn("rememberActiveMembership", source)

@@ -109,6 +109,7 @@ def _draft_input(payload: object) -> OfflineSaleDraftInput:
         idempotency_key=_uuid(payload.get("idempotency_key"), field=_("Idempotency key")),
         business_id=_uuid(payload.get("business_id"), field=_("Business")),
         branch_id=_uuid(payload.get("branch_id"), field=_("Branch")),
+        drafted_by_id=_uuid(payload.get("drafted_by_id"), field=_("Drafting membership")),
         role_at_draft=_text(payload.get("role_at_draft"), field=_("Membership role")),
         offline_created_at=_timestamp(payload.get("offline_created_at")),
         payment_method=_text(payload.get("payment_method"), field=_("Payment method")),
@@ -194,6 +195,7 @@ def offline_sales(request: HttpRequest) -> HttpResponse:
     )
     response.headers["Cache-Control"] = "private, no-cache"
     response.headers["X-Ife-Offline-Cache"] = "private-shell"
+    response.headers["X-Ife-Offline-Membership"] = str(membership.id)
     return response
 
 

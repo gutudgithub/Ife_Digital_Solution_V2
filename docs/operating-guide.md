@@ -73,10 +73,15 @@
 5. Open every server draft. Review any price/catalog conflict, confirm the actual payment and
    current stock conditions, then use the normal online posting flow.
 6. Remove a synced local copy only with **Acknowledge and remove**. Copy a rejected draft,
-   correct it, and create a new local identity; discard only when the entry is no longer
-   needed.
-7. Local drafts expire after seven days. Signing out requests browser storage/cache clearing.
-   Do not use offline drafts in a shared browser profile or uncontrolled OS account.
+   correct it, and create a new local identity while retaining the original occurrence time;
+   discard only when the entry is no longer needed.
+7. Drafts older than seven days are not silently deleted. Synchronize them while online to
+   create rejected server evidence, then explicitly retain, copy, acknowledge, or discard.
+8. Signing out clears cached catalog/shell data but preserves local drafts. Confirm the shown
+   pending/rejected count. Reconnect and sign in as the same drafting membership to see that
+   queue again.
+9. When posting a backdated offline draft, compare its sale date with the open cash-session
+   date. The cash-session detail discloses any sale dated outside that drawer day.
 
 ## Expenses and supplier settlement
 

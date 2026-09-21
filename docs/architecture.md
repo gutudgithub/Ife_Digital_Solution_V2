@@ -141,11 +141,13 @@ Source-derived drafts cannot be edited; correction requires cancellation and a p
 replacement transcription.
 
 Stage 9A keeps local draft and catalog data in a versioned IndexedDB database partitioned by
-business and branch. A service worker scoped to `/offline/` caches only an allowlisted shell
+business, branch, and drafting membership. A service worker scoped to `/offline/` caches only an allowlisted shell
 and explicitly authorized offline-sales HTML; catalog JSON remains no-store and is copied
-only into the tenant/branch-partitioned local store. Synchronization revalidates current
-membership, business, branch, variants, decimal quantities, payment shape, age, and
-idempotency before calling the ordinary sale-draft service. It never calls sale posting.
+only into the scoped local store. A volatile authenticated-browser marker must match the
+draft owner before the queue renders. Synchronization retains separate drafting and
+synchronizing memberships, records expired attempts, and revalidates business, branch,
+variants, decimal quantities, payment shape, age, and idempotency before calling the
+ordinary sale-draft service. It never calls sale posting.
 
 ## Localization
 

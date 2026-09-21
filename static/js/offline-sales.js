@@ -14,8 +14,11 @@
   const csrfToken = form.querySelector("[name=csrfmiddlewaretoken]").value;
   const sevenDays = 7 * 24 * 60 * 60 * 1000;
   const catalogKey = `${app.dataset.businessId}:${app.dataset.branchId}`;
+  const sessionKey = "ife-active-membership-id";
+  const sessionExpiryKey = "ife-active-membership-expires-at";
   let catalog = null;
   let variants = new Map();
+  let copiedOfflineCreatedAt = null;
 
   const databasePromise = new Promise((resolve, reject) => {
     const request = indexedDB.open("ife-offline-v1", 2);
@@ -62,16 +65,75 @@
     catalogStatus.textContent = message;
   }
 
-  async function purgeExpiredData() {
-    const now = Date.now();
-    let removedDraft = false;
-    const drafts = await getAll("drafts");
-    for (const draft of drafts) {
-      if (now - Date.parse(draft.offline_created_at) > sevenDays) {
-        await remove("drafts", draft.local_draft_id);
-        removedDraft = true;
-      }
+  function hasPrivateSession() {
+    const expiresAt = Number.parseInt(
+      sessionStorage.getItem(sessionExpiryKey) || "0",
+      10,
+    );
+    return (
+      sessionStorage.getItem(sessionKey) === app.dataset.membershipId &&
+      (!expiresAt || expiresAt > Date.now())
+    );
+  }
+
+  function rememberPrivateSession() {
+    sessionStorage.setItem(sessionKey, app.dataset.membershipId);
+    const expiresIn = Number.parseInt(
+      document.body.dataset.sessionExpiresIn || "0",
+      10,
+    );
+    if (expiresIn > 0) {
+      sessionStorage.setItem(
+        sessionExpiryKey,
+        String(Date.now() + expiresIn * 1000),
+      );
     }
+  }
+
+  function requirePrivateSession() {
+    if (hasPrivateSession()) {
+      return true;
+    }
+    setCatalogStatus(app.dataset.privateSessionRequired);
+    form.hidden = true;
+    queueContainer.replaceChildren();
+    const message = document.createElement("p");
+    message.className = "errorlist";
+    message.textContent = app.dataset.privateSessionRequired;
+    queueContainer.append(message);
+    if (!navigator.onLine) {
+      window.location.replace(app.dataset.unavailableUrl);
+    }
+    return false;
+  }
+
+  async function establishPrivateSession() {
+    if (hasPrivateSession()) {
+      return true;
+    }
+    if (!navigator.onLine) {
+      return false;
+    }
+    try {
+      const response = await fetch(app.dataset.catalogUrl, {
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) {
+        return false;
+      }
+      catalog = await response.json();
+      catalog.catalog_key = catalogKey;
+      await put("catalogs", catalog);
+      rememberPrivateSession();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function purgeExpiredCatalog() {
+    const now = Date.now();
     const savedCatalog = await get("catalogs", catalogKey);
     if (
       savedCatalog &&
@@ -79,14 +141,23 @@
     ) {
       await remove("catalogs", catalogKey);
     }
-    if (removedDraft) {
-      setCatalogStatus(app.dataset.expired);
-    }
+  }
+
+  function draftBelongsHere(draft) {
+    return (
+      draft.business_id === app.dataset.businessId &&
+      draft.branch_id === app.dataset.branchId &&
+      draft.drafted_by_id === app.dataset.membershipId
+    );
+  }
+
+  function draftIsExpired(draft) {
+    return Date.now() - Date.parse(draft.offline_created_at) > sevenDays;
   }
 
   async function loadCatalog() {
     setCatalogStatus(app.dataset.loading);
-    if (navigator.onLine) {
+    if (!catalog && navigator.onLine) {
       try {
         const response = await fetch(app.dataset.catalogUrl, {
           credentials: "same-origin",
@@ -224,10 +295,11 @@
     const draft = {
       business_id: app.dataset.businessId,
       branch_id: app.dataset.branchId,
+      drafted_by_id: app.dataset.membershipId,
       role: app.dataset.role,
       local_draft_id: crypto.randomUUID(),
       idempotency_key: crypto.randomUUID(),
-      offline_created_at: new Date().toISOString(),
+      offline_created_at: copiedOfflineCreatedAt || new Date().toISOString(),
       payment_method: paymentMethod.value,
       telebirr_reference: telebirrReference.value.trim(),
       lines,
@@ -235,6 +307,7 @@
       conflicts: [],
       errors: [],
     };
+    copiedOfflineCreatedAt = null;
     await put("drafts", draft);
     resetForm();
     setCatalogStatus(app.dataset.draftSaved);
@@ -283,6 +356,7 @@
     }
     paymentMethod.value = draft.payment_method;
     telebirrReference.value = draft.telebirr_reference;
+    copiedOfflineCreatedAt = draft.offline_created_at;
     form.scrollIntoView({ behavior: "smooth" });
   }
 
@@ -296,6 +370,7 @@
       idempotency_key: draft.idempotency_key,
       business_id: draft.business_id,
       branch_id: draft.branch_id,
+      drafted_by_id: draft.drafted_by_id,
       role_at_draft: draft.role,
       offline_created_at: draft.offline_created_at,
       payment_method: draft.payment_method,
@@ -333,10 +408,7 @@
   async function syncAll() {
     const drafts = await getAll("drafts");
     for (const draft of drafts.filter(
-      (item) =>
-        item.status === "pending" &&
-        item.business_id === app.dataset.businessId &&
-        item.branch_id === app.dataset.branchId,
+      (item) => item.status === "pending" && draftBelongsHere(item),
     )) {
       await syncDraft(draft);
     }
@@ -385,11 +457,10 @@
   }
 
   async function renderQueue() {
-    const drafts = (await getAll("drafts")).filter(
-      (draft) =>
-        draft.business_id === app.dataset.businessId &&
-        draft.branch_id === app.dataset.branchId,
-    );
+    if (!requirePrivateSession()) {
+      return;
+    }
+    const drafts = (await getAll("drafts")).filter(draftBelongsHere);
     drafts.sort(
       (left, right) =>
         Date.parse(right.offline_created_at) - Date.parse(left.offline_created_at),
@@ -414,6 +485,12 @@
       const lines = document.createElement("p");
       lines.textContent = `${draft.lines.length} ${app.dataset.lineCount}`;
       summary.append(status, created, lines);
+      if (draftIsExpired(draft) && draft.status === "pending") {
+        const expired = document.createElement("p");
+        expired.className = "errorlist";
+        expired.textContent = app.dataset.expired;
+        summary.append(expired);
+      }
       for (const message of [
         ...(draft.conflicts || []).map(conflictText),
         ...(draft.errors || []),
@@ -474,8 +551,13 @@
   window.addEventListener("pageshow", restorePaymentSelection);
 
   restorePaymentSelection();
-  purgeExpiredData()
-    .then(loadCatalog)
-    .then(renderQueue)
+  establishPrivateSession()
+    .then((established) => {
+      if (!established) {
+        requirePrivateSession();
+        return null;
+      }
+      return purgeExpiredCatalog().then(loadCatalog).then(renderQueue);
+    })
     .catch(() => setCatalogStatus(app.dataset.catalogMissing));
 })();

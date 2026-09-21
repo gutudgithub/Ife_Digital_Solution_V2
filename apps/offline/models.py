@@ -97,6 +97,13 @@ class OfflineSaleSync(models.Model):
         on_delete=models.PROTECT,
         related_name="offline_sale_syncs",
     )
+    drafted_by = models.ForeignKey(
+        BusinessMembership,
+        on_delete=models.PROTECT,
+        related_name="offline_sale_drafts_made",
+        null=True,
+        blank=True,
+    )
     sync_key = models.OneToOneField(
         OfflineSaleSyncKey,
         on_delete=models.PROTECT,
@@ -175,6 +182,11 @@ class OfflineSaleSync(models.Model):
             raise ValidationError({"branch": _("The branch must belong to this business.")})
         if self.actor_id and self.actor.business_id != self.business_id:
             raise ValidationError({"actor": _("The actor must belong to this business.")})
+        drafted_by = self.drafted_by
+        if drafted_by is not None and drafted_by.business_id != self.business_id:
+            raise ValidationError(
+                {"drafted_by": _("The drafting actor must belong to this business.")}
+            )
         if self.sync_key_id and self.sync_key.business_id != self.business_id:
             raise ValidationError({"sync_key": _("The sync key must belong to this business.")})
         sale = self.sale if self.sale_id else None

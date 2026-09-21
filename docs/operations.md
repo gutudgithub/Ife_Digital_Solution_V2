@@ -83,8 +83,15 @@ Runtime configuration is supplied through environment variables:
   automatic conflict resolution as an operational workaround.
 - Treat every provisional note as non-receipt local evidence. Train staff to complete the
   normal online posting flow after synchronization.
-- Signing out sends `Clear-Site-Data` for cache and storage. Business devices should also use
-  controlled OS accounts, locked browser profiles, and normal device-retirement wiping.
+- Signing out clears browser caches and catalog snapshots, but preserves local sale drafts.
+  The logout guard shows the pending/rejected draft count and requires confirmation. Queue
+  rendering is membership-owned and requires a live browser-session marker; after sign-out,
+  session expiry, browser restart, or membership change, reconnect and authenticate before
+  viewing drafts.
+- Seven days is the synchronization limit, not a deletion schedule. Expired attempts create
+  immutable rejected sync evidence; local removal remains an explicit operator action.
+- Review cash-session details for cash sales whose original sale date differs from the
+  session business date.
 - Before pilot, record whether the business accepts provisional notes during outages and
   complete native-language review of every warning and conflict message.
 

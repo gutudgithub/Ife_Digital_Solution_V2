@@ -105,6 +105,7 @@ The local draft stores:
 
 - business ID;
 - branch ID;
+- drafting membership ID;
 - active membership role at draft time;
 - local draft ID;
 - idempotency key;
@@ -169,15 +170,19 @@ A local draft may be shown or printed only as a provisional sale note. It must s
 It must not show a receipt number, public verification QR code, or language that suggests
 official invoice, tax, payment settlement, or inventory effect.
 
-### Decision 8: local data expires quickly
+### Decision 8: local financial drafts require an explicit lifecycle decision
 
-Pending and failed local drafts remain in the browser for at most seven days unless the
-operator discards them earlier. Synced local copies should be removed immediately after the
-operator acknowledges the sync result.
+Seven days is the synchronization limit, not an automatic deletion deadline. Older drafts
+remain local until the operator explicitly removes them. A synchronization attempt for an
+older draft records immutable rejected server evidence before the operator may acknowledge,
+copy, or discard the local entry. Synced local copies also remain until acknowledgement.
 
-If the browser is shared, a signed-out user must not be able to open local draft contents
-through app screens. The implementation should clear sensitive local UI state on sign-out
-and avoid storing more than the narrow fields in Decision 4.
+Signing out clears cached catalog and shell data but does not destroy IndexedDB sale drafts.
+The browser shows the count and requires hard confirmation when pending or rejected drafts
+remain. Every draft is owned by its drafting membership. The offline shell renders the queue
+only when a volatile authenticated-browser marker matches that membership and has not
+expired; browser restart, sign-out, or another membership requires online authentication
+before local draft contents can be shown again.
 
 ### Decision 9: idempotency prevents duplicate sync
 
@@ -207,7 +212,8 @@ The implementation should add a small server-side sync evidence model, for examp
 
 - `business`;
 - `branch`;
-- `actor`;
+- `actor` who synchronized;
+- `drafted_by` membership responsible for the original entry;
 - `local_draft_id`;
 - `idempotency_key`;
 - `status`;
@@ -230,16 +236,23 @@ operator to sync or discard old drafts.
 Synchronization must go through a server service boundary rather than bulk view logic. The
 service should:
 
-1. load the actor's active business and membership;
-2. reject inactive or unauthorized actors;
-3. validate branch scope against the server membership;
-4. validate each variant belongs to the same active business and is active;
-5. validate quantities using the same decimal boundaries as `SaleLineForm`;
-6. validate payment method/reference shape but not provider settlement;
-7. obtain or create the sync idempotency record;
-8. create an ordinary sale draft using the existing `save_sale_draft` service;
-9. record whether current price snapshots differ from offline snapshots;
-10. return per-draft results without exposing manager-only cost or inventory evidence.
+1. load the synchronizing actor's active business and membership;
+2. load and validate the drafting membership recorded in the immutable payload;
+3. prevent one cashier from synchronizing another cashier's draft while allowing
+   owner/manager recovery with both identities retained;
+4. validate branch scope against both server memberships;
+5. validate each variant belongs to the same active business and is active;
+6. validate quantities using the same decimal boundaries as `SaleLineForm`;
+7. validate payment method/reference shape but not provider settlement;
+8. obtain or create the sync idempotency record, including rejected expiry evidence;
+9. create an ordinary sale draft attributed to the drafting membership using the existing
+   `save_sale_draft` service;
+10. record whether current price snapshots differ from offline snapshots;
+11. return per-draft results without exposing manager-only cost or inventory evidence.
+
+The server draft retains the original local occurrence date. The posting screen identifies
+offline origin and warns when a cash payment will enter an open cash session with a different
+business date. The cash-session report discloses those dated-outside-session sales.
 
 No sync path may call `post_sale`.
 
