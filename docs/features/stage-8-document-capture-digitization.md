@@ -321,9 +321,11 @@ Requirements:
 Recommended:
 
 - calculate SHA-256 for every accepted file while reading its bytes;
-- calculate an ordered document fingerprint from the file hashes;
-- enforce one active captured document per business and exact fingerprint;
+- calculate an ordered document fingerprint from the branch, workflow kind, and file hashes;
+- enforce one active captured document per business, branch, workflow kind, and exact
+  fingerprint;
 - a repeated upload returns the existing document rather than storing duplicate bytes;
+- the same bytes remain valid as a distinct capture when used for another workflow or branch;
 - concurrent duplicate uploads are serialized by a database uniqueness constraint;
 - a cancelled unconfirmed duplicate may be restored or intentionally recaptured through an
   explicit service;
@@ -345,7 +347,8 @@ Recommended initial behavior:
 - confirmed document bytes are not deletable through normal application screens;
 - database metadata, hashes, revisions, confirmation, target links, and purge evidence remain
   immutable after a file purge;
-- a scheduled command identifies eligible unconfirmed files and performs bounded cleanup;
+- a scheduled command previews eligible unconfirmed files before bounded cleanup and reports
+  business/document identifiers plus file counts for the audit record;
 - tenant offboarding, legal retention, data-subject requests, litigation holds, and confirmed
   financial-document retention require a separately approved production policy;
 - Stage 8 does not promise immediate erasure of backup copies; and

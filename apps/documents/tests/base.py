@@ -1,12 +1,16 @@
+from copy import deepcopy
 from decimal import Decimal
+from tempfile import TemporaryDirectory
 
+from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from apps.accounts.models import User
 from apps.businesses.models import Branch, Business, BusinessMembership, MembershipRole
 from apps.catalog.models import Product, ProductVariant, StockUnit
 from apps.documents.models import DocumentFile
+from apps.documents.storage import document_storage
 from apps.expenses.models import ExpenseCategory
 from apps.purchasing.models import Supplier
 
@@ -24,6 +28,26 @@ class DocumentTestMixin(TestCase):
     second_variant: ProductVariant
 
     def setUp(self) -> None:
+        storage_directory = TemporaryDirectory()
+        self.addCleanup(storage_directory.cleanup)
+        storage_settings = deepcopy(settings.STORAGES)
+        storage_settings["documents"] = {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+            "OPTIONS": {
+                "location": storage_directory.name,
+                "base_url": None,
+                "file_permissions_mode": 0o600,
+                "directory_permissions_mode": 0o700,
+            },
+        }
+        storage_override = override_settings(STORAGES=storage_settings)
+        storage_override.enable()
+        self.addCleanup(storage_override.disable)
+        source_field = DocumentFile._meta.get_field("source")
+        original_storage = source_field.storage
+        source_field.storage = document_storage()
+        self.addCleanup(setattr, source_field, "storage", original_storage)
+
         self.business = Business.objects.create(
             name="Stage 8 Clothing",
             slug="stage-8-clothing",

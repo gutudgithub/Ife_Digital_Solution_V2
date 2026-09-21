@@ -105,6 +105,22 @@ class DocumentStorageReconciliation:
 
 
 @dataclass(frozen=True)
+class DocumentPurgeSummary:
+    business_id: UUID
+    document_id: UUID
+    file_count: int
+
+
+@dataclass(frozen=True)
+class DocumentPurgeResult:
+    summaries: tuple[DocumentPurgeSummary, ...]
+
+    @property
+    def file_count(self) -> int:
+        return sum(summary.file_count for summary in self.summaries)
+
+
+@dataclass(frozen=True)
 class PreparedUpload:
     name: str
     media_type: str
@@ -176,12 +192,25 @@ def _prepare_upload(upload: UploadedFile) -> PreparedUpload:
     )
 
 
-def _fingerprint(files: list[PreparedUpload]) -> str:
+def _file_fingerprint(files: list[PreparedUpload]) -> str:
     digest = hashlib.sha256()
     for item in files:
         digest.update(item.sha256.encode("ascii"))
         digest.update(str(item.size).encode("ascii"))
         digest.update(item.media_type.encode("ascii"))
+    return digest.hexdigest()
+
+
+def _fingerprint(
+    *,
+    branch: Branch,
+    kind: str,
+    files: list[PreparedUpload],
+) -> str:
+    digest = hashlib.sha256()
+    digest.update(str(branch.pk).encode("ascii"))
+    digest.update(kind.encode("ascii"))
+    digest.update(_file_fingerprint(files).encode("ascii"))
     return digest.hexdigest()
 
 
@@ -225,11 +254,14 @@ def capture_document(
     total_size = sum(item.size for item in prepared)
     if total_size > settings.DOCUMENT_MAX_TOTAL_BYTES:
         raise ValidationError(_("The combined document files must be 25 MiB or smaller."))
-    fingerprint = _fingerprint(prepared)
+    fingerprint = _fingerprint(branch=branch, kind=kind, files=prepared)
+    legacy_fingerprint = _file_fingerprint(prepared)
     existing = (
         CapturedDocument.objects.filter(
             business=actor.business,
-            fingerprint=fingerprint,
+            branch=branch,
+            kind=kind,
+            fingerprint__in=(fingerprint, legacy_fingerprint),
         )
         .exclude(status=DocumentStatus.CANCELLED)
         .first()
@@ -267,7 +299,14 @@ def capture_document(
             document_file.source.storage.delete(document_file.source.name)
         existing = CapturedDocument.objects.get(
             business=actor.business,
+            branch=branch,
+            kind=kind,
             fingerprint=fingerprint,
+            status__in=(
+                DocumentStatus.QUARANTINED,
+                DocumentStatus.AVAILABLE,
+                DocumentStatus.REJECTED,
+            ),
         )
         return existing, True
     scan_document_files(actor=actor, document=document)
@@ -919,22 +958,37 @@ def record_document_access(
     )
 
 
-def purge_eligible_document_files(*, now: datetime | None = None) -> int:
+def purge_eligible_document_files(
+    *,
+    now: datetime | None = None,
+    dry_run: bool = False,
+) -> DocumentPurgeResult:
     timestamp = now or timezone.now()
     cutoff = timestamp - timedelta(days=settings.DOCUMENT_CANCELLED_RETENTION_DAYS)
     files = DocumentFile.objects.filter(
         document__status=DocumentStatus.CANCELLED,
         document__cancelled_at__lte=cutoff,
         purged_at__isnull=True,
-    )
-    purged = 0
+    ).order_by("business_id", "document_id", "position")
+    counts: dict[tuple[UUID, UUID], int] = {}
     for document_file in files.iterator():
-        document_file.source.storage.delete(document_file.source.name)
-        document_file.purged_at = timestamp
-        document_file.purge_reason = DocumentPurgeReason.CANCELLED_RETENTION_EXPIRED
-        document_file.save(update_fields=("purged_at", "purge_reason"))
-        purged += 1
-    return purged
+        key = (document_file.business_id, document_file.document_id)
+        counts[key] = counts.get(key, 0) + 1
+        if not dry_run:
+            document_file.source.storage.delete(document_file.source.name)
+            document_file.purged_at = timestamp
+            document_file.purge_reason = DocumentPurgeReason.CANCELLED_RETENTION_EXPIRED
+            document_file.save(update_fields=("purged_at", "purge_reason"))
+    return DocumentPurgeResult(
+        summaries=tuple(
+            DocumentPurgeSummary(
+                business_id=business_id,
+                document_id=document_id,
+                file_count=file_count,
+            )
+            for (business_id, document_id), file_count in counts.items()
+        )
+    )
 
 
 def _stored_document_names(prefix: str = "documents") -> tuple[str, ...]:

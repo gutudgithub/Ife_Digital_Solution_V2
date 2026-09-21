@@ -120,9 +120,9 @@ class CapturedDocument(models.Model):
                 name="documents_status_is_valid",
             ),
             models.UniqueConstraint(
-                fields=("business", "fingerprint"),
+                fields=("business", "branch", "kind", "fingerprint"),
                 condition=~Q(fingerprint="") & ~Q(status=DocumentStatus.CANCELLED),
-                name="documents_unique_active_fingerprint_per_business",
+                name="documents_unique_active_capture_scope",
             ),
             models.CheckConstraint(
                 condition=(

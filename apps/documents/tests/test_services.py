@@ -1,3 +1,4 @@
+import hashlib
 import uuid
 from datetime import timedelta
 from decimal import Decimal
@@ -122,6 +123,56 @@ class DocumentServiceTests(DocumentTestMixin):
         self.assertTrue(was_duplicate)
         self.assertEqual(duplicate.id, document.id)
         self.assertEqual(DocumentFile.objects.count(), 1)
+
+    def test_same_bytes_are_distinct_across_workflows_and_branches(self) -> None:
+        purchase = self._capture()
+        expense, expense_duplicate = capture_document(
+            actor=self.owner,
+            branch=self.branch,
+            kind=DocumentKind.EXPENSE,
+            title="Transport expense evidence",
+            uploads=[self.png_upload()],
+        )
+        second_branch = self.branch.__class__.objects.create(
+            business=self.business,
+            name="Second Shop",
+            code="second",
+        )
+        branch_purchase, branch_duplicate = capture_document(
+            actor=self.owner,
+            branch=second_branch,
+            kind=DocumentKind.PURCHASE,
+            title="Second-branch supplier paper",
+            uploads=[self.png_upload()],
+        )
+
+        self.assertFalse(expense_duplicate)
+        self.assertFalse(branch_duplicate)
+        self.assertNotEqual(expense.id, purchase.id)
+        self.assertNotEqual(branch_purchase.id, purchase.id)
+        self.assertEqual(CapturedDocument.objects.count(), 3)
+        self.assertEqual(DocumentFile.objects.count(), 3)
+
+    def test_exact_duplicate_matches_pre_scope_fingerprint(self) -> None:
+        document = self._capture()
+        source = document.files.get()
+        digest = hashlib.sha256()
+        digest.update(source.sha256.encode("ascii"))
+        digest.update(str(source.size).encode("ascii"))
+        digest.update(source.media_type.encode("ascii"))
+        CapturedDocument.objects.filter(pk=document.pk).update(fingerprint=digest.hexdigest())
+
+        duplicate, was_duplicate = capture_document(
+            actor=self.owner,
+            branch=self.branch,
+            kind=DocumentKind.PURCHASE,
+            title="Legacy duplicate",
+            uploads=[self.png_upload()],
+        )
+
+        self.assertTrue(was_duplicate)
+        self.assertEqual(duplicate.id, document.id)
+        self.assertEqual(CapturedDocument.objects.count(), 1)
 
     def test_upload_rejects_unknown_signature_and_mismatched_extension(self) -> None:
         for upload in (
@@ -483,7 +534,7 @@ class DocumentServiceTests(DocumentTestMixin):
         document.cancelled_at = timezone.now() - timedelta(days=31)
         document.save(update_fields=("cancelled_at", "updated_at"))
 
-        self.assertEqual(purge_eligible_document_files(), 1)
+        self.assertEqual(purge_eligible_document_files().file_count, 1)
         source.refresh_from_db()
         self.assertIsNotNone(source.purged_at)
         self.assertEqual(source.purge_reason, "cancelled_retention_expired")

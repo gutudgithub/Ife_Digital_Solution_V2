@@ -136,8 +136,11 @@ support hours, training, feedback capture, and a safe path back to manual operat
   missing objects, orphan objects, hash mismatches, stale quarantine, and incomplete target
   links. Investigate before using `--delete-orphans`; the command retains objects newer
   than `DOCUMENT_ORPHAN_RETENTION_HOURS` so an in-flight upload cannot be deleted.
-- Run `python manage.py purge_document_files` on a scheduled cadence for eligible cancelled
-  unconfirmed sources. Metadata, hashes, revisions, and purge timestamps remain.
+- Run `python manage.py purge_document_files --dry-run` before each scheduled retention purge.
+  The preview reports business/document IDs and file counts without exposing storage keys or
+  filenames. Then run `python manage.py purge_document_files` for eligible cancelled
+  unconfirmed sources and retain its per-document output as the audit record. Metadata,
+  hashes, revisions, and purge timestamps remain.
 - Scanner timeout or error leaves the document quarantined. Restore scanner health, retry
   from the document page, and never mark bytes clean manually.
 - An infected source is rejected and its bytes are removed; preserve only the bounded scan
