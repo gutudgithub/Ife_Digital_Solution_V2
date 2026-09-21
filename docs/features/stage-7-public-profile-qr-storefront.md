@@ -3,8 +3,8 @@
 ## Status
 
 Approved by the product owner and implemented. Stage 6 customer, loyalty, promotion,
-points-ledger, and consent work remains intentionally deferred. Independent Claude review
-is pending.
+points-ledger, and consent work remains intentionally deferred. Claude independently
+approved Stage 7 after the public read-only endpoints were restricted to safe HTTP methods.
 
 Privacy, security, native-language, and production-deployment review remain release gates
 even after implementation and independent code review.

@@ -55,6 +55,66 @@ class PublicProfileViewTests(PublicProfileTestMixin):
         self.assertNotContains(response, reverse("public_profiles:unpublish"))
         self.assertContains(response, "Only an owner may publish")
 
+    def test_owner_sees_search_indexing_cache_disclosure(self) -> None:
+        self.client.force_login(self.owner_user)
+        response = self.client.get(reverse("public_profiles:manage"))
+
+        self.assertContains(
+            response,
+            "Search engines and third-party caches may retain earlier copies after unpublishing.",
+        )
+        self.assertContains(response, "Removal is not instantaneous")
+
+    def test_anonymous_read_only_endpoints_reject_post(self) -> None:
+        identifier = uuid.uuid4()
+        urls = (
+            reverse("public_profiles:public-profile", args=(identifier,)),
+            reverse(
+                "public_profiles:public-product",
+                args=(identifier, identifier),
+            ),
+            reverse("public_profiles:verify-sale-receipt", args=(identifier,)),
+            reverse("public_profiles:verify-return-receipt", args=(identifier,)),
+            reverse("public_profiles:sale-receipt-qr", args=(identifier,)),
+            reverse("public_profiles:return-receipt-qr", args=(identifier,)),
+            reverse("public_profiles:robots"),
+            reverse("public_profiles:sitemap"),
+        )
+
+        for url in urls:
+            with self.subTest(url=url):
+                self.assertEqual(self.client.post(url).status_code, 405)
+
+    def test_public_page_posts_do_not_increment_open_metrics(self) -> None:
+        self.publish()
+        profile_url = reverse(
+            "public_profiles:public-profile",
+            args=(self.profile.public_id,),
+        )
+        product_url = reverse(
+            "public_profiles:public-product",
+            args=(self.profile.public_id, self.product.public_identity.public_id),
+        )
+
+        self.assertEqual(self.client.post(profile_url).status_code, 405)
+        self.assertEqual(self.client.post(product_url).status_code, 405)
+        self.assertFalse(PublicStorefrontDailyMetric.objects.exists())
+
+    def test_authenticated_read_only_endpoints_reject_post(self) -> None:
+        self.publish()
+        self.client.force_login(self.owner_user)
+        urls = (
+            reverse("public_profiles:manage"),
+            reverse("public_profiles:preview"),
+            reverse("public_profiles:profile-qr"),
+            reverse("public_profiles:poster"),
+            reverse("public_profiles:product-qr", args=(self.product.id,)),
+        )
+
+        for url in urls:
+            with self.subTest(url=url):
+                self.assertEqual(self.client.post(url).status_code, 405)
+
     def test_public_profile_is_generic_not_found_for_all_ineligible_states(self) -> None:
         url = reverse("public_profiles:public-profile", args=(self.profile.public_id,))
         for status, active, suspended in (

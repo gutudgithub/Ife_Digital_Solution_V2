@@ -100,7 +100,9 @@
 4. Use **Preview** and inspect the profile, product pages, price behavior, and public-data
    disclaimers.
 5. Publish only after the readiness panel is complete. Search indexing remains off unless
-   the owner explicitly enables it.
+   the owner explicitly enables it. Search engines and third-party caches may retain earlier
+   copies after unpublishing; removal is not instantaneous and may require a separate request
+   to each provider.
 6. Download SVG QR material or print the poster; keep the visible URL fallback.
 7. Submit specific contact, location, or business-document verification requests when
    needed. Verification is evidence review, not legal or government certification.

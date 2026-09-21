@@ -50,6 +50,7 @@
             <input type="checkbox" name="enabled" {% if profile.allow_search_indexing %}checked{% endif %}>
             {% translate "Allow eligible profile in the public sitemap" %}
           </label>
+          <p class="muted">{% translate "Search engines and third-party caches may retain earlier copies after unpublishing. Removal is not instantaneous and may require a separate request to each provider." %}</p>
           <button class="button button--secondary" type="submit">{% translate "Save indexing preference" %}</button>
         </form>
       </div>

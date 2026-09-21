@@ -14,7 +14,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext as _
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_safe
 
 from apps.businesses.models import BusinessMembership
 from apps.businesses.types import TenantRequest
@@ -222,6 +222,7 @@ def _render_manage(
 
 
 @login_required
+@require_safe
 def profile_manage(request: HttpRequest) -> HttpResponse:
     membership = _tenant_manager(request)
     profile = get_or_create_profile(membership)
@@ -425,6 +426,7 @@ def verification_request_create(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+@require_safe
 def profile_preview(request: HttpRequest) -> HttpResponse:
     membership = _tenant_manager(request)
     profile = get_or_create_profile(membership)
@@ -444,6 +446,7 @@ def profile_preview(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+@require_safe
 def profile_qr(request: HttpRequest) -> HttpResponse:
     membership = _tenant_manager(request)
     profile = get_or_create_profile(membership)
@@ -457,6 +460,7 @@ def profile_qr(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+@require_safe
 def product_qr(request: HttpRequest, product_id: UUID) -> HttpResponse:
     membership = _tenant_manager(request)
     profile = get_or_create_profile(membership)
@@ -475,6 +479,7 @@ def product_qr(request: HttpRequest, product_id: UUID) -> HttpResponse:
 
 
 @login_required
+@require_safe
 def profile_poster(request: HttpRequest) -> HttpResponse:
     membership = _tenant_manager(request)
     profile = get_or_create_profile(membership)
@@ -497,6 +502,7 @@ def _public_response(response: HttpResponse) -> HttpResponse:
     return response
 
 
+@require_safe
 def public_profile(request: HttpRequest, public_id: UUID) -> HttpResponse:
     try:
         profile = get_profile_model_for_public_id(public_id)
@@ -527,6 +533,7 @@ def public_profile(request: HttpRequest, public_id: UUID) -> HttpResponse:
     return _public_response(response)
 
 
+@require_safe
 def public_product(
     request: HttpRequest,
     public_id: UUID,
@@ -572,6 +579,7 @@ def public_product(
     return _public_response(response)
 
 
+@require_safe
 def verify_sale_receipt(request: HttpRequest, token: UUID) -> HttpResponse:
     try:
         receipt = public_sale_receipt(token)
@@ -586,6 +594,7 @@ def verify_sale_receipt(request: HttpRequest, token: UUID) -> HttpResponse:
     )
 
 
+@require_safe
 def verify_return_receipt(request: HttpRequest, token: UUID) -> HttpResponse:
     try:
         receipt = public_return_receipt(token)
@@ -600,6 +609,7 @@ def verify_return_receipt(request: HttpRequest, token: UUID) -> HttpResponse:
     )
 
 
+@require_safe
 def sale_receipt_qr(request: HttpRequest, token: UUID) -> HttpResponse:
     identity = get_object_or_404(PublicSaleReceiptIdentity, public_token=token)
     response = HttpResponse(
@@ -610,6 +620,7 @@ def sale_receipt_qr(request: HttpRequest, token: UUID) -> HttpResponse:
     return response
 
 
+@require_safe
 def return_receipt_qr(request: HttpRequest, token: UUID) -> HttpResponse:
     identity = get_object_or_404(PublicReturnReceiptIdentity, public_token=token)
     response = HttpResponse(
@@ -621,6 +632,7 @@ def return_receipt_qr(request: HttpRequest, token: UUID) -> HttpResponse:
 
 
 @login_required
+@require_safe
 def staff_verification_queue(request: HttpRequest) -> HttpResponse:
     can_review = request.user.has_perm("public_profiles.review_public_verification")
     can_suspend = request.user.has_perm("public_profiles.suspend_public_profile")
@@ -753,6 +765,7 @@ def staff_profile_reinstate(request: HttpRequest, profile_id: UUID) -> HttpRespo
     return redirect("public_profiles:staff-queue")
 
 
+@require_safe
 def robots_txt(request: HttpRequest) -> HttpResponse:
     sitemap_url = absolute_public_url(reverse("public_profiles:sitemap"))
     return HttpResponse(
@@ -762,6 +775,7 @@ def robots_txt(request: HttpRequest) -> HttpResponse:
     )
 
 
+@require_safe
 def sitemap_xml(request: HttpRequest) -> HttpResponse:
     urlset = Element("urlset", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
     profiles = PublicBusinessProfile.objects.filter(
