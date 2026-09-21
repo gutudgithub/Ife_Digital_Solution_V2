@@ -183,8 +183,8 @@
    than 10 MiB and no more than 25 MiB combined.
 3. Every file starts quarantined. Only a clean scan permits access, transcription, or
    confirmation; scanner error fails closed and remains retryable.
-4. Exact ordered SHA-256 fingerprints deduplicate active documents within one business.
-   Hashes prove byte equality, not physical authenticity.
+4. Exact ordered SHA-256 fingerprints deduplicate active documents within one business,
+   branch, and workflow kind. Hashes prove byte equality, not physical authenticity.
 5. Transcription is human-only and may use only existing suppliers, expense categories,
    branches, and product variants.
 6. Manager submission freezes editing. An owner may return it with a reason or confirm it
