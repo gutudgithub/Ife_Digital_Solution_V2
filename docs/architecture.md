@@ -29,6 +29,8 @@ The initial modules are:
   current inventory balances, and server-rendered accessible charts and exports.
 - `public_profiles`: owner-managed public profile and product projections, stable public and
   receipt identities, reviewed indicators, SVG QR targets, and anonymous aggregate metrics.
+- `documents`: private source custody, malware-scan state, typed human transcription,
+  immutable revisions, owner confirmation, and operational provenance.
 
 Future modules should follow ledger boundaries rather than generic CRUD groupings.
 
@@ -68,6 +70,8 @@ Current role capabilities:
 | View performance, assigned costs, result, and exports | Yes | Yes | No | No |
 | Prepare public profile content and select products | Yes | Yes | No | No |
 | Publish, unpublish, control indexing, and appeal | Yes | No | No | No |
+| Upload, transcribe, and review private documents | Yes | Yes | No | No |
+| Confirm document transcription | Yes | No | No | No |
 | Platform administration | Staff permission only | Staff permission only | Staff permission only | Staff permission only |
 
 Later slices must define explicit capabilities for employee administration.
@@ -124,6 +128,14 @@ sidecars prevent internal product and receipt identifiers from entering public U
 reads use an explicit allowlist, while publication, verification, suspension, and aggregate
 metric writes go through typed atomic services. Anonymous metrics store only business,
 profile, optional product, local date, source category, metric type, and count.
+
+Stage 8 stores source bytes only through the private `documents` storage alias. Accepted
+files use opaque UUID keys, exact hashes, quarantine-first scan states, and authorized
+streaming responses with no-store and nosniff headers. Confirmation atomically freezes the
+transcription and creates a normal purchase or expense draft, while opening-stock
+confirmation remains separate from atomic posting through the existing inventory service.
+Source-derived drafts cannot be edited; correction requires cancellation and a preserved
+replacement transcription.
 
 ## Localization
 

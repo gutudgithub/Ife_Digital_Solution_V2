@@ -22,6 +22,11 @@
   behavior, no-store HTML, HTTPS-only canonical QR targets, and no visitor identifier;
 - publication/indexing remains owner-controlled, while verification and suspension require
   separate dedicated platform permissions; `is_staff` alone grants neither.
+- private documents use generated storage keys, signature-derived media types,
+  quarantine-first scanning, tenant/role checks, immutable hashes and revisions, audited
+  preview/download events, and private no-store/nosniff responses;
+- cashiers, stock employees, anonymous users, unrelated tenants, and ordinary platform staff
+  have no Stage 8 document access.
 
 Performance CSV files contain commercially sensitive sales, cost, margin, expense, and
 inventory-value evidence. Operators must store and share exports under the same access and
@@ -33,6 +38,11 @@ prices, and specific current verification indicators. They must never expose int
 business/branch IDs, SKU, cost, stock, exact availability, supplier/staff/customer identity,
 operational ledgers, receipt contents, Telebirr references, verification evidence, or
 private reasons. Aggregate storefront metrics are recorded opens, not unique people.
+
+Private document filenames, hashes, storage keys, source bytes, transcription content,
+confirmation evidence, and signed links must never enter public pages, receipt verification,
+storefront analytics, application logs, email, or third-party recognition services. Stage 8
+performs no OCR, handwriting recognition, or AI extraction.
 
 ## Required before real customer data
 
@@ -47,6 +57,12 @@ private reasons. Aggregate storefront metrics are recorded opens, not unique peo
   processor responsibilities;
 - perform threat modeling, dependency scanning, security review, and penetration testing;
 - verify tenant isolation for every new business-owned model and endpoint.
+- provision private durable object storage with encryption, anonymous access denied, and
+  least-privilege credentials;
+- operate a production ClamAV-compatible scanner with updated signatures, bounded timeouts,
+  availability monitoring, and incident handling;
+- approve confirmed-document retention, lawful basis, processor terms, deletion/export,
+  tenant offboarding, litigation hold, and backup-deletion policy before real uploads.
 
 ## Privacy boundary
 

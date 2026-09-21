@@ -22,6 +22,25 @@
 5. Record supplier payments, credits, or refunds separately from inventory value.
 6. Use manual stock adjustments only with verified evidence and a clear reason.
 
+## Private document capture and transcription
+
+1. Owner/manager opens **Documents → Capture document**, selects the branch and purchase,
+   expense, or opening-stock workflow, then uploads one to five JPEG, PNG, or PDF files.
+2. Wait for every file to become clean. A scanner error remains quarantined; retry scanning.
+   Never transcribe or download a quarantined source.
+3. Enter every field manually from the source. Stage 8 performs no OCR, handwriting
+   recognition, AI extraction, supplier creation, category creation, or product creation.
+4. Submit the completed transcription for owner confirmation. A manager cannot confirm it.
+5. The owner compares every source file with the frozen fields and confirms only when they
+   match. Confirmation does not prove authenticity and creates no ledger effect.
+6. Purchase confirmation creates a normal purchase draft for separate approval and physical
+   receiving. Expense confirmation creates a normal expense draft for separate posting.
+   Opening-stock confirmation requires a separate atomic posting action.
+7. Do not edit a source-derived draft. Before posting, cancel the target and start a
+   replacement transcription. After posting, use the target workflow's normal reversal.
+8. Use the document detail page to trace source hashes, revisions, confirmation, target
+   draft, and posted evidence. Cashiers and stock employees have no document access.
+
 ## Start-of-day cash workflow
 
 1. Owner, manager, or cashier opens the assigned branch cash session.

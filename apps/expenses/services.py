@@ -17,6 +17,10 @@ from apps.cash.services import (
     lock_open_cash_session,
     record_source_cash_movement,
 )
+from apps.documents.provenance import (
+    require_expense_not_confirmed_source,
+    validate_document_expense_posting,
+)
 from apps.expenses.models import (
     ExpenseCategory,
     ExpenseSettlementOperationType,
@@ -302,6 +306,7 @@ def edit_operating_expense_draft(
     )
     if locked.status != ExpenseStatus.DRAFT:
         raise ValidationError(_("Only draft operating expenses can be edited."))
+    require_expense_not_confirmed_source(locked)
     if category.business_id != actor.business_id or not category.is_active:
         raise ValidationError(_("Select an active expense category in this business."))
     clean_amount = _money(amount)
@@ -377,6 +382,11 @@ def post_operating_expense(
         return locked
     if locked.status != ExpenseStatus.DRAFT:
         raise ValidationError(_("Only draft operating expenses can be posted."))
+    validate_document_expense_posting(
+        expense=locked,
+        method=method,
+        telebirr_reference=telebirr_reference,
+    )
     reference, normalized_reference = _payment_reference(
         method=method,
         telebirr_reference=telebirr_reference,

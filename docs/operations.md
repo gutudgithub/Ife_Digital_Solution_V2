@@ -17,6 +17,14 @@ Runtime configuration is supplied through environment variables:
 | `POSTGRES_PORT` | database port |
 | `PUBLIC_SITE_ORIGIN` | canonical public HTTPS origin used in links and QR payloads |
 | `PUBLIC_SUPPORT_URL` | optional HTTPS support link shown on public pages |
+| `DOCUMENT_STORAGE_BACKEND` | `filesystem` for local development or `s3` for production |
+| `DOCUMENT_S3_*` | private bucket, endpoint, region, and least-privilege credentials |
+| `DOCUMENT_SCANNER_BACKEND` | deterministic local scanner or production ClamAV adapter |
+| `DOCUMENT_SCANNER_HOST`, `DOCUMENT_SCANNER_PORT` | ClamAV-compatible scanner endpoint |
+| `DOCUMENT_SCANNER_TIMEOUT_SECONDS` | bounded fail-closed scan timeout |
+| `DOCUMENT_CONFIRMED_RETENTION_POLICY_APPROVED` | production retention-policy gate |
+| `DOCUMENT_CANCELLED_RETENTION_DAYS` | unconfirmed cancelled-byte cleanup age |
+| `DOCUMENT_QUARANTINE_STALE_HOURS` | threshold for stuck quarantine reconciliation |
 
 ## Deployment sequence
 
@@ -51,6 +59,11 @@ Runtime configuration is supplied through environment variables:
    pages never expose SKU, cost, stock, branch, staff, supplier, receipt contents, Telebirr
    reference, or private verification evidence. Verify receipt tokens expose only the
    approved minimal fields.
+   Capture a clean purchase source, transcribe it as manager, submit it, compare and confirm
+   it as owner, then approve and receive the resulting normal purchase separately. Repeat
+   with an expense and opening-stock source; verify confirmation has no ledger effect,
+   opening-stock posting is atomic, replacement requires target cancellation, cashier/stock
+   access is denied, and no private source data appears on public routes.
    Never use `seed_demo` in production.
 
 The development Compose command runs migrations automatically for convenience. Production
@@ -68,6 +81,11 @@ Before pilot use:
 - record restore duration, integrity checks, and corrective actions.
 
 A successful backup job is not recovery evidence; only a tested restore is.
+
+Private-document recovery must restore PostgreSQL metadata and the private object bucket to a
+consistent point. Restore drills must verify source hashes, scan state, transcription
+revisions, confirmation evidence, access events, target links, and authorized download.
+Database-only or bucket-only recovery is incomplete.
 
 ## Observability
 
@@ -109,3 +127,21 @@ support hours, training, feedback capture, and a safe path back to manual operat
 - Backups and restore drills must include profiles, contact/opening-hour rows, immutable
   events, verification requests/decisions, aggregate metrics, and sale/return receipt
   identity sidecars.
+
+## Private document operations
+
+- Production must use private durable object storage and a non-development scanner.
+  `python manage.py check --deploy` flags local storage and rejects the development scanner.
+- Run `python manage.py reconcile_document_storage` on a scheduled cadence. It reports
+  missing objects, orphan objects, hash mismatches, stale quarantine, and incomplete target
+  links. Investigate before using `--delete-orphans`; the command retains objects newer
+  than `DOCUMENT_ORPHAN_RETENTION_HOURS` so an in-flight upload cannot be deleted.
+- Run `python manage.py purge_document_files` on a scheduled cadence for eligible cancelled
+  unconfirmed sources. Metadata, hashes, revisions, and purge timestamps remain.
+- Scanner timeout or error leaves the document quarantined. Restore scanner health, retry
+  from the document page, and never mark bytes clean manually.
+- An infected source is rejected and its bytes are removed; preserve only the bounded scan
+  result required by the approved incident policy.
+- Do not enable real-document use until private-storage, scanner, retention/legal/privacy,
+  backup/restore, tenant-isolation, dependency, upload-abuse, and native-language reviews
+  are approved.

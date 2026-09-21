@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "apps.expenses",
     "apps.performance",
     "apps.public_profiles",
+    "apps.documents",
 ]
 
 MIDDLEWARE = [
@@ -117,10 +118,52 @@ STATICFILES_BACKEND = (
     if DEBUG
     else "whitenoise.storage.CompressedManifestStaticFilesStorage"
 )
-STORAGES = {
+STORAGES: dict[str, dict[str, object]] = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": STATICFILES_BACKEND},
 }
+DOCUMENT_STORAGE_BACKEND = os.environ.get("DOCUMENT_STORAGE_BACKEND", "filesystem")
+if DOCUMENT_STORAGE_BACKEND == "s3":
+    STORAGES["documents"] = {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "bucket_name": os.environ.get("DOCUMENT_S3_BUCKET", ""),
+            "endpoint_url": os.environ.get("DOCUMENT_S3_ENDPOINT_URL") or None,
+            "region_name": os.environ.get("DOCUMENT_S3_REGION") or None,
+            "access_key": os.environ.get("DOCUMENT_S3_ACCESS_KEY") or None,
+            "secret_key": os.environ.get("DOCUMENT_S3_SECRET_KEY") or None,
+            "default_acl": None,
+            "querystring_auth": True,
+            "file_overwrite": False,
+        },
+    }
+else:
+    STORAGES["documents"] = {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {
+            "location": str(BASE_DIR / "private_media"),
+            "base_url": None,
+            "file_permissions_mode": 0o600,
+            "directory_permissions_mode": 0o700,
+        },
+    }
+
+DOCUMENT_MAX_FILES = 5
+DOCUMENT_MAX_FILE_BYTES = 10 * 1024 * 1024
+DOCUMENT_MAX_TOTAL_BYTES = 25 * 1024 * 1024
+DOCUMENT_SCANNER_BACKEND = os.environ.get(
+    "DOCUMENT_SCANNER_BACKEND",
+    "apps.documents.scanning.DevelopmentDocumentScanner",
+)
+DOCUMENT_SCANNER_HOST = os.environ.get("DOCUMENT_SCANNER_HOST", "127.0.0.1")
+DOCUMENT_SCANNER_PORT = int(os.environ.get("DOCUMENT_SCANNER_PORT", "3310"))
+DOCUMENT_SCANNER_TIMEOUT_SECONDS = float(os.environ.get("DOCUMENT_SCANNER_TIMEOUT_SECONDS", "10"))
+DOCUMENT_CONFIRMED_RETENTION_POLICY_APPROVED = (
+    os.environ.get("DOCUMENT_CONFIRMED_RETENTION_POLICY_APPROVED", "false").lower() == "true"
+)
+DOCUMENT_CANCELLED_RETENTION_DAYS = int(os.environ.get("DOCUMENT_CANCELLED_RETENTION_DAYS", "30"))
+DOCUMENT_QUARANTINE_STALE_HOURS = int(os.environ.get("DOCUMENT_QUARANTINE_STALE_HOURS", "24"))
+DOCUMENT_ORPHAN_RETENTION_HOURS = int(os.environ.get("DOCUMENT_ORPHAN_RETENTION_HOURS", "24"))
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "accounts.User"

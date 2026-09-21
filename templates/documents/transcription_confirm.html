@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "Confirm transcription" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <div class="eyebrow">{% translate "Owner-only control" %}</div>
+      <h1>{% translate "Confirm source transcription" %}</h1>
+    </div>
+  </div>
+  <div class="document-workspace">
+    <aside class="card document-workspace__sources">
+      <h2>{% translate "Source files" %}</h2>
+      <p class="muted">{% translate "Compare every field below with these private source files before confirming." %}</p>
+      {% for file in files %}
+        <div class="document-source section-gap">
+          {% if file.media_type != "application/pdf" %}
+            <a href="{% url 'documents:file-preview' transcription.document.id file.id %}" target="_blank" rel="noopener">
+              <img src="{% url 'documents:file-preview' transcription.document.id file.id %}" alt="{% blocktranslate with number=file.position %}Source file {{ number }}{% endblocktranslate %}">
+            </a>
+          {% endif %}
+          <a href="{% url 'documents:file-download' transcription.document.id file.id %}">{% blocktranslate with number=file.position %}Open source file {{ number }}{% endblocktranslate %}</a>
+        </div>
+      {% endfor %}
+    </aside>
+    <section class="card">
+      <div class="receipt-notice">
+        {% translate "Confirmation freezes this snapshot. A purchase or expense becomes an ordinary draft with no ledger effect. Opening stock still requires a separate posting action." %}
+      </div>
+      <dl class="receipt-meta">
+        <div><dt>{% translate "Workflow" %}</dt><dd>{{ transcription.document.get_kind_display }}</dd></div>
+        <div><dt>{% translate "Branch" %}</dt><dd>{{ transcription.branch.name }}</dd></div>
+        <div><dt>{% translate "Submitted by" %}</dt><dd>{{ transcription.submitted_by.user }}</dd></div>
+        <div><dt>{% translate "Submitted at" %}</dt><dd>{{ transcription.submitted_at|date:"Y-m-d H:i" }}</dd></div>
+        {% if transcription.supplier %}<div><dt>{% translate "Supplier" %}</dt><dd>{{ transcription.supplier }}</dd></div>{% endif %}
+        {% if transcription.purchase_date %}<div><dt>{% translate "Purchase date" %}</dt><dd>{{ transcription.purchase_date }}</dd></div>{% endif %}
+        {% if transcription.supplier_reference %}<div><dt>{% translate "Supplier reference" %}</dt><dd>{{ transcription.supplier_reference }}</dd></div>{% endif %}
+        {% if transcription.expected_date %}<div><dt>{% translate "Expected date" %}</dt><dd>{{ transcription.expected_date }}</dd></div>{% endif %}
+        {% if transcription.settlement_terms %}<div><dt>{% translate "Settlement terms" %}</dt><dd>{{ transcription.settlement_terms }}</dd></div>{% endif %}
+        {% if transcription.expense_category %}<div><dt>{% translate "Expense category" %}</dt><dd>{{ transcription.expense_category }}</dd></div>{% endif %}
+        {% if transcription.expense_document_date %}<div><dt>{% translate "Date shown on source" %}</dt><dd>{{ transcription.expense_document_date }}</dd></div>{% endif %}
+        {% if transcription.expense_payee %}<div><dt>{% translate "Payee" %}</dt><dd>{{ transcription.expense_payee }}</dd></div>{% endif %}
+        {% if transcription.expense_description %}<div><dt>{% translate "Description" %}</dt><dd>{{ transcription.expense_description }}</dd></div>{% endif %}
+        {% if transcription.expense_amount %}<div><dt>{% translate "Amount" %}</dt><dd>{{ transcription.expense_amount }} ETB</dd></div>{% endif %}
+        {% if transcription.expense_payment_method %}<div><dt>{% translate "Payment method" %}</dt><dd>{{ transcription.get_expense_payment_method_display }}</dd></div>{% endif %}
+        {% if transcription.expense_telebirr_reference %}<div><dt>{% translate "Telebirr reference" %}</dt><dd>{{ transcription.expense_telebirr_reference }}</dd></div>{% endif %}
+      </dl>
+      {% if transcription.lines.all %}
+        <div class="table-wrap section-gap">
+          <table>
+            <thead><tr><th>{% translate "Variant" %}</th><th>{% translate "Quantity" %}</th><th>{% translate "Unit cost" %}</th><th>{% translate "Note" %}</th></tr></thead>
+            <tbody>{% for line in transcription.lines.all %}<tr><td>{{ line.variant }}</td><td>{{ line.quantity }}</td><td>{{ line.unit_cost }}</td><td>{{ line.note|default:"—" }}</td></tr>{% endfor %}</tbody>
+          </table>
+        </div>
+      {% endif %}
+      <form class="section-gap" method="post">
+        {% csrf_token %}
+        {% include "includes/form_fields.html" with form=form %}
+        <div class="action-row">
+          <button class="button" type="submit">{% translate "Confirm immutable snapshot" %}</button>
+          <a class="button button--secondary" href="{% url 'documents:detail' transcription.document.id %}">{% translate "Back" %}</a>
+        </div>
+      </form>
+    </section>
+  </div>
+{% endblock %}

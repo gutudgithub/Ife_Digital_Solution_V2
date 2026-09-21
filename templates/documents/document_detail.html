@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{{ document }} · {% translate "Captured documents" %}{% endblock %}
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <div class="eyebrow">{{ document.get_kind_display }}</div>
+      <h1>{{ document.title|default:document.get_kind_display }}</h1>
+      <p class="muted">{{ document.branch.name }} · {{ document.created_at|date:"Y-m-d H:i" }}</p>
+    </div>
+    <a class="button button--secondary" href="{% url 'documents:list' %}">{% translate "Back to documents" %}</a>
+  </div>
+  <section class="card">
+    <h2>{% translate "Source custody" %}</h2>
+    <dl class="receipt-meta section-gap">
+      <div><dt>{% translate "Status" %}</dt><dd>{{ document.get_status_display }}</dd></div>
+      <div><dt>{% translate "Uploaded by" %}</dt><dd>{{ document.uploaded_by.user }}</dd></div>
+      <div><dt>{% translate "Files" %}</dt><dd>{{ files|length }}</dd></div>
+      <div><dt>{% translate "Total size" %}</dt><dd>{{ document.total_size }} bytes</dd></div>
+      <div><dt>{% translate "Document fingerprint" %}</dt><dd><code>{{ document.fingerprint }}</code></dd></div>
+    </dl>
+    {% if document.rejection_reason %}<div class="errorlist" role="alert">{{ document.rejection_reason }}</div>{% endif %}
+    {% if document.cancellation_reason %}<p><strong>{% translate "Cancellation reason" %}:</strong> {{ document.cancellation_reason }}</p>{% endif %}
+    {% if document.status == "quarantined" %}
+      <form class="section-gap" method="post" action="{% url 'documents:retry-scan' document.id %}">
+        {% csrf_token %}
+        <button class="button" type="submit">{% translate "Retry malware scan" %}</button>
+      </form>
+    {% endif %}
+  </section>
+  <section class="card section-gap">
+    <h2>{% translate "Immutable source files" %}</h2>
+    <div class="document-source-grid section-gap">
+      {% for file in files %}
+        <article class="document-source">
+          {% if file.media_type != "application/pdf" and file.scan_status == "clean" and not file.purged_at %}
+            <a href="{% url 'documents:file-preview' document.id file.id %}">
+              <img src="{% url 'documents:file-preview' document.id file.id %}" alt="{% blocktranslate with number=file.position %}Source file {{ number }} preview{% endblocktranslate %}">
+            </a>
+          {% else %}
+            <div class="document-source__placeholder">{{ file.media_type }}</div>
+          {% endif %}
+          <p><strong>{% blocktranslate with number=file.position %}File {{ number }}{% endblocktranslate %}</strong></p>
+          <p class="muted">{{ file.original_name }} · {{ file.size }} bytes</p>
+          <p>{{ file.get_scan_status_display }}{% if file.scan_engine %} · {{ file.scan_engine }}{% endif %}</p>
+          {% if file.purge_reason %}<p>{{ file.get_purge_reason_display }}</p>{% endif %}
+          <p class="document-hash"><code>{{ file.sha256 }}</code></p>
+          {% if file.scan_status == "clean" and not file.purged_at %}
+            <a href="{% url 'documents:file-download' document.id file.id %}">{% translate "Download source" %}</a>
+          {% endif %}
+        </article>
+      {% endfor %}
+    </div>
+  </section>
+  <section class="card section-gap">
+    <h2>{% translate "Transcription and traceability" %}</h2>
+    {% for transcription in transcriptions %}
+      <article class="history-entry section-gap">
+        <div class="page-heading">
+          <div>
+            <h3>{% blocktranslate with number=transcription.attempt_number %}Attempt {{ number }}{% endblocktranslate %}</h3>
+            <p>{{ transcription.get_status_display }}</p>
+            {% if transcription.return_reason %}<p class="errorlist">{{ transcription.return_reason }}</p>{% endif %}
+            {% if transcription.cancellation_reason %}<p><strong>{% translate "Cancellation reason" %}:</strong> {{ transcription.cancellation_reason }}</p>{% endif %}
+          </div>
+          <div class="action-row">
+            {% if transcription.status == "draft" and document.status == "available" %}
+              <a class="button" href="{% url 'documents:transcription-edit' transcription.id %}">{% translate "Edit transcription" %}</a>
+              <form method="post" action="{% url 'documents:transcription-submit' transcription.id %}">
+                {% csrf_token %}
+                <button class="button button--secondary" type="submit">{% translate "Submit to owner" %}</button>
+              </form>
+              <a class="button button--secondary" href="{% url 'documents:transcription-cancel' transcription.id %}">{% translate "Cancel attempt" %}</a>
+            {% elif transcription.status == "awaiting_owner_confirmation" and membership.can_confirm_documents %}
+              <a class="button" href="{% url 'documents:transcription-confirm' transcription.id %}">{% translate "Review and confirm" %}</a>
+              <a class="button button--secondary" href="{% url 'documents:transcription-return' transcription.id %}">{% translate "Return for correction" %}</a>
+            {% elif transcription.status == "confirmed" %}
+              {% if document.kind == "opening_stock" %}
+                <form method="post" action="{% url 'documents:transcription-post-opening-stock' transcription.id %}">
+                  {% csrf_token %}
+                  <button class="button" type="submit">{% translate "Post confirmed opening stock" %}</button>
+                </form>
+              {% endif %}
+              <form method="post" action="{% url 'documents:transcription-replace' transcription.id %}">
+                {% csrf_token %}
+                <button class="button button--secondary" type="submit">{% translate "Start replacement" %}</button>
+              </form>
+            {% endif %}
+          </div>
+        </div>
+        {% if transcription.target_purchase %}
+          <p>{% translate "Operational record" %}: <a href="{% url 'purchasing:purchase-detail' transcription.target_purchase.id %}">{{ transcription.target_purchase.internal_number }}</a> · {{ transcription.target_purchase.get_status_display }}</p>
+        {% elif transcription.target_expense %}
+          <p>{% translate "Operational record" %}: <a href="{% url 'expenses:expense-detail' transcription.target_expense.id %}">{{ transcription.target_expense.internal_number }}</a> · {{ transcription.target_expense.get_status_display }}</p>
+        {% endif %}
+        {% if transcription.lines.all %}
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>{% translate "Variant" %}</th><th>{% translate "Quantity" %}</th><th>{% translate "Unit cost" %}</th><th>{% translate "Posted evidence" %}</th></tr></thead>
+              <tbody>
+                {% for line in transcription.lines.all %}
+                  <tr>
+                    <td>{{ line.variant }}</td>
+                    <td>{{ line.quantity }}</td>
+                    <td>{{ line.unit_cost }}</td>
+                    <td>{% if line.target_stock_operation %}{{ line.target_stock_operation.posted_at|date:"Y-m-d H:i" }}{% elif line.target_purchase_line %}{{ line.target_purchase_line.purchase.internal_number }}{% else %}—{% endif %}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+        <details class="section-gap">
+          <summary>{% translate "Immutable revision history" %}</summary>
+          <ol>
+            {% for revision in transcription.revisions.all %}
+              <li>{{ revision.created_at|date:"Y-m-d H:i" }} · {{ revision.get_action_display }} · {{ revision.actor.user }}{% if revision.reason %} · {{ revision.reason }}{% endif %}</li>
+            {% endfor %}
+          </ol>
+        </details>
+      </article>
+    {% endfor %}
+  </section>
+  {% if can_cancel_document %}
+    <a class="button button--secondary section-gap" href="{% url 'documents:cancel' document.id %}">{% translate "Cancel unconfirmed document" %}</a>
+  {% endif %}
+{% endblock %}

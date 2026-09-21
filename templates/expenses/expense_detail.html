@@ -15,6 +15,12 @@
       {% if payment %}<a class="button button--secondary" href="{% url 'expenses:expense-print' expense.id %}">{% translate "Print evidence" %}</a>{% endif %}
     </div>
   </div>
+  {% if source_document %}
+    <section class="card section-gap">
+      <h2>{% translate "Source document" %}</h2>
+      <p><a href="{% url 'documents:detail' source_document.id %}">{% translate "Review the owner-confirmed source and transcription" %}</a></p>
+    </section>
+  {% endif %}
   <section class="grid">
     <article class="card">
       <h2>{% translate "Expense details" %}</h2>

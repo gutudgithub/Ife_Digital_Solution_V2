@@ -15,6 +15,10 @@ from django.views.decorators.http import require_POST
 
 from apps.businesses.models import Business, BusinessMembership
 from apps.businesses.types import TenantRequest
+from apps.documents.provenance import (
+    expense_confirmed_source_document,
+    expense_has_confirmed_source,
+)
 from apps.expenses.forms import (
     ExpenseCategoryForm,
     ExpenseFilterForm,
@@ -259,6 +263,13 @@ def expense_edit(request: HttpRequest, expense_id: UUID) -> HttpResponse:
     expense = _expense(request, expense_id)
     if expense.status != ExpenseStatus.DRAFT:
         raise PermissionDenied(_("Only draft operating expenses can be edited."))
+    if expense_has_confirmed_source(expense):
+        raise PermissionDenied(
+            _(
+                "This expense matches owner-confirmed document evidence. "
+                "Cancel it and start a replacement transcription to correct it."
+            )
+        )
     return _expense_form_response(
         request,
         expense=expense,
@@ -269,6 +280,8 @@ def expense_edit(request: HttpRequest, expense_id: UUID) -> HttpResponse:
 
 @login_required
 def expense_detail(request: HttpRequest, expense_id: UUID) -> HttpResponse:
+    tenant_request = _tenant(request)
+    membership = cast(BusinessMembership, tenant_request.active_membership)
     expense = _expense(request, expense_id)
     payment = (
         OperatingExpensePayment.objects.filter(expense=expense)
@@ -286,7 +299,16 @@ def expense_detail(request: HttpRequest, expense_id: UUID) -> HttpResponse:
     return render(
         request,
         "expenses/expense_detail.html",
-        {"expense": expense, "payment": payment, "reversal": reversal},
+        {
+            "expense": expense,
+            "payment": payment,
+            "reversal": reversal,
+            "source_document": (
+                expense_confirmed_source_document(expense)
+                if membership.can_manage_documents
+                else None
+            ),
+        },
     )
 
 

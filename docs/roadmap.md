@@ -22,7 +22,7 @@ operational notes, and independent Claude review.
 | 5 | Costing and performance intelligence | Implemented and independently approved; accountant review remains required before pilot decision use |
 | 6 | Customers, loyalty, promotions, and consent | Deferred by the product owner; points-ledger and privacy work remains separately gated |
 | 7 | Public business profile, QR storefront, and verification | Implemented and independently approved; release gates remain |
-| 8 | Document capture and human-confirmed digitization | Proposed for product-owner approval; source-to-posted-record traceability must pass |
+| 8 | Document capture and human-confirmed digitization | Product-owner approved and implemented; independent review and production policy gates remain |
 | 9 | Offline PWA and synchronization | Planned; interruption, retry, conflict, and duplicate tests must pass |
 | 10 | Multi-branch transfers and consolidated control | Planned; branch isolation and transfer lifecycle must pass |
 | 11 | SaaS plans, onboarding, support, and administration | Planned; subscription lifecycle and safe suspension must pass |
@@ -65,10 +65,13 @@ catalog-browsing stage. It does not add customer accounts, ordering, checkout, p
 delivery, loyalty, promotions, public reviews, or public access to operational records.
 Privacy, security, native-language, and deployment review remain outstanding.
 
-Stage 8 is proposed as private online source-document capture with structured human
-transcription, owner confirmation, and explicit links to ordinary purchase, expense, or
-opening-stock workflows. OCR, handwriting recognition, automatic posting, public uploads,
-and offline capture remain excluded.
+Stage 8 is implemented as private online source-document capture with signature validation,
+quarantine and scanning, structured human transcription, owner confirmation, immutable
+revision evidence, and explicit links to ordinary purchase, expense, or opening-stock
+workflows. OCR, handwriting recognition, automatic posting, public uploads, and offline
+capture remain excluded. Independent Claude review, production private-object storage,
+malware-scanner operations, retention/legal approval, security/privacy review, and
+native-language review remain release gates.
 
 Customer ordering, delivery, professional services, AI, payroll, and statutory employment
 administration remain excluded.

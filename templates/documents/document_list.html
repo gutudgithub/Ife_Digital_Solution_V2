@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "Captured documents" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <div class="eyebrow">{% translate "Private operational evidence" %}</div>
+      <h1>{% translate "Captured documents" %}</h1>
+      <p class="muted">
+        {% translate "Source files remain private and have no ledger effect until confirmed work is posted through the normal workflow." %}
+      </p>
+    </div>
+    <a class="button" href="{% url 'documents:capture' %}">{% translate "Capture document" %}</a>
+  </div>
+  <form class="filter-form card" method="get">
+    {% include "includes/form_fields.html" with form=filter_form %}
+    <button class="button button--secondary" type="submit">{% translate "Filter" %}</button>
+  </form>
+  <div class="card section-gap">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>{% translate "Captured" %}</th>
+            <th>{% translate "Workflow" %}</th>
+            <th>{% translate "Label" %}</th>
+            <th>{% translate "Branch" %}</th>
+            <th>{% translate "Source status" %}</th>
+            <th>{% translate "Uploaded by" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for document in documents %}
+            <tr>
+              <td><a href="{% url 'documents:detail' document.id %}">{{ document.created_at|date:"Y-m-d H:i" }}</a></td>
+              <td>{{ document.get_kind_display }}</td>
+              <td>{{ document.title|default:"—" }}</td>
+              <td>{{ document.branch.name }}</td>
+              <td>{{ document.get_status_display }}</td>
+              <td>{{ document.uploaded_by.user }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6">{% translate "No captured documents match this filter." %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if page_obj.has_other_pages %}
+      <nav class="pagination" aria-label="{% translate 'Captured document pages' %}">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">{% translate "Previous" %}</a>{% endif %}
+        <span>{% blocktranslate with current=page_obj.number total=page_obj.paginator.num_pages %}Page {{ current }} of {{ total }}{% endblocktranslate %}</span>
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">{% translate "Next" %}</a>{% endif %}
+      </nav>
+    {% endif %}
+  </div>
+{% endblock %}

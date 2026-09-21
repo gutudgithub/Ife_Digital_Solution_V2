@@ -13,4 +13,5 @@ __pycache__/
 coverage.xml
 htmlcov/
 media/
+private_media/
 staticfiles/

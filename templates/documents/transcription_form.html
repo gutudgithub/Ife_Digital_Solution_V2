@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+{% block title %}{% translate "Transcribe document" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <div class="eyebrow">{{ transcription.document.get_kind_display }}</div>
+      <h1>{% translate "Human transcription workspace" %}</h1>
+      <p class="muted">{% translate "Read the source yourself. The system does not use OCR, handwriting recognition, or automatic extraction." %}</p>
+    </div>
+  </div>
+  <div class="document-workspace">
+    <aside class="card document-workspace__sources">
+      <h2>{% translate "Source files" %}</h2>
+      {% for file in files %}
+        <div class="document-source section-gap">
+          {% if file.media_type != "application/pdf" %}
+            <a href="{% url 'documents:file-preview' transcription.document.id file.id %}" target="_blank" rel="noopener">
+              <img src="{% url 'documents:file-preview' transcription.document.id file.id %}" alt="{% blocktranslate with number=file.position %}Source file {{ number }}{% endblocktranslate %}">
+            </a>
+          {% endif %}
+          <a href="{% url 'documents:file-download' transcription.document.id file.id %}">{% blocktranslate with number=file.position %}Open source file {{ number }}{% endblocktranslate %}</a>
+        </div>
+      {% endfor %}
+    </aside>
+    <section class="card">
+      <h2>{% translate "Structured transcription" %}</h2>
+      <form method="post">
+        {% csrf_token %}
+        {% include "includes/form_fields.html" with form=form %}
+        {% if line_formset %}
+          {{ line_formset.management_form }}
+          {% if line_formset.non_form_errors %}
+            <div class="errorlist" role="alert">{{ line_formset.non_form_errors }}</div>
+          {% endif %}
+          <div data-document-line-formset>
+            {% for line_form in line_formset %}
+              <fieldset class="line-form">
+                <legend>{% blocktranslate with number=forloop.counter %}Line {{ number }}{% endblocktranslate %}</legend>
+                {% include "includes/form_fields.html" with form=line_form %}
+              </fieldset>
+            {% endfor %}
+          </div>
+          <template data-document-empty-line>
+            <fieldset class="line-form">
+              <legend></legend>
+              {% include "includes/form_fields.html" with form=line_formset.empty_form %}
+            </fieldset>
+          </template>
+          <button
+            class="button button--secondary"
+            type="button"
+            data-document-add-line
+            data-line-label="{% translate "Line" %}"
+          >
+            {% translate "Add another line" %}
+          </button>
+        {% endif %}
+        <div class="action-row">
+          <button class="button" type="submit">{% translate "Save draft transcription" %}</button>
+          <a class="button button--secondary" href="{% url 'documents:detail' transcription.document.id %}">{% translate "Back" %}</a>
+        </div>
+      </form>
+    </section>
+  </div>
+  {% if line_formset %}<script src="{% static 'js/document-transcription-lines.js' %}" defer></script>{% endif %}
+{% endblock %}

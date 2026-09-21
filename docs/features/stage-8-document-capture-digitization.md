@@ -2,12 +2,12 @@
 
 ## Status
 
-Proposed for product-owner approval. The product owner's earlier D7 decision approved the
-direction: private image capture, structured human transcription, and mandatory owner
-confirmation before posting. This brief defines the bounded implementation details needed
-before Stage 8 development starts.
+Approved by the product owner on 20 September 2026 and implemented for independent review.
+The product owner's earlier D7 decision also approved the direction: private image capture,
+structured human transcription, and mandatory owner confirmation before posting.
 
-No Stage 8 implementation is authorized until the product owner approves this brief.
+Independent Claude review and the production gates in this brief remain required before
+acceptance or real-document use.
 
 Stage 6 customer, loyalty, promotion, points-ledger, and consent work remains deferred.
 Stage 5 accountant review and the Stage 7 privacy, security, native-language, and deployment
@@ -19,7 +19,7 @@ Stage 8 lets an owner or manager preserve a private source document, transcribe 
 operational facts into a structured draft, compare the source with the draft, and require an
 owner to confirm that transcription before any operational posting can occur.
 
-The complete bounded stage will provide:
+The complete bounded stage provides:
 
 - online browser upload of private source documents, with a mobile camera hint where the
   browser supports it;
@@ -60,7 +60,7 @@ The existing modular Django monolith already provides:
 - server-rendered, translation-ready forms and templates; and
 - no existing public or authenticated file-upload surface.
 
-The current code does not provide:
+At proposal time, the code did not provide:
 
 - private durable document storage;
 - upload validation or malware scanning;
@@ -72,7 +72,7 @@ The current code does not provide:
 - document retention, reconciliation, export, or secure deletion procedures; or
 - backup and restore coverage for stored source files.
 
-Stage 8 should therefore use a separate `documents` module. It may call existing typed
+Stage 8 therefore uses a separate `documents` module. It calls existing typed
 services, but it must not write posted purchasing, expense, cash, or inventory evidence
 directly.
 
@@ -177,7 +177,7 @@ Recommended:
 - tests use a deterministic fake scanner, not a claim of real malware coverage; and
 - logs record document IDs and scan outcomes without original filenames or document text.
 
-The implementation should support a ClamAV-compatible scanner without introducing a
+The implementation supports a ClamAV-compatible scanner without introducing a
 background queue. A bounded synchronous scan is acceptable for the Stage 8 size limits.
 Production must validate scanner availability, timeout behavior, signature updates, and
 alerting before real documents are accepted.
@@ -379,7 +379,8 @@ Recommended:
 
 - upload failure creates no usable source document;
 - object-storage success followed by database failure produces a detectable orphan that a
-  reconciliation command can remove;
+  reconciliation command can remove after the configured safety window, without racing an
+  in-flight upload;
 - database success followed by missing storage bytes leaves the document unavailable and
   raises an operational alert;
 - scan failure stays quarantined and can be retried idempotently;
@@ -508,13 +509,10 @@ performance reports.
 All Stage 8 writes use typed services. Views and admin actions do not transition lifecycle
 state or create operational targets directly.
 
-Recommended services:
+Implemented services:
 
 - `capture_document`
-- `add_document_file`
-- `complete_document_upload`
-- `scan_document_file`
-- `retry_document_scan`
+- `scan_document_files`
 - `save_purchase_transcription`
 - `save_expense_transcription`
 - `save_opening_stock_transcription`
@@ -523,10 +521,16 @@ Recommended services:
 - `confirm_transcription`
 - `start_replacement_transcription`
 - `post_confirmed_opening_stock`
+- `cancel_transcription`
 - `cancel_document`
 - `record_document_access`
 - `purge_eligible_document_files`
 - `reconcile_document_storage`
+
+`capture_document` validates the complete one-to-five-file intake, creates its pending
+metadata and opaque objects, and invokes the quarantine scan. `scan_document_files` is also
+the retry boundary, so partially assembled upload records are not exposed as a separate
+application workflow.
 
 Confirmation and opening-stock posting use `transaction.atomic`, row locks, stored
 idempotency keys, tenant revalidation, and existing target services. Object-storage actions
@@ -810,7 +814,7 @@ Stage 8 does not include:
 - production use before storage, scanner, privacy, legal, security, backup/restore,
   monitoring, and native-language gates pass.
 
-## Approval requested
+## Approval record
 
 The recommended complete scope is:
 
@@ -833,5 +837,11 @@ The recommended complete scope is:
 14. retain every OCR, public-upload, offline, customer, regulatory, and expanded-document
     workflow outside Stage 8.
 
-Product-owner approval authorizes implementation of this bounded stage. It does not
-authorize production document processing, OCR, legal/tax claims, or any excluded capability.
+The product owner approved this complete bounded scope on 20 September 2026. The
+implementation includes the private storage alias, signature validation, scan adapters,
+typed services and interfaces, immutable revision/provenance evidence, existing-service
+posting integration, retention/reconciliation commands, synthetic demo source, and automated
+coverage.
+
+Approval does not authorize production document processing, OCR, legal/tax claims, or any
+excluded capability. Independent review and every stated production gate remain required.

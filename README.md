@@ -4,8 +4,8 @@ Ife Digital Solution is a business-control platform for Ethiopian small business
 foundation is reusable for inventory-based retail while the first pilot is tailored to
 clothing and footwear.
 
-This repository contains the independently reviewed Stages 1 through 5 and the implemented
-Stage 7 public-storefront slice:
+This repository contains the independently reviewed Stages 1 through 5 and 7, plus the
+implemented Stage 8 private-document slice:
 
 - email-based authentication and Django administration;
 - business and branch records;
@@ -35,6 +35,9 @@ Stage 7 public-storefront slice:
 - owner-controlled public business profiles, selected catalog browsing, optional public
   prices, SVG QR codes, specific staff-reviewed indicators, aggregate opens, and minimal
   internal-receipt verification;
+- private JPEG, PNG, and PDF capture, fail-closed scanning, human transcription, owner
+  confirmation, and source-to-operational-record traceability for purchases, expenses, and
+  opening stock;
 - English, Amharic, and Afaan Oromoo locale configuration;
 - PostgreSQL-compatible settings, Docker Compose, CI, and pre-commit checks.
 
@@ -80,6 +83,8 @@ session with variance, and approved/reversed stock-count evidence.
 It also publishes a demo storefront with two products, showing prices for one and hiding
 prices for the other. The owner manages it at `/public-profile/`; `seed_demo` prints its
 stable public URL.
+The document inbox contains a clean demo purchase source and transcription awaiting owner
+confirmation. Confirming it creates a normal purchase draft without receiving stock.
 The stock employee can receive approved purchases, prepare return drafts, enter blind stock
 counts, and submit complete counts for the assigned branch, but cannot approve or reverse
 counts, post/reverse returns, adjust stock, or view inventory values.
@@ -113,7 +118,8 @@ at `/inventory/`, purchasing at `/purchasing/`, purchase returns at
 `/purchasing/returns/`, sales at `/sales/`, cash sessions at `/cash/`, expenses at
 `/expenses/`, stock counts at `/inventory/counts/`, and attendance at `/attendance/`. Sale
 corrections are listed at `/sales/returns/`. Owner/manager performance intelligence is at
-`/performance/`. Public-profile management is at `/public-profile/`.
+`/performance/`. Public-profile management is at `/public-profile/`. Private document
+capture and review is at `/documents/`.
 
 ## Local setup with PostgreSQL and Docker
 

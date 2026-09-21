@@ -16,6 +16,10 @@ from django.views.decorators.http import require_POST
 
 from apps.businesses.models import Business, BusinessMembership
 from apps.businesses.types import TenantRequest
+from apps.documents.provenance import (
+    purchase_confirmed_source_document,
+    purchase_has_confirmed_source,
+)
 from apps.expenses.models import SupplierPayment, SupplierReturnSettlement
 from apps.expenses.services import (
     purchase_return_settlement_totals,
@@ -326,6 +330,13 @@ def purchase_edit(request: HttpRequest, purchase_id: UUID) -> HttpResponse:
     )
     if purchase.status != PurchaseStatus.DRAFT:
         raise PermissionDenied(_("Only draft purchases can be edited."))
+    if purchase_has_confirmed_source(purchase):
+        raise PermissionDenied(
+            _(
+                "This purchase matches owner-confirmed document evidence. "
+                "Cancel it and start a replacement transcription to correct it."
+            )
+        )
     return _purchase_form_response(
         request,
         purchase=purchase,
@@ -363,6 +374,11 @@ def purchase_detail(request: HttpRequest, purchase_id: UUID) -> HttpResponse:
             "can_receive_inventory": membership.can_receive_inventory,
             "has_receipts": purchase.receipts.exists(),
             "can_manage_settlement": can_manage_settlement,
+            "source_document": (
+                purchase_confirmed_source_document(purchase)
+                if membership.can_manage_documents
+                else None
+            ),
             "settlement_totals": (
                 purchase_settlement_totals(purchase) if can_manage_settlement else None
             ),

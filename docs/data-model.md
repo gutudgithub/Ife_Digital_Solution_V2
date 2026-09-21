@@ -267,6 +267,27 @@ The private product, sale, return, receipt, and business identifiers remain inte
 responses are constructed from typed allowlisted projections rather than serializing these
 models directly.
 
+## Implemented Stage 8 private-document entities
+
+- `CapturedDocument`: business, branch, typed workflow, lifecycle, ordered fingerprint,
+  private label, source custody totals, uploader, cancellation evidence, and timestamps.
+- `DocumentFile`: ordered source object, original private display name, signature-derived
+  media type, size, SHA-256, scan result, purge tombstone, and immutable source identity.
+- `DocumentTranscription`: sequential attempt, typed purchase/expense/opening-stock fields,
+  lifecycle actors and timestamps, confirmation idempotency key, replacement link, and
+  purchase or expense target.
+- `DocumentTranscriptionLine`: ordered existing variant, Decimal quantity and six-decimal
+  unit cost, optional private note, purchase-line link, opening-stock idempotency key, and
+  stock-operation link.
+- `DocumentTranscriptionRevision`: immutable canonical before/after snapshots with actor,
+  sequence, action, reason, and timestamp.
+- `DocumentAccessEvent`: immutable preview/download evidence for an authorized membership.
+
+Every row has direct business scope. One active transcription is allowed per document, exact
+active fingerprints are unique per business, confirmation keys are unique per business, and
+confirmed source-derived evidence is frozen. Operational posting remains in the existing
+purchasing, expense, and inventory ledgers.
+
 ## Remaining planned ledger entities
 
 Future slices should add:

@@ -12,7 +12,8 @@ from django.db.models import Count, Max, Sum
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from apps.businesses.models import BusinessMembership
+from apps.businesses.models import Branch, BusinessMembership
+from apps.catalog.models import ProductVariant
 from apps.inventory.services import (
     PurchaseReceiptInventoryItem,
     PurchaseReturnInventoryItem,
@@ -93,6 +94,13 @@ class ReturnQuantity:
 
 
 @dataclass(frozen=True)
+class DraftPurchaseLine:
+    variant: ProductVariant
+    quantity: Decimal
+    unit_cost: Decimal
+
+
+@dataclass(frozen=True)
 class ReceiptLineReturnProgress:
     receipt_line: GoodsReceiptLine
     returned_quantity: Decimal
@@ -166,6 +174,57 @@ def _validate_manager(actor: BusinessMembership, purchase: Purchase) -> None:
         or not actor.can_manage_purchasing
     ):
         raise PermissionDenied(_("Purchasing management permission is required."))
+
+
+@transaction.atomic
+def create_purchase_draft(
+    *,
+    actor: BusinessMembership,
+    branch: Branch,
+    supplier: Supplier,
+    supplier_reference: str,
+    purchase_date: date,
+    expected_date: date | None,
+    settlement_terms: str,
+    lines: list[DraftPurchaseLine],
+) -> Purchase:
+    purchase = Purchase(
+        business=actor.business,
+        branch=branch,
+        supplier=supplier,
+        internal_number=new_purchase_number(),
+        supplier_reference=supplier_reference.strip(),
+        purchase_date=purchase_date,
+        expected_date=expected_date,
+        settlement_terms=settlement_terms.strip(),
+        created_by=actor,
+    )
+    _validate_manager(actor, purchase)
+    if not branch.is_active or supplier.business_id != actor.business_id or not supplier.is_active:
+        raise ValidationError(_("Select an active branch and supplier in this business."))
+    if not lines:
+        raise ValidationError(_("Add at least one purchase line."))
+    purchase.save()
+    seen_variants: set[UUID] = set()
+    for item in lines:
+        if (
+            item.variant.business_id != actor.business_id
+            or not item.variant.is_active
+            or item.variant.id in seen_variants
+        ):
+            raise ValidationError(
+                _("Select each active product variant in this business only once.")
+            )
+        line = PurchaseLine(
+            business=actor.business,
+            purchase=purchase,
+            variant=item.variant,
+            ordered_quantity=item.quantity,
+            unit_cost=item.unit_cost,
+        )
+        line.save()
+        seen_variants.add(item.variant.id)
+    return purchase
 
 
 def purchase_line_progress(purchase: Purchase) -> list[PurchaseLineProgress]:

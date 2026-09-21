@@ -174,6 +174,31 @@
 12. Storefront analytics retain aggregate recorded opens only. They are not unique visitors,
     customers, conversions, or consent records.
 
+## Private document capture
+
+1. Owners and managers may capture, view, download, and transcribe private documents. Only
+   owners may confirm. Cashiers, stock employees, anonymous users, and staff without an
+   active tenant role have no access.
+2. A document contains one to five signature-validated JPEG, PNG, or PDF files, each no more
+   than 10 MiB and no more than 25 MiB combined.
+3. Every file starts quarantined. Only a clean scan permits access, transcription, or
+   confirmation; scanner error fails closed and remains retryable.
+4. Exact ordered SHA-256 fingerprints deduplicate active documents within one business.
+   Hashes prove byte equality, not physical authenticity.
+5. Transcription is human-only and may use only existing suppliers, expense categories,
+   branches, and product variants.
+6. Manager submission freezes editing. An owner may return it with a reason or confirm it
+   with an idempotency key.
+7. Confirmation creates an ordinary purchase or expense draft, or freezes opening-stock
+   lines. Confirmation itself creates no cash, inventory, expense-payment, or receipt event.
+8. Confirmed source-derived purchase and expense drafts cannot be edited. Pre-posting
+   correction requires target cancellation and a replacement attempt; post-posting
+   correction uses existing reversal rules.
+9. Opening-stock posting is all-or-nothing, idempotent per line, and allowed only where each
+   variant has no prior inventory movement.
+10. Source bytes, hashes, revisions, access events, and target links remain private and never
+    enter Stage 7 public routes or Stage 5 result formulas.
+
 ## Time, currency, and audit
 
 1. The pilot currency is ETB.

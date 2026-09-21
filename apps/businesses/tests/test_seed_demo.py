@@ -8,6 +8,12 @@ from apps.accounts.models import User
 from apps.businesses.models import Branch, Business, BusinessMembership, MembershipRole
 from apps.cash.models import CashMovement, CashSession, CashSessionClosure, CashSessionStatus
 from apps.catalog.models import Category, Product, ProductVariant
+from apps.documents.models import (
+    CapturedDocument,
+    DocumentFile,
+    DocumentTranscription,
+    TranscriptionStatus,
+)
 from apps.expenses.models import (
     ExpenseCategory,
     OperatingExpense,
@@ -42,6 +48,10 @@ from apps.sales.models import (
 class SeedDemoCommandTests(TestCase):
     password = "LocalDemo123!"
 
+    def tearDown(self) -> None:
+        for document_file in DocumentFile.objects.filter(purged_at__isnull=True):
+            document_file.source.storage.delete(document_file.source.name)
+
     def test_seed_demo_creates_idempotent_tenant_data(self) -> None:
         call_command("seed_demo", password=self.password)
         call_command("seed_demo", password=self.password)
@@ -60,6 +70,12 @@ class SeedDemoCommandTests(TestCase):
         self.assertEqual(ProductVariant.objects.filter(business=business).count(), 4)
         self.assertEqual(BusinessMembership.objects.filter(business=business).count(), 3)
         self.assertEqual(Supplier.objects.filter(business=business).count(), 1)
+        self.assertEqual(CapturedDocument.objects.filter(business=business).count(), 1)
+        self.assertEqual(DocumentFile.objects.filter(business=business).count(), 1)
+        self.assertEqual(
+            DocumentTranscription.objects.get(business=business).status,
+            TranscriptionStatus.AWAITING_OWNER_CONFIRMATION,
+        )
         self.assertEqual(Purchase.objects.filter(business=business).count(), 1)
         self.assertEqual(GoodsReceipt.objects.filter(business=business).count(), 1)
         self.assertEqual(PurchaseReturn.objects.filter(business=business).count(), 1)

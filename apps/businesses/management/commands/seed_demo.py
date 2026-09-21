@@ -3,6 +3,7 @@ from datetime import time, timedelta
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 from django.db import transaction
 from django.utils import timezone
@@ -22,6 +23,14 @@ from apps.cash.services import (
     post_manual_cash_movement,
 )
 from apps.catalog.models import Category, Product, ProductVariant, StockUnit
+from apps.documents.models import DocumentKind, TranscriptionStatus
+from apps.documents.services import (
+    PurchaseTranscriptionInput,
+    TranscriptionLineInput,
+    capture_document,
+    save_purchase_transcription,
+    submit_transcription_for_confirmation,
+)
 from apps.expenses.models import (
     ExpenseCategory,
     ExpenseSettlementPostingKey,
@@ -709,6 +718,51 @@ class Command(BaseCommand):
                 profile=public_profile,
             )
 
+            captured_document, _ = capture_document(
+                actor=owner_membership,
+                branch=branch,
+                kind=DocumentKind.PURCHASE,
+                title="Demo supplier purchase note",
+                uploads=[
+                    SimpleUploadedFile(
+                        "demo-purchase-note.png",
+                        b"\x89PNG\r\n\x1a\nIFE-STAGE-8-DEMO-PURCHASE-NOTE",
+                        content_type="image/png",
+                    )
+                ],
+            )
+            document_transcription = captured_document.transcriptions.order_by(
+                "-attempt_number"
+            ).first()
+            if (
+                document_transcription is not None
+                and document_transcription.status == TranscriptionStatus.DRAFT
+                and document_transcription.supplier_id is None
+            ):
+                document_transcription = save_purchase_transcription(
+                    actor=owner_membership,
+                    transcription=document_transcription,
+                    data=PurchaseTranscriptionInput(
+                        branch=branch,
+                        supplier=supplier,
+                        purchase_date=timezone.localdate(),
+                        supplier_reference="DEMO-DOC-001",
+                        expected_date=None,
+                        settlement_terms="Demo evidence awaiting owner confirmation.",
+                        lines=[
+                            TranscriptionLineInput(
+                                variant=demo_variants["TSHIRT-BLK-M"],
+                                quantity=Decimal("2.000"),
+                                unit_cost=Decimal("500.000000"),
+                            )
+                        ],
+                    ),
+                )
+                submit_transcription_for_confirmation(
+                    actor=owner_membership,
+                    transcription=document_transcription,
+                )
+
         self.stdout.write(self.style.SUCCESS("Local demo data is ready."))
         self.stdout.write("Owner: owner@demo.ife.local")
         self.stdout.write("Cashier: cashier@demo.ife.local")
@@ -729,6 +783,8 @@ class Command(BaseCommand):
         self.stdout.write("Performance dashboard: /performance/")
         self.stdout.write("Public-profile management: /public-profile/")
         self.stdout.write(f"Published storefront: {profile_public_url(public_profile)}")
+        self.stdout.write(f"Document awaiting confirmation: {captured_document.id}")
+        self.stdout.write("Document inbox: /documents/")
 
     @staticmethod
     def _upsert_user(*, email: str, full_name: str, password: str) -> User:

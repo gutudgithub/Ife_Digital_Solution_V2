@@ -215,3 +215,11 @@ class BusinessMembership(models.Model):
     @property
     def can_publish_public_profile(self) -> bool:
         return self.role == MembershipRole.OWNER
+
+    @property
+    def can_manage_documents(self) -> bool:
+        return self.role in {MembershipRole.OWNER, MembershipRole.MANAGER}
+
+    @property
+    def can_confirm_documents(self) -> bool:
+        return self.role == MembershipRole.OWNER
