@@ -51,8 +51,11 @@
 
   async function unsafeLocalDraftCount() {
     const drafts = (await getAll("drafts")) || [];
+    const membershipId = document.body.dataset.activeMembershipId;
     return drafts.filter(
-      (draft) => draft.status === "pending" || draft.status === "rejected",
+      (draft) =>
+        draft.drafted_by_id === membershipId &&
+        (draft.status === "pending" || draft.status === "rejected"),
     ).length;
   }
 

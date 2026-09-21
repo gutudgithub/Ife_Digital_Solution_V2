@@ -304,6 +304,7 @@ class OfflineSaleViewTests(TestCase):
         self.assertIn("document.body.dataset.serviceWorkerScope", source)
         self.assertNotIn('register("/offline/service-worker.js"', source)
         self.assertIn("unsafeLocalDraftCount", source)
+        self.assertIn("draft.drafted_by_id === membershipId", source)
         self.assertIn('clear("catalogs")', source)
         self.assertNotIn('clear("drafts")', source)
         self.assertIn("sessionStorage.removeItem(sessionKey)", source)
