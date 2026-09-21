@@ -21,8 +21,8 @@ operational notes, and independent Claude review.
 | 4 | Expenses, cash sessions, stock/cash reconciliation | Independently approved; a branch can close a complete business day |
 | 5 | Costing and performance intelligence | Implemented and independently approved; accountant review remains required before pilot decision use |
 | 6 | Customers, loyalty, promotions, and consent | Deferred by the product owner; points-ledger and privacy work remains separately gated |
-| 7 | Public business profile, QR storefront, and verification | Implemented; independent review and release gates remain |
-| 8 | Document capture and human-confirmed digitization | Planned; source-to-posted-record traceability must pass |
+| 7 | Public business profile, QR storefront, and verification | Implemented and independently approved; release gates remain |
+| 8 | Document capture and human-confirmed digitization | Proposed for product-owner approval; source-to-posted-record traceability must pass |
 | 9 | Offline PWA and synchronization | Planned; interruption, retry, conflict, and duplicate tests must pass |
 | 10 | Multi-branch transfers and consolidated control | Planned; branch isolation and transfer lifecycle must pass |
 | 11 | SaaS plans, onboarding, support, and administration | Planned; subscription lifecycle and safe suspension must pass |
@@ -60,10 +60,15 @@ naming, and exclusions remains outstanding before pilot decision use.
 Stage 6 remains on the roadmap but is intentionally deferred. No customer, loyalty,
 promotion, points-ledger, or consent functionality is authorized as part of Stage 7.
 
-Stage 7 is an implemented public read-only business identity and catalog-browsing stage. It
-does not add customer accounts, ordering, checkout, payment, delivery, loyalty, promotions,
-public reviews, or public access to operational records. Independent code review, privacy,
-security, native-language, and deployment review remain outstanding.
+Stage 7 is an implemented and independently approved public read-only business identity and
+catalog-browsing stage. It does not add customer accounts, ordering, checkout, payment,
+delivery, loyalty, promotions, public reviews, or public access to operational records.
+Privacy, security, native-language, and deployment review remain outstanding.
+
+Stage 8 is proposed as private online source-document capture with structured human
+transcription, owner confirmation, and explicit links to ordinary purchase, expense, or
+opening-stock workflows. OCR, handwriting recognition, automatic posting, public uploads,
+and offline capture remain excluded.
 
 Customer ordering, delivery, professional services, AI, payroll, and statutory employment
 administration remain excluded.
