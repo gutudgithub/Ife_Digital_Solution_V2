@@ -132,13 +132,11 @@ class TelebirrProfileTests(IsolatedCatalogMediaMixin, TestCase):
         self.client.force_login(self.owner.user)
         owner_response = self.client.get(qr_url)
         self.assertEqual(owner_response.status_code, 200)
-        owner_response.close()
 
         activate_telebirr_profile(actor=self.owner, profile=profile)
         self.client.force_login(self.cashier.user)
         cashier_response = self.client.get(qr_url)
         self.assertEqual(cashier_response.status_code, 200)
-        cashier_response.close()
 
         deactivate_telebirr_profile(actor=self.owner, profile=profile)
         self.assertEqual(self.client.get(qr_url).status_code, 404)
