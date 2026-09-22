@@ -24,9 +24,9 @@ operational notes, and independent Claude review.
 | 7 | Public business profile, QR storefront, and verification | Implemented and independently approved; release gates remain |
 | 8 | Document capture and human-confirmed digitization | Product-owner approved and implemented; independent review and production policy gates remain |
 | 9 | Offline PWA and synchronization | Stage 9A approved and implemented; independent review and pilot gates remain |
-| 10 | Multi-branch transfers and consolidated control | Planned; branch isolation and transfer lifecycle must pass |
-| 11 | SaaS plans, onboarding, support, and administration | Planned; subscription lifecycle and safe suspension must pass |
-| 12 | Localization, accessibility, security, recovery, and pilot | Planned; real users must complete normal operations safely |
+| 10 | Multi-branch transfers and consolidated control | Deferred for this round by the product owner; no transfer workflow is authorized |
+| 11 | SaaS plans, onboarding, support, and administration | Deferred for this round by the product owner; no subscription workflow is authorized |
+| 12 | Pilot-ready catalog, payments, localization, accessibility, security, and recovery | Proposed; product-owner approval is required before implementation |
 | 13 | Controlled production launch | Planned; legal, privacy, operations, and acceptance gates must be approved |
 
 Stage 2 is split into independently reviewable vertical slices so that the inventory ledger
@@ -80,6 +80,16 @@ conflict results. It does not authorize offline posting, inventory movement, cas
 movement, receipt creation, document capture, attendance, stock counts, expenses, or public
 profile workflows. Independent review, HTTPS, operator training, provisional-note process
 approval, and native-language review remain gates.
+
+Stages 10 and 11 are deferred for this delivery round. The controlled pilot must use one
+active operating branch and must not depend on stock transfers, consolidated transfer
+control, subscription billing, self-service onboarding, or SaaS-plan suspension.
+
+The proposed Stage 12 brief combines the remaining pre-pilot gates with optional sanitized
+product images, responsive internal/public catalog cards, an accessible online sale picker,
+a branch Telebirr merchant QR that retains manual reference evidence, and a credential-free
+staff login QR. It does not add Telebirr APIs, public ordering, provider verification,
+native apps, or unrestricted production launch.
 
 Customer ordering, delivery, professional services, AI, payroll, and statutory employment
 administration remain excluded.
