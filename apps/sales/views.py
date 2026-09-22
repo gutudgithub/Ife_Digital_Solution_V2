@@ -502,11 +502,15 @@ def telebirr_qr(request: HttpRequest, profile_id: UUID) -> FileResponse:
     membership = cast(BusinessMembership, tenant_request.active_membership)
     if not membership.can_sell and not membership.can_manage_payment_qr:
         raise PermissionDenied(_("Sales permission is required."))
-    profile = get_object_or_404(
-        BranchTelebirrProfile,
-        pk=profile_id,
+    profiles = BranchTelebirrProfile.objects.filter(
         business=membership.business,
         removed_at__isnull=True,
+    )
+    if not membership.can_manage_payment_qr:
+        profiles = profiles.filter(is_active=True)
+    profile = get_object_or_404(
+        profiles,
+        pk=profile_id,
     )
     try:
         response = FileResponse(profile.qr_source.open("rb"), content_type="image/png")

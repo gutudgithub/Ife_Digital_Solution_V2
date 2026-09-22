@@ -122,6 +122,27 @@ class TelebirrProfileTests(IsolatedCatalogMediaMixin, TestCase):
 
         self.assertEqual(response.status_code, 403)
 
+    def test_only_owner_can_preview_inactive_qr(self) -> None:
+        profile = self._profile()
+        qr_url = reverse("sales:telebirr-qr", args=[profile.id])
+
+        self.client.force_login(self.cashier.user)
+        self.assertEqual(self.client.get(qr_url).status_code, 404)
+
+        self.client.force_login(self.owner.user)
+        owner_response = self.client.get(qr_url)
+        self.assertEqual(owner_response.status_code, 200)
+        owner_response.close()
+
+        activate_telebirr_profile(actor=self.owner, profile=profile)
+        self.client.force_login(self.cashier.user)
+        cashier_response = self.client.get(qr_url)
+        self.assertEqual(cashier_response.status_code, 200)
+        cashier_response.close()
+
+        deactivate_telebirr_profile(actor=self.owner, profile=profile)
+        self.assertEqual(self.client.get(qr_url).status_code, 404)
+
     def test_visual_sale_picker_preserves_server_form_and_hides_cost(self) -> None:
         product = Product.objects.create(business=self.business, name="Canvas Shoe")
         variant = ProductVariant.objects.create(

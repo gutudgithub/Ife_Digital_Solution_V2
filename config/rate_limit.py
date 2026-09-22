@@ -26,9 +26,8 @@ def _rate_limit_key(
     request: HttpRequest,
     *,
     scope: str,
-    window_seconds: int,
+    bucket: int,
 ) -> str:
-    bucket = int(time.time()) // window_seconds
     raw_key = f"{scope}:{_rate_limit_identity(request)}:{bucket}"
     digest = hmac.new(
         settings.SECRET_KEY.encode(),
@@ -45,17 +44,29 @@ def enforce_rate_limit(
     limit: int,
     window_seconds: int,
 ) -> HttpResponse | None:
-    key = _rate_limit_key(request, scope=scope, window_seconds=window_seconds)
+    if window_seconds <= 0:
+        raise ValueError("Rate-limit windows must be positive.")
+
+    now = time.time()
+    current_bucket = int(now // window_seconds)
+    elapsed_seconds = now - (current_bucket * window_seconds)
+    previous_weight = (window_seconds - elapsed_seconds) / window_seconds
+    current_key = _rate_limit_key(request, scope=scope, bucket=current_bucket)
+    previous_key = _rate_limit_key(request, scope=scope, bucket=current_bucket - 1)
     cache = caches[settings.RATE_LIMIT_CACHE_ALIAS]
-    if cache.add(key, 1, timeout=window_seconds + 5):
-        count = 1
+    cache_timeout = (window_seconds * 2) + 5
+    if cache.add(current_key, 1, timeout=cache_timeout):
+        current_count = 1
     else:
         try:
-            count = cache.incr(key)
+            current_count = cache.incr(current_key)
         except ValueError:
-            cache.set(key, 1, timeout=window_seconds + 5)
-            count = 1
-    if count <= limit:
+            cache.set(current_key, 1, timeout=cache_timeout)
+            current_count = 1
+    cached_previous_count = cache.get(previous_key, 0)
+    previous_count = cached_previous_count if isinstance(cached_previous_count, int) else 0
+    estimated_count = current_count + (previous_count * previous_weight)
+    if estimated_count <= limit:
         return None
     response = HttpResponse(
         _("Too many requests. Wait before trying again."),

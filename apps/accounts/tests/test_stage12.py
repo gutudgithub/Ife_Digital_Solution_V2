@@ -75,6 +75,17 @@ class StaffEntryAndSecurityTests(TestCase):
         self.assertEqual(second["Retry-After"], "300")
         self.assertIn("Security-relevant request outcome.", captured.output[0])
 
+    @override_settings(LOGIN_RATE_LIMIT=5, LOGIN_RATE_LIMIT_WINDOW_SECONDS=3)
+    def test_login_rate_limit_blocks_burst_across_window_boundary(self) -> None:
+        payload = {"username": "missing@example.com", "password": "wrong"}
+        with patch("config.rate_limit.time.time", return_value=2.99):
+            responses = [self.client.post(reverse("login"), payload) for _ in range(5)]
+        with patch("config.rate_limit.time.time", return_value=3.01):
+            boundary_response = self.client.post(reverse("login"), payload)
+
+        self.assertTrue(all(response.status_code == 200 for response in responses))
+        self.assertEqual(boundary_response.status_code, 429)
+
     def test_language_switcher_sets_selected_language(self) -> None:
         response = self.client.post(
             reverse("set_language"),
