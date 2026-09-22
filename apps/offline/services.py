@@ -291,30 +291,17 @@ def _catalog_conflicts(
 
 def _drafting_actor(
     *,
-    current_actor: BusinessMembership,
+    drafted_by: BusinessMembership | None,
     draft: OfflineSaleDraftInput,
     branch: Branch,
-) -> BusinessMembership:
-    drafted_by = (
-        BusinessMembership.objects.select_related("business", "assigned_branch")
-        .filter(
-            pk=draft.drafted_by_id,
-            business=current_actor.business,
-            is_active=True,
-            business__is_active=True,
-        )
-        .first()
-    )
-    if drafted_by is None or not drafted_by.can_sell:
-        raise ValidationError(_("The drafting sales membership is no longer active."))
-    if drafted_by.role != draft.role_at_draft:
-        raise ValidationError(_("The drafting membership role changed before synchronization."))
-    _authorized_branch(actor=drafted_by, branch_id=branch.id)
-    if drafted_by.id != current_actor.id and not current_actor.can_sell_across_branches:
+) -> tuple[BusinessMembership, list[str]]:
+    if drafted_by is None or not drafted_by.is_active or not drafted_by.can_sell:
         raise ValidationError(
-            _("Only an owner or manager can synchronize another operator's offline draft.")
+            _("The drafting sales membership is no longer active or permitted to sell.")
         )
-    return drafted_by
+    _authorized_branch(actor=drafted_by, branch_id=branch.id)
+    conflicts = ["role_changed"] if drafted_by.role != draft.role_at_draft else []
+    return drafted_by, conflicts
 
 
 @transaction.atomic
@@ -326,6 +313,10 @@ def sync_offline_sale(
     current_actor = _current_actor(actor)
     if draft.business_id != current_actor.business_id:
         raise ValidationError(_("The offline business does not match the active business."))
+    if draft.drafted_by_id != current_actor.id and not current_actor.can_sell_across_branches:
+        raise ValidationError(
+            _("Only an owner or manager can synchronize another operator's offline draft.")
+        )
     branch = _authorized_branch(actor=current_actor, branch_id=draft.branch_id)
     payload, quantities, snapshot_by_variant = _normalized_payload(draft)
     payload_hash = _payload_hash(payload)
@@ -338,36 +329,34 @@ def sync_offline_sale(
     existing = OfflineSaleSync.objects.select_related("sale").filter(sync_key=sync_key).first()
     if existing is not None:
         return existing
-    drafted_by = _drafting_actor(
-        current_actor=current_actor,
-        draft=draft,
-        branch=branch,
+    drafted_by = (
+        BusinessMembership.objects.select_related("business", "assigned_branch")
+        .filter(
+            pk=draft.drafted_by_id,
+            business=current_actor.business,
+        )
+        .first()
     )
     offline_created_at = _offline_timestamp(
         draft.offline_created_at,
         enforce_age=False,
     )
-    if _draft_expired(offline_created_at):
-        return OfflineSaleSync.objects.create(
-            business=current_actor.business,
-            branch=branch,
-            actor=current_actor,
-            drafted_by=drafted_by,
-            sync_key=sync_key,
-            status=OfflineSaleSyncStatus.REJECTED,
-            offline_created_at=offline_created_at,
-            synced_at=timezone.now(),
-            snapshot=payload,
-            conflict_messages=[_("Offline sale drafts expire after seven days.")],
-        )
-
     try:
-        conflicts = _catalog_conflicts(
-            actor=drafted_by,
-            snapshot_by_variant=snapshot_by_variant,
+        validated_drafted_by, conflicts = _drafting_actor(
+            drafted_by=drafted_by,
+            draft=draft,
+            branch=branch,
+        )
+        if _draft_expired(offline_created_at):
+            raise ValidationError(_("Offline sale drafts expire after seven days."))
+        conflicts.extend(
+            _catalog_conflicts(
+                actor=validated_drafted_by,
+                snapshot_by_variant=snapshot_by_variant,
+            )
         )
         sale = save_sale_draft(
-            actor=drafted_by,
+            actor=validated_drafted_by,
             branch=branch,
             sale_date=timezone.localtime(offline_created_at).date(),
             quantities=quantities,

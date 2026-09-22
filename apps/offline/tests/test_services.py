@@ -273,6 +273,51 @@ class OfflineSaleSyncServiceTests(TestCase):
         assert result.sale is not None
         self.assertEqual(result.sale.created_by, self.cashier_membership)
 
+    def test_deactivated_drafting_membership_records_rejected_evidence(self) -> None:
+        draft = self._input()
+        self.cashier_membership.is_active = False
+        self.cashier_membership.save(update_fields=("is_active",))
+
+        result = sync_offline_sale(actor=self.owner_membership, draft=draft)
+
+        self.assertEqual(result.status, OfflineSaleSyncStatus.REJECTED)
+        self.assertEqual(result.drafted_by, self.cashier_membership)
+        self.assertIsNone(result.sale_id)
+        self.assertIn("no longer active or permitted", result.conflict_messages[0])
+        self.assertEqual(OfflineSaleSyncKey.objects.count(), 1)
+        self.assertEqual(OfflineSaleSync.objects.count(), 1)
+        self.assertFalse(Sale.objects.exists())
+
+    def test_drafting_role_change_creates_review_conflict_without_losing_attribution(
+        self,
+    ) -> None:
+        draft = self._input()
+        self.cashier_membership.role = MembershipRole.MANAGER
+        self.cashier_membership.save(update_fields=("role",))
+
+        result = sync_offline_sale(actor=self.owner_membership, draft=draft)
+
+        self.assertEqual(result.status, OfflineSaleSyncStatus.NEEDS_REVIEW)
+        self.assertEqual(result.conflict_messages, ["role_changed"])
+        self.assertEqual(result.drafted_by, self.cashier_membership)
+        assert result.sale is not None
+        self.assertEqual(result.sale.created_by, self.cashier_membership)
+
+    def test_drafting_branch_change_records_rejected_evidence(self) -> None:
+        draft = self._input()
+        self.cashier_membership.assigned_branch = self.other_branch
+        self.cashier_membership.save(update_fields=("assigned_branch",))
+
+        result = sync_offline_sale(actor=self.owner_membership, draft=draft)
+
+        self.assertEqual(result.status, OfflineSaleSyncStatus.REJECTED)
+        self.assertEqual(result.drafted_by, self.cashier_membership)
+        self.assertIsNone(result.sale_id)
+        self.assertIn("cannot synchronize", result.conflict_messages[0])
+        self.assertEqual(OfflineSaleSyncKey.objects.count(), 1)
+        self.assertEqual(OfflineSaleSync.objects.count(), 1)
+        self.assertFalse(Sale.objects.exists())
+
     def test_another_cashier_cannot_sync_a_cashier_draft(self) -> None:
         other_cashier_user = User.objects.create_user(
             email="offline-other-cashier@example.com",
@@ -288,6 +333,8 @@ class OfflineSaleSyncServiceTests(TestCase):
 
         with self.assertRaisesMessage(ValidationError, "owner or manager"):
             sync_offline_sale(actor=other_cashier, draft=self._input())
+        self.assertFalse(OfflineSaleSyncKey.objects.exists())
+        self.assertFalse(OfflineSaleSync.objects.exists())
 
     def test_expired_draft_records_rejected_evidence_without_sale(self) -> None:
         result = sync_offline_sale(

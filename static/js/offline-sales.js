@@ -337,6 +337,7 @@
     const labels = {
       price_changed: app.dataset.priceChanged,
       catalog_label_changed: app.dataset.labelChanged,
+      role_changed: app.dataset.roleChanged,
     };
     return labels[code] || code;
   }

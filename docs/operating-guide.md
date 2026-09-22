@@ -80,7 +80,10 @@
 8. Signing out clears cached catalog/shell data but preserves local drafts. Confirm the shown
    pending/rejected count. Reconnect and sign in as the same drafting membership to see that
    queue again.
-9. When posting a backdated offline draft, compare its sale date with the open cash-session
+9. Before deactivating or reassigning a cashier, synchronize their pending drafts when
+   possible. An owner or manager can still synchronize afterward: invalid membership changes
+   are retained as rejected evidence, while a selling-role change is flagged for review.
+10. When posting a backdated offline draft, compare its sale date with the open cash-session
    date. The cash-session detail discloses any sale dated outside that drawer day.
 
 ## Expenses and supplier settlement

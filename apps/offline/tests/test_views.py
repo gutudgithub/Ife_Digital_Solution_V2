@@ -138,7 +138,7 @@ class OfflineSaleViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["X-Ife-Offline-Cache"], "private-shell")
-        self.assertEqual(response["X-Ife-Offline-Membership"], str(self.cashier_membership.id))
+        self.assertNotIn("X-Ife-Offline-Membership", response.headers)
         self.assertContains(response, reverse("offline:manifest"))
         self.assertContains(response, 'crossorigin="use-credentials"')
         self.assertContains(response, f'data-membership-id="{self.cashier_membership.id}"')
@@ -149,6 +149,7 @@ class OfflineSaleViewTests(TestCase):
         self.assertContains(response, "Draft only — not a receipt or completed sale.")
         self.assertContains(response, "does not move inventory")
         self.assertContains(response, "PROVISIONAL OFFLINE NOTE")
+        self.assertContains(response, "The drafting operator role changed")
         self.assertContains(response, str(self.branch.id))
         self.assertNotContains(response, "450.00")
 
@@ -287,6 +288,7 @@ class OfflineSaleViewTests(TestCase):
         self.assertIn("draft.branch_id === app.dataset.branchId", source)
         self.assertIn("draft.drafted_by_id === app.dataset.membershipId", source)
         self.assertIn("requirePrivateSession()", source)
+        self.assertIn("role_changed: app.dataset.roleChanged", source)
         self.assertIn("async function establishPrivateSession()", source)
         self.assertIn("if (!response.ok)", source)
         self.assertIn("rememberPrivateSession();", source)

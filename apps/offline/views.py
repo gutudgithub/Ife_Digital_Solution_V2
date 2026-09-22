@@ -195,7 +195,6 @@ def offline_sales(request: HttpRequest) -> HttpResponse:
     )
     response.headers["Cache-Control"] = "private, no-cache"
     response.headers["X-Ife-Offline-Cache"] = "private-shell"
-    response.headers["X-Ife-Offline-Membership"] = str(membership.id)
     return response
 
 

@@ -121,7 +121,10 @@
 5. The server revalidates both the active synchronizing membership and the recorded drafting
    membership, business, branch, role capability, variants, quantities, payment shape, and
    draft age. One cashier cannot synchronize another cashier's draft; owner/manager recovery
-   retains both identities and attributes the sale to the drafting membership.
+   retains both identities and attributes the sale to the drafting membership. A deactivated,
+   removed, reassigned, or no-longer-selling drafting membership produces immutable rejected
+   evidence. A changed selling role produces an explicit review conflict rather than erasing
+   the original role-at-draft evidence.
 6. Exact replay returns the same synchronization evidence and sale. Reusing the key or local
    draft identity for changed content is rejected.
 7. Current catalog prices are authoritative. Snapshot changes produce an explicit

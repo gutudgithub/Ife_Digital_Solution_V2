@@ -294,8 +294,9 @@ purchasing, expense, and inventory ledgers.
   UUID, and canonical payload hash. Business/key and business/local-draft pairs are unique.
 - `OfflineSaleSync`: immutable business, branch, synchronizing actor, drafting membership,
   one-to-one sync claim, optional ordinary sale draft, sync status, offline/sync timestamps,
-  sanitized snapshot, and bounded conflict messages. Expired attempts are rejected evidence
-  with no sale.
+  sanitized snapshot, and bounded conflict messages. Expired attempts and invalidated
+  drafting memberships are rejected evidence with no sale; a changed selling role is a
+  `needs_review` conflict that preserves the role-at-draft snapshot.
 
 The status/sale constraints allow a sale only for `synced` or `needs_review` evidence and
 require no sale for `rejected` evidence. Related business and branch scope is validated on

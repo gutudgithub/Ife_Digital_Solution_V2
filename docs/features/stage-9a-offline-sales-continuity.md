@@ -237,10 +237,12 @@ Synchronization must go through a server service boundary rather than bulk view 
 service should:
 
 1. load the synchronizing actor's active business and membership;
-2. load and validate the drafting membership recorded in the immutable payload;
+2. load the drafting membership recorded in the immutable payload;
 3. prevent one cashier from synchronizing another cashier's draft while allowing
    owner/manager recovery with both identities retained;
-4. validate branch scope against both server memberships;
+4. validate drafting-membership activity and branch scope after claiming the immutable sync
+   key, so a changed or deactivated membership produces rejected evidence rather than losing
+   the attempt;
 5. validate each variant belongs to the same active business and is active;
 6. validate quantities using the same decimal boundaries as `SaleLineForm`;
 7. validate payment method/reference shape but not provider settlement;
@@ -248,7 +250,9 @@ service should:
 9. create an ordinary sale draft attributed to the drafting membership using the existing
    `save_sale_draft` service;
 10. record whether current price snapshots differ from offline snapshots;
-11. return per-draft results without exposing manager-only cost or inventory evidence.
+11. record a drafting-role change as a `role_changed` review conflict while preserving the
+    original role in the immutable snapshot and the membership attribution on the sale;
+12. return per-draft results without exposing manager-only cost or inventory evidence.
 
 The server draft retains the original local occurrence date. The posting screen identifies
 offline origin and warns when a cash payment will enter an open cash session with a different
