@@ -17,7 +17,7 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.accounts.models import User
 from apps.businesses.models import BusinessMembership
-from apps.catalog.models import Product, ProductVariant
+from apps.catalog.models import Product, ProductImage, ProductVariant
 from apps.public_profiles.models import (
     ActorKind,
     MetricSource,
@@ -110,6 +110,8 @@ class PublicProductView:
     name: str
     description: str
     category: str
+    image_alt_text: str
+    has_image: bool
     show_public_prices: bool
     variants: tuple[PublicVariantView, ...]
 
@@ -667,7 +669,13 @@ def _public_profile_queryset() -> QuerySet[PublicBusinessProfile]:
             public_identity__isnull=False,
         )
         .select_related("category", "public_identity")
-        .prefetch_related(Prefetch("variants", queryset=active_variants))
+        .prefetch_related(
+            Prefetch("variants", queryset=active_variants),
+            Prefetch(
+                "images",
+                queryset=ProductImage.objects.filter(removed_at__isnull=True),
+            ),
+        )
         .distinct()
         .order_by("name")
     )
@@ -703,7 +711,13 @@ def _preview_profile_queryset() -> QuerySet[PublicBusinessProfile]:
             public_identity__isnull=False,
         )
         .select_related("category", "public_identity")
-        .prefetch_related(Prefetch("variants", queryset=active_variants))
+        .prefetch_related(
+            Prefetch("variants", queryset=active_variants),
+            Prefetch(
+                "images",
+                queryset=ProductImage.objects.filter(removed_at__isnull=True),
+            ),
+        )
         .distinct()
         .order_by("name")
     )
@@ -757,6 +771,7 @@ def _active_verifications(
 
 def _product_view(product: Product) -> PublicProductView:
     identity = product.public_identity
+    image = next(iter(product.images.all()), None)
     variants = tuple(
         PublicVariantView(
             size=variant.size,
@@ -772,6 +787,8 @@ def _product_view(product: Product) -> PublicProductView:
         name=product.name,
         description=product.description,
         category=product.category.name if product.category and product.category.is_active else "",
+        image_alt_text=image.alt_text if image else "",
+        has_image=image is not None,
         show_public_prices=product.show_public_prices,
         variants=variants,
     )

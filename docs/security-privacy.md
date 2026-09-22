@@ -9,6 +9,10 @@
 - CSRF protection and POST-only logout;
 - HTTP-only session and CSRF cookies;
 - frame denial and content-type sniffing protection;
+- restrictive CSP, same-origin referrer policy, bounded browser permissions, cross-origin
+  opener/resource policy, explicit focus-safe external assets, and no inline event handlers;
+- shared-cache rate limits for login, anonymous public reads, catalog/QR uploads, and offline
+  synchronization, with structured rejection logging;
 - secure cookies, HTTPS redirect, and HSTS when debug mode is disabled;
 - database constraints plus model validation for tenant-linked catalog records;
 - secrets loaded from environment variables and excluded from version control;
@@ -27,6 +31,13 @@
   preview/download events, and private no-store/nosniff responses;
 - cashiers, stock employees, anonymous users, unrelated tenants, and ordinary platform staff
   have no Stage 8 document access.
+- product images are signature-checked, decoded, metadata-stripped, re-encoded, stored under
+  opaque private keys, and served internally only after same-tenant authorization;
+- anonymous product-image delivery revalidates publication, suspension, product selection,
+  and current-image state on every request;
+- Telebirr merchant QR configuration is owner-only, branch-scoped, sanitized, immutable-event
+  audited, and contains no provider credential or settlement claim;
+- CI runs dependency auditing and high/critical container-image scanning.
 
 Performance CSV files contain commercially sensitive sales, cost, margin, expense, and
 inventory-value evidence. Operators must store and share exports under the same access and

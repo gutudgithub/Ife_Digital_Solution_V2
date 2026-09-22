@@ -25,6 +25,14 @@ Runtime configuration is supplied through environment variables:
 | `DOCUMENT_CONFIRMED_RETENTION_POLICY_APPROVED` | production retention-policy gate |
 | `DOCUMENT_CANCELLED_RETENTION_DAYS` | unconfirmed cancelled-byte cleanup age |
 | `DOCUMENT_QUARANTINE_STALE_HOURS` | threshold for stuck quarantine reconciliation |
+| `CATALOG_MEDIA_STORAGE_BACKEND` | `filesystem` for development or private `s3` for production |
+| `CATALOG_MEDIA_S3_*` | private product/Telebirr-media bucket configuration |
+| `DJANGO_CACHE_BACKEND`, `DJANGO_CACHE_LOCATION` | shared production cache used by rate limits |
+| `RATE_LIMIT_BACKEND_APPROVED` | records approval of the cross-instance rate-limit backend |
+| `LOGIN_RATE_LIMIT`, `UPLOAD_RATE_LIMIT`, `SYNC_RATE_LIMIT` | bounded sensitive-write limits |
+| `PUBLIC_READ_RATE_LIMIT` | bounded anonymous public-read limit |
+| `STAGE12_RECOVERY_ATTESTATION_PATH` | protected JSON produced after an isolated restore drill |
+| `STAGE12_*_APPROVED` | explicit security, privacy/legal, incident, training, and translation gates |
 
 ## Deployment sequence
 
@@ -116,6 +124,11 @@ consistent point. Restore drills must verify source hashes, scan state, transcri
 revisions, confirmation evidence, access events, target links, and authorized download.
 Database-only or bucket-only recovery is incomplete.
 
+Use `record_recovery_attestation` only after the drill is complete. The protected output
+records approver, evidence URL, database/object restore timestamps, and measured RPO/RTO.
+Run `check_stage12_readiness` with the release configuration; it fails when the attestation
+or another mandatory Stage 12 gate is absent.
+
 ## Observability
 
 Production requires:
@@ -131,6 +144,27 @@ Production requires:
 Define owners, contact paths, severity levels, customer communication, data-breach
 assessment, rollback procedures, and post-incident review. Pilot onboarding must include
 support hours, training, feedback capture, and a safe path back to manual operations.
+The complete controlled-pilot, fallback, incident, rollback, account-recovery, and go/no-go
+procedure is in `docs/stage-12-pilot-runbook.md`.
+Native-speaker review requirements and in-context scenarios are in
+`docs/stage-12-translation-review.md`; untranslated catalog entries intentionally fall back to
+English until that gate is complete.
+
+## Catalog and Telebirr media operations
+
+- Production must use private durable object storage with anonymous access denied,
+  `querystring_auth=True`, and `default_acl=None`.
+- Run `python manage.py reconcile_catalog_media` on the approved cadence. Missing referenced
+  objects or hash mismatches are blocking integrity failures.
+- Preview orphan cleanup with
+  `python manage.py reconcile_catalog_media --purge-orphans`; apply only after investigation
+  with `--apply`.
+- Product uploads are decoded, orientation-normalized, metadata-stripped, resized, and stored
+  as WebP. Telebirr QR uploads are contrast-checked and preserved as lossless PNG.
+- The owner must test-scan a branch QR and verify merchant identity before activation.
+  Activation records configuration approval, not payment or settlement verification.
+- Replacement, deactivation, and removal retain immutable events. Never place QR bytes,
+  payment references, provider credentials, or customer data in logs.
 
 ## Public storefront operations
 

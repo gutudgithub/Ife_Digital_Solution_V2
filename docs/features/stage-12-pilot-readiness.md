@@ -2,8 +2,9 @@
 
 ## Status
 
-Proposed for product-owner approval. No Stage 12 implementation is authorized until this
-brief is approved.
+Approved by the product owner on 20 September 2026. Implementation is authorized within
+this brief. Human accountant, translation, legal/privacy, security, recovery, pilot, and
+final-acceptance gates remain mandatory and cannot be self-approved by the implementation.
 
 The product owner has chosen to defer Stages 10 and 11 for this round and proceed directly
 to one final pre-pilot stage. Stage 12 therefore combines the roadmap's existing

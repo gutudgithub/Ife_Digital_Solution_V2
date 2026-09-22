@@ -51,13 +51,31 @@
 ## Cashier sales workflow
 
 1. Open **Sales** and create a sale for the assigned branch.
-2. Confirm variant, quantity, current price, and cash or Telebirr method.
+2. Search the visual product cards or use the ordinary sale-line fields. Confirm variant,
+   quantity, current price, and cash or Telebirr method. Cashiers never use reference cost.
 3. For cash, confirm a branch cash session is open.
-4. For Telebirr, enter the manually observed reference; the application does not verify the
-   provider transfer.
+4. For Telebirr, compare the active branch merchant identity and exact ETB amount, let the
+   customer scan, observe the customer's success result, and enter the transaction reference.
+   QR display or scanning does not verify the provider transfer.
 5. Post the sale and give the customer the internal receipt. It is not an official tax invoice.
 6. Prepare customer-return drafts against exact sale lines. An owner or manager posts refunds,
    full sale reversals, and return reversals.
+
+## Product images and branch QR setup
+
+1. Owner/manager opens **Products**, uploads one supported image per product, and supplies
+   concise alternative text. The stored image is a metadata-stripped bounded WebP derivative.
+2. Verify cards at phone width and on the public profile before publication. Public cards
+   never show cost, SKU, stock balance, exact availability, supplier, staff, or payment data.
+3. Owner opens **Telebirr QR**, chooses the branch, enters bounded merchant identity, and
+   uploads the official QR.
+4. The saved QR remains inactive. Test-scan it outside Ife, compare the resulting merchant
+   identity, then use the explicit owner activation action.
+5. Deactivate or remove a wrong QR immediately. Configuration events remain immutable; the
+   application never contacts Telebirr or records provider settlement status.
+6. Owner/manager prints **Staff entry QR** only after the production HTTPS origin is approved.
+   It opens the ordinary sign-in page and contains no password, token, branch permission, or
+   session.
 
 ## Offline cashier continuity
 

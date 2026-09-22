@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Staff browser entry" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <article class="card qr-poster">
+    <p class="eyebrow">{% translate "Browser access; no app download" %}</p>
+    <h1>{% translate "Open the staff sign-in page" %}</h1>
+    {% if configuration_error %}
+      <p class="errorlist" role="alert">{{ configuration_error }}</p>
+    {% else %}
+      <img src="{% url 'staff-entry-qr' %}" alt="{% translate 'QR code for the secure staff sign-in page' %}">
+      <p class="qr-text-url">{{ login_url }}</p>
+      <p>{% translate "Scan or type this address, then sign in normally. The QR contains only the HTTPS sign-in URL—no password, token, branch access, or session." %}</p>
+      <button class="button print-hidden" type="button" data-print-page>{% translate "Print staff entry poster" %}</button>
+    {% endif %}
+  </article>
+{% endblock %}

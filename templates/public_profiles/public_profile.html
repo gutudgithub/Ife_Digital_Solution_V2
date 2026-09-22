@@ -91,6 +91,14 @@
     <div class="public-products">
       {% for product in page.products %}
         <article class="card product-card">
+          {% if product.has_image %}
+            <img class="product-card__image"
+                 src="{% url 'public_profiles:public-product-image' page.public_id product.public_id %}"
+                 alt="{{ product.image_alt_text }}"
+                 loading="lazy">
+          {% else %}
+            <div class="catalog-card__placeholder" role="img" aria-label="{% translate 'No product image' %}">{{ product.name|first }}</div>
+          {% endif %}
           {% if product.category %}<p class="eyebrow">{{ product.category }}</p>{% endif %}
           <h3>
             <a href="{% url 'public_profiles:public-product' page.public_id product.public_id %}">{{ product.name }}</a>

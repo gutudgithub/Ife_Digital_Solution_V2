@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import cast
 from uuid import UUID
 
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.http import HttpRequest, HttpResponse, JsonResponse
@@ -23,6 +24,7 @@ from apps.offline.services import (
 )
 from apps.sales.forms import sale_branch_queryset
 from apps.sales.models import SalePaymentMethod
+from config.rate_limit import rate_limit
 
 
 def _tenant(request: HttpRequest) -> TenantRequest:
@@ -241,6 +243,11 @@ def catalog_snapshot(request: HttpRequest) -> JsonResponse:
 
 @login_required
 @require_POST
+@rate_limit(
+    scope="offline-sale-sync",
+    limit=settings.SYNC_RATE_LIMIT,
+    window_seconds=settings.SYNC_RATE_LIMIT_WINDOW_SECONDS,
+)
 def sync_sale(request: HttpRequest) -> JsonResponse:
     tenant_request = _tenant(request)
     membership = cast(BusinessMembership, tenant_request.active_membership)

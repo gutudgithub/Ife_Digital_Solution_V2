@@ -40,11 +40,13 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "config.middleware.SecurityHeadersMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "config.middleware.AuthenticationRateLimitMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "apps.businesses.middleware.ActiveBusinessMiddleware",
@@ -111,6 +113,71 @@ TIME_ZONE = "Africa/Addis_Ababa"
 USE_I18N = True
 USE_TZ = True
 
+SESSION_COOKIE_AGE = int(os.environ.get("DJANGO_SESSION_COOKIE_AGE", str(8 * 60 * 60)))
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_SAVE_EVERY_REQUEST = True
+
+CACHES = {
+    "default": {
+        "BACKEND": os.environ.get(
+            "DJANGO_CACHE_BACKEND",
+            "django.core.cache.backends.locmem.LocMemCache",
+        ),
+        "LOCATION": os.environ.get("DJANGO_CACHE_LOCATION", "ife-default"),
+    }
+}
+RATE_LIMIT_CACHE_ALIAS = "default"
+RATE_LIMIT_BACKEND_APPROVED = (
+    os.environ.get("RATE_LIMIT_BACKEND_APPROVED", "false").lower() == "true"
+)
+LOGIN_RATE_LIMIT = int(os.environ.get("LOGIN_RATE_LIMIT", "10"))
+LOGIN_RATE_LIMIT_WINDOW_SECONDS = int(os.environ.get("LOGIN_RATE_LIMIT_WINDOW_SECONDS", "300"))
+UPLOAD_RATE_LIMIT = int(os.environ.get("UPLOAD_RATE_LIMIT", "20"))
+UPLOAD_RATE_LIMIT_WINDOW_SECONDS = int(os.environ.get("UPLOAD_RATE_LIMIT_WINDOW_SECONDS", "300"))
+SYNC_RATE_LIMIT = int(os.environ.get("SYNC_RATE_LIMIT", "120"))
+SYNC_RATE_LIMIT_WINDOW_SECONDS = int(os.environ.get("SYNC_RATE_LIMIT_WINDOW_SECONDS", "300"))
+PUBLIC_READ_RATE_LIMIT = int(os.environ.get("PUBLIC_READ_RATE_LIMIT", "240"))
+PUBLIC_READ_RATE_LIMIT_WINDOW_SECONDS = int(
+    os.environ.get("PUBLIC_READ_RATE_LIMIT_WINDOW_SECONDS", "60")
+)
+CONTENT_SECURITY_POLICY = (
+    "default-src 'self'; "
+    "base-uri 'self'; "
+    "connect-src 'self'; "
+    "font-src 'self'; "
+    "form-action 'self'; "
+    "frame-ancestors 'none'; "
+    "img-src 'self' data:; "
+    "manifest-src 'self'; "
+    "object-src 'none'; "
+    "script-src 'self'; "
+    "style-src 'self'; "
+    "worker-src 'self'"
+)
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "security_json": {
+            "()": "config.logging.SecurityJsonFormatter",
+        }
+    },
+    "handlers": {
+        "security_console": {
+            "class": "logging.StreamHandler",
+            "formatter": "security_json",
+        }
+    },
+    "loggers": {
+        "ife.security": {
+            "handlers": ["security_console"],
+            "level": os.environ.get("SECURITY_LOG_LEVEL", "WARNING"),
+            "propagate": False,
+        }
+    },
+}
+
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
@@ -148,6 +215,61 @@ else:
             "directory_permissions_mode": 0o700,
         },
     }
+
+CATALOG_MEDIA_STORAGE_BACKEND = os.environ.get("CATALOG_MEDIA_STORAGE_BACKEND", "filesystem")
+if CATALOG_MEDIA_STORAGE_BACKEND == "s3":
+    STORAGES["catalog_media"] = {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "bucket_name": os.environ.get("CATALOG_MEDIA_S3_BUCKET", ""),
+            "endpoint_url": os.environ.get("CATALOG_MEDIA_S3_ENDPOINT_URL") or None,
+            "region_name": os.environ.get("CATALOG_MEDIA_S3_REGION") or None,
+            "access_key": os.environ.get("CATALOG_MEDIA_S3_ACCESS_KEY") or None,
+            "secret_key": os.environ.get("CATALOG_MEDIA_S3_SECRET_KEY") or None,
+            "default_acl": None,
+            "querystring_auth": True,
+            "file_overwrite": False,
+        },
+    }
+else:
+    STORAGES["catalog_media"] = {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {
+            "location": str(BASE_DIR / "catalog_media"),
+            "base_url": None,
+            "file_permissions_mode": 0o600,
+            "directory_permissions_mode": 0o700,
+        },
+    }
+
+PRODUCT_IMAGE_MAX_FILE_BYTES = 8 * 1024 * 1024
+PRODUCT_IMAGE_MAX_PIXELS = 24_000_000
+PRODUCT_IMAGE_MAX_EDGE = 2048
+TELEBIRR_QR_MAX_FILE_BYTES = 4 * 1024 * 1024
+TELEBIRR_QR_MAX_PIXELS = 12_000_000
+TELEBIRR_QR_MAX_EDGE = 1600
+
+STAGE12_RECOVERY_ATTESTATION_PATH = os.environ.get(
+    "STAGE12_RECOVERY_ATTESTATION_PATH",
+    "",
+)
+STAGE12_MAX_RPO_HOURS = int(os.environ.get("STAGE12_MAX_RPO_HOURS", "1"))
+STAGE12_MAX_RTO_HOURS = int(os.environ.get("STAGE12_MAX_RTO_HOURS", "4"))
+STAGE12_SECURITY_REVIEW_APPROVED = (
+    os.environ.get("STAGE12_SECURITY_REVIEW_APPROVED", "false").lower() == "true"
+)
+STAGE12_PRIVACY_LEGAL_APPROVED = (
+    os.environ.get("STAGE12_PRIVACY_LEGAL_APPROVED", "false").lower() == "true"
+)
+STAGE12_INCIDENT_RESPONSE_APPROVED = (
+    os.environ.get("STAGE12_INCIDENT_RESPONSE_APPROVED", "false").lower() == "true"
+)
+STAGE12_OPERATOR_TRAINING_APPROVED = (
+    os.environ.get("STAGE12_OPERATOR_TRAINING_APPROVED", "false").lower() == "true"
+)
+STAGE12_TRANSLATION_REVIEW_APPROVED = (
+    os.environ.get("STAGE12_TRANSLATION_REVIEW_APPROVED", "false").lower() == "true"
+)
 
 DOCUMENT_MAX_FILES = 5
 DOCUMENT_MAX_FILE_BYTES = 10 * 1024 * 1024

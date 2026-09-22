@@ -9,7 +9,7 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Sum
 from django.forms.formsets import BaseFormSet
-from django.http import Http404, HttpRequest, HttpResponse
+from django.http import FileResponse, Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -18,7 +18,7 @@ from django.views.decorators.http import require_POST, require_safe
 
 from apps.businesses.models import BusinessMembership
 from apps.businesses.types import TenantRequest
-from apps.catalog.models import Product
+from apps.catalog.models import Product, ProductImage
 from apps.forms import add_accessible_error_attributes
 from apps.public_profiles.forms import (
     ContactLinkFormSet,
@@ -81,6 +81,7 @@ from apps.public_profiles.services import (
     update_opening_hours,
     update_profile,
 )
+from config.rate_limit import rate_limit
 
 
 def _tenant_manager(request: HttpRequest) -> BusinessMembership:
@@ -503,6 +504,12 @@ def _public_response(response: HttpResponse) -> HttpResponse:
 
 
 @require_safe
+@rate_limit(
+    scope="public-profile",
+    limit=lambda: settings.PUBLIC_READ_RATE_LIMIT,
+    window_seconds=lambda: settings.PUBLIC_READ_RATE_LIMIT_WINDOW_SECONDS,
+    methods=("GET", "HEAD"),
+)
 def public_profile(request: HttpRequest, public_id: UUID) -> HttpResponse:
     try:
         profile = get_profile_model_for_public_id(public_id)
@@ -534,6 +541,12 @@ def public_profile(request: HttpRequest, public_id: UUID) -> HttpResponse:
 
 
 @require_safe
+@rate_limit(
+    scope="public-product",
+    limit=lambda: settings.PUBLIC_READ_RATE_LIMIT,
+    window_seconds=lambda: settings.PUBLIC_READ_RATE_LIMIT_WINDOW_SECONDS,
+    methods=("GET", "HEAD"),
+)
 def public_product(
     request: HttpRequest,
     public_id: UUID,
@@ -580,6 +593,50 @@ def public_product(
 
 
 @require_safe
+@rate_limit(
+    scope="public-product-image",
+    limit=lambda: settings.PUBLIC_READ_RATE_LIMIT,
+    window_seconds=lambda: settings.PUBLIC_READ_RATE_LIMIT_WINDOW_SECONDS,
+    methods=("GET", "HEAD"),
+)
+def public_product_image(
+    request: HttpRequest,
+    public_id: UUID,
+    product_public_id: UUID,
+) -> FileResponse:
+    del request
+    try:
+        profile = get_profile_model_for_public_id(public_id)
+        product = get_product_model_for_public_id(
+            profile=profile,
+            product_public_id=product_public_id,
+        )
+        image = ProductImage.objects.get(
+            business=profile.business,
+            product=product,
+            removed_at__isnull=True,
+        )
+        response = FileResponse(image.source.open("rb"), content_type=image.media_type)
+    except (
+        FileNotFoundError,
+        OSError,
+        Product.DoesNotExist,
+        ProductImage.DoesNotExist,
+        PublicBusinessProfile.DoesNotExist,
+    ) as exc:
+        raise _not_found() from exc
+    response["Cache-Control"] = "no-store"
+    response["Content-Disposition"] = 'inline; filename="product.webp"'
+    return response
+
+
+@require_safe
+@rate_limit(
+    scope="public-sale-receipt",
+    limit=lambda: settings.PUBLIC_READ_RATE_LIMIT,
+    window_seconds=lambda: settings.PUBLIC_READ_RATE_LIMIT_WINDOW_SECONDS,
+    methods=("GET", "HEAD"),
+)
 def verify_sale_receipt(request: HttpRequest, token: UUID) -> HttpResponse:
     try:
         receipt = public_sale_receipt(token)
@@ -595,6 +652,12 @@ def verify_sale_receipt(request: HttpRequest, token: UUID) -> HttpResponse:
 
 
 @require_safe
+@rate_limit(
+    scope="public-return-receipt",
+    limit=lambda: settings.PUBLIC_READ_RATE_LIMIT,
+    window_seconds=lambda: settings.PUBLIC_READ_RATE_LIMIT_WINDOW_SECONDS,
+    methods=("GET", "HEAD"),
+)
 def verify_return_receipt(request: HttpRequest, token: UUID) -> HttpResponse:
     try:
         receipt = public_return_receipt(token)
@@ -610,6 +673,12 @@ def verify_return_receipt(request: HttpRequest, token: UUID) -> HttpResponse:
 
 
 @require_safe
+@rate_limit(
+    scope="public-sale-receipt-qr",
+    limit=lambda: settings.PUBLIC_READ_RATE_LIMIT,
+    window_seconds=lambda: settings.PUBLIC_READ_RATE_LIMIT_WINDOW_SECONDS,
+    methods=("GET", "HEAD"),
+)
 def sale_receipt_qr(request: HttpRequest, token: UUID) -> HttpResponse:
     identity = get_object_or_404(PublicSaleReceiptIdentity, public_token=token)
     response = HttpResponse(
@@ -621,6 +690,12 @@ def sale_receipt_qr(request: HttpRequest, token: UUID) -> HttpResponse:
 
 
 @require_safe
+@rate_limit(
+    scope="public-return-receipt-qr",
+    limit=lambda: settings.PUBLIC_READ_RATE_LIMIT,
+    window_seconds=lambda: settings.PUBLIC_READ_RATE_LIMIT_WINDOW_SECONDS,
+    methods=("GET", "HEAD"),
+)
 def return_receipt_qr(request: HttpRequest, token: UUID) -> HttpResponse:
     identity = get_object_or_404(PublicReturnReceiptIdentity, public_token=token)
     response = HttpResponse(
@@ -766,6 +841,12 @@ def staff_profile_reinstate(request: HttpRequest, profile_id: UUID) -> HttpRespo
 
 
 @require_safe
+@rate_limit(
+    scope="robots",
+    limit=lambda: settings.PUBLIC_READ_RATE_LIMIT,
+    window_seconds=lambda: settings.PUBLIC_READ_RATE_LIMIT_WINDOW_SECONDS,
+    methods=("GET", "HEAD"),
+)
 def robots_txt(request: HttpRequest) -> HttpResponse:
     sitemap_url = absolute_public_url(reverse("public_profiles:sitemap"))
     return HttpResponse(
@@ -776,6 +857,12 @@ def robots_txt(request: HttpRequest) -> HttpResponse:
 
 
 @require_safe
+@rate_limit(
+    scope="sitemap",
+    limit=lambda: settings.PUBLIC_READ_RATE_LIMIT,
+    window_seconds=lambda: settings.PUBLIC_READ_RATE_LIMIT_WINDOW_SECONDS,
+    methods=("GET", "HEAD"),
+)
 def sitemap_xml(request: HttpRequest) -> HttpResponse:
     urlset = Element("urlset", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
     profiles = PublicBusinessProfile.objects.filter(

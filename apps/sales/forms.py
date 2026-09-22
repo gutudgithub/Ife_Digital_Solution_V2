@@ -163,6 +163,30 @@ class SalePostForm(forms.Form):
         return cleaned_data
 
 
+class BranchTelebirrProfileForm(forms.Form):
+    branch = forms.ModelChoiceField(
+        queryset=Branch.objects.none(),
+        label=_("Branch"),
+    )
+    merchant_display_name = forms.CharField(
+        max_length=160,
+        label=_("Merchant display name"),
+    )
+    merchant_identifier = forms.CharField(
+        max_length=120,
+        label=_("Merchant identifier"),
+        help_text=_("Use the bounded identifier printed with the merchant QR."),
+    )
+    qr_image = forms.ImageField(
+        label=_("Telebirr merchant QR image"),
+        help_text=_("JPEG, PNG, or WebP. It is stored losslessly as a sanitized PNG."),
+    )
+
+    def scope_to_business(self, business: Business) -> None:
+        branch_field = cast(forms.ModelChoiceField, self.fields["branch"])
+        branch_field.queryset = Branch.objects.filter(business=business, is_active=True)
+
+
 class SaleCancelForm(forms.Form):
     reason = forms.CharField(
         label=_("Cancellation reason"),

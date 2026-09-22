@@ -11,7 +11,7 @@
         <h1>{{ receipt.business.name }}</h1>
         <p>{{ receipt.branch.name }}</p>
       </div>
-      <button class="button print-hidden" type="button" onclick="window.print()">{% translate "Print" %}</button>
+      <button class="button print-hidden" type="button" data-print-page>{% translate "Print" %}</button>
     </div>
     <div class="receipt-notice" role="note">
       <strong>{% translate "This is an internal transaction record. It is not an official tax invoice." %}</strong>

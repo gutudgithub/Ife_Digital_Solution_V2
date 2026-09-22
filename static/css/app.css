@@ -27,6 +27,27 @@ a {
   color: var(--brand);
 }
 
+:focus-visible {
+  outline: 3px solid #f5a623;
+  outline-offset: 3px;
+}
+
+.skip-link {
+  background: white;
+  color: var(--brand);
+  font-weight: 800;
+  left: 1rem;
+  padding: 0.75rem 1rem;
+  position: fixed;
+  top: 1rem;
+  transform: translateY(-200%);
+  z-index: 1000;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
 .site-header {
   background: var(--brand);
   color: white;
@@ -56,12 +77,17 @@ a {
 .nav {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 1rem;
+  min-width: 0;
 }
 
 .nav a,
 .nav button {
+  align-items: center;
   color: white;
+  display: inline-flex;
+  min-height: 44px;
 }
 
 .link-button {
@@ -69,7 +95,20 @@ a {
   background: transparent;
   cursor: pointer;
   font: inherit;
-  padding: 0;
+  padding: 0.35rem;
+}
+
+.language-switcher {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.language-switcher select {
+  max-width: 100%;
+  width: auto;
 }
 
 .page {
@@ -106,6 +145,7 @@ a {
   border: 1px solid var(--border);
   border-radius: 14px;
   box-shadow: 0 8px 24px rgb(23 54 93 / 8%);
+  min-width: 0;
   padding: 1.25rem;
 }
 
@@ -132,7 +172,7 @@ a {
   font: inherit;
   font-weight: 700;
   justify-content: center;
-  min-height: 42px;
+  min-height: 44px;
   padding: 0.6rem 1rem;
   text-decoration: none;
 }
@@ -468,7 +508,7 @@ textarea {
   border: 1px solid var(--border);
   border-radius: 8px;
   font: inherit;
-  min-height: 42px;
+  min-height: 44px;
   padding: 0.55rem 0.7rem;
   width: 100%;
 }
@@ -516,6 +556,11 @@ textarea {
     flex-direction: column;
     padding-block: 0.8rem;
   }
+
+  .nav {
+    gap: 0.25rem 0.75rem;
+    width: 100%;
+  }
 }
 
 .public-page {
@@ -534,6 +579,69 @@ textarea {
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.catalog-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+}
+
+.catalog-card {
+  min-width: 0;
+}
+
+.catalog-card__image,
+.product-card__image,
+.product-detail__image {
+  aspect-ratio: 4 / 3;
+  background: #eef2f6;
+  border-radius: 10px;
+  display: block;
+  height: auto;
+  object-fit: contain;
+  width: 100%;
+}
+
+.catalog-card__image {
+  overflow: hidden;
+}
+
+.catalog-card__image img {
+  display: block;
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
+.product-detail__image {
+  max-height: 32rem;
+}
+
+.catalog-card__placeholder {
+  align-items: center;
+  aspect-ratio: 4 / 3;
+  background: #e8eef7;
+  border-radius: 10px;
+  color: var(--brand);
+  display: flex;
+  font-size: clamp(2rem, 8vw, 5rem);
+  font-weight: 800;
+  justify-content: center;
+}
+
+.variant-list {
+  display: grid;
+  gap: 0.6rem;
+  list-style: none;
+  padding: 0;
+}
+
+.variant-list li {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 0.2rem;
+  padding-top: 0.6rem;
 }
 
 .product-card h3 {
@@ -573,6 +681,45 @@ textarea {
   height: auto;
   max-width: 360px;
   width: 100%;
+}
+
+.payment-panel__layout {
+  align-items: center;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(180px, 300px) 1fr;
+}
+
+.payment-qr {
+  background: #fff;
+  border: 1px solid var(--border);
+  height: auto;
+  image-rendering: pixelated;
+  max-width: 320px;
+  padding: 0.75rem;
+  width: 100%;
+}
+
+.payment-amount {
+  font-size: clamp(1.35rem, 4vw, 2rem);
+  font-weight: 800;
+}
+
+.sale-picker__grid {
+  margin-top: 1rem;
+  max-height: 42rem;
+  overflow-y: auto;
+}
+
+.sale-picker__variants {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.sale-picker__variants .button {
+  height: auto;
+  text-align: left;
+  white-space: normal;
 }
 
 .qr-text-url,
@@ -660,5 +807,18 @@ textarea {
 
   .offline-draft-actions {
     justify-content: flex-start;
+  }
+
+  .payment-panel__layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }

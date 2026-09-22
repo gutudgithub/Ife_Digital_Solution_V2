@@ -6,6 +6,27 @@ app_name = "sales"
 
 urlpatterns = [
     path("", views.sale_list, name="sale-list"),
+    path("telebirr/", views.telebirr_settings, name="telebirr-settings"),
+    path(
+        "telebirr/<uuid:profile_id>/activate/",
+        views.telebirr_activate,
+        name="telebirr-activate",
+    ),
+    path(
+        "telebirr/<uuid:profile_id>/deactivate/",
+        views.telebirr_deactivate,
+        name="telebirr-deactivate",
+    ),
+    path(
+        "telebirr/<uuid:profile_id>/remove/",
+        views.telebirr_remove,
+        name="telebirr-remove",
+    ),
+    path(
+        "telebirr/<uuid:profile_id>/qr/",
+        views.telebirr_qr,
+        name="telebirr-qr",
+    ),
     path("new/", views.sale_create, name="sale-create"),
     path("<uuid:sale_id>/", views.sale_detail, name="sale-detail"),
     path("<uuid:sale_id>/edit/", views.sale_edit, name="sale-edit"),

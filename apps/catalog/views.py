@@ -2,20 +2,26 @@ from typing import cast
 from uuid import UUID
 
 from django import forms
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied
-from django.db.models import Count
-from django.http import HttpRequest, HttpResponse
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.files.uploadedfile import UploadedFile
+from django.db.models import Count, Prefetch
+from django.http import FileResponse, Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.translation import gettext as _
+from django.views.decorators.http import require_POST, require_safe
 
+from apps.businesses.models import BusinessMembership
 from apps.businesses.types import TenantRequest
-from apps.catalog.forms import ProductForm, ProductVariantForm
-from apps.catalog.models import Category, Product, ProductVariant
+from apps.catalog.forms import ProductForm, ProductImageForm, ProductVariantForm
+from apps.catalog.models import Category, Product, ProductImage, ProductVariant
+from apps.catalog.services import remove_product_image, set_product_image
 from apps.forms import add_accessible_error_attributes
 from apps.inventory.models import InventoryMovement
 from apps.purchasing.models import PurchaseLine, PurchaseStatus
+from config.rate_limit import rate_limit
 
 
 @login_required
@@ -24,10 +30,16 @@ def product_list(request: HttpRequest) -> HttpResponse:
     if tenant_request.active_business is None or tenant_request.active_membership is None:
         raise PermissionDenied(_("No active business membership is available."))
 
+    current_images = ProductImage.objects.filter(removed_at__isnull=True)
+    variants = ProductVariant.objects.order_by("size", "color", "sku")
     products = (
         Product.objects.filter(business=tenant_request.active_business)
         .select_related("category")
-        .annotate(variant_count=Count("variants"))
+        .prefetch_related(
+            Prefetch("images", queryset=current_images, to_attr="current_images"),
+            Prefetch("variants", queryset=variants),
+        )
+        .annotate(variant_count=Count("variants", distinct=True))
     )
     return render(
         request,
@@ -35,6 +47,7 @@ def product_list(request: HttpRequest) -> HttpResponse:
         {
             "products": products,
             "can_manage_catalog": tenant_request.active_membership.can_manage_catalog,
+            "can_view_inventory_cost": (tenant_request.active_membership.can_view_inventory_cost),
         },
     )
 
@@ -63,6 +76,92 @@ def product_create(request: HttpRequest) -> HttpResponse:
 
     add_accessible_error_attributes(form)
     return render(request, "catalog/product_form.html", {"form": form})
+
+
+def _catalog_membership(request: HttpRequest) -> BusinessMembership:
+    tenant_request = cast(TenantRequest, request)
+    membership = tenant_request.active_membership
+    if membership is None or tenant_request.active_business is None:
+        raise PermissionDenied(_("No active business membership is available."))
+    return membership
+
+
+@login_required
+@rate_limit(
+    scope="product-image-upload",
+    limit=settings.UPLOAD_RATE_LIMIT,
+    window_seconds=settings.UPLOAD_RATE_LIMIT_WINDOW_SECONDS,
+)
+def product_image_manage(request: HttpRequest, product_id: UUID) -> HttpResponse:
+    membership = _catalog_membership(request)
+    if not membership.can_manage_catalog:
+        raise PermissionDenied(_("Catalog management permission is required."))
+    product = get_object_or_404(
+        Product.objects.prefetch_related(
+            Prefetch(
+                "images",
+                queryset=ProductImage.objects.filter(removed_at__isnull=True),
+                to_attr="current_images",
+            )
+        ),
+        pk=product_id,
+        business=membership.business,
+    )
+    form = ProductImageForm(request.POST or None, request.FILES or None)
+    if request.method == "POST" and form.is_valid():
+        upload = form.cleaned_data["image"]
+        if not isinstance(upload, UploadedFile):
+            raise TypeError("Validated product image must be an uploaded file.")
+        try:
+            set_product_image(
+                actor=membership,
+                product=product,
+                upload=upload,
+                alt_text=str(form.cleaned_data["alt_text"]),
+            )
+        except ValidationError as error:
+            form.add_error(None, error)
+        else:
+            messages.success(request, _("Product image saved."))
+            return redirect("catalog:product-list")
+    add_accessible_error_attributes(form)
+    return render(
+        request,
+        "catalog/product_image_form.html",
+        {"form": form, "product": product},
+    )
+
+
+@login_required
+@require_POST
+def product_image_remove(request: HttpRequest, product_id: UUID) -> HttpResponse:
+    membership = _catalog_membership(request)
+    product = get_object_or_404(Product, pk=product_id, business=membership.business)
+    try:
+        remove_product_image(actor=membership, product=product)
+    except ProductImage.DoesNotExist:
+        raise Http404 from None
+    messages.success(request, _("Product image removed."))
+    return redirect("catalog:product-list")
+
+
+@login_required
+@require_safe
+def product_image(request: HttpRequest, image_id: UUID) -> FileResponse:
+    membership = _catalog_membership(request)
+    image = get_object_or_404(
+        ProductImage.objects.select_related("product"),
+        pk=image_id,
+        business=membership.business,
+        removed_at__isnull=True,
+    )
+    try:
+        response = FileResponse(image.source.open("rb"), content_type=image.media_type)
+    except (FileNotFoundError, OSError):
+        raise Http404 from None
+    response["Cache-Control"] = "private, no-store"
+    response["Content-Disposition"] = 'inline; filename="product.webp"'
+    return response
 
 
 @login_required

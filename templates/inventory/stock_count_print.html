@@ -5,7 +5,7 @@
 
 {% block content %}
   <div class="print-hidden action-row">
-    <button class="button" type="button" onclick="window.print()">{% translate "Print" %}</button>
+    <button class="button" type="button" data-print-page>{% translate "Print" %}</button>
     <a href="{% url 'inventory:stock-count-detail' stock_count.id %}">{% translate "Back" %}</a>
   </div>
   <article class="card receipt">

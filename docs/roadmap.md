@@ -26,7 +26,7 @@ operational notes, and independent Claude review.
 | 9 | Offline PWA and synchronization | Stage 9A approved and implemented; independent review and pilot gates remain |
 | 10 | Multi-branch transfers and consolidated control | Deferred for this round by the product owner; no transfer workflow is authorized |
 | 11 | SaaS plans, onboarding, support, and administration | Deferred for this round by the product owner; no subscription workflow is authorized |
-| 12 | Pilot-ready catalog, payments, localization, accessibility, security, and recovery | Proposed; product-owner approval is required before implementation |
+| 12 | Pilot-ready catalog, payments, localization, accessibility, security, and recovery | Product-owner approved and implemented; automated verification and human pilot gates remain |
 | 13 | Controlled production launch | Planned; legal, privacy, operations, and acceptance gates must be approved |
 
 Stage 2 is split into independently reviewable vertical slices so that the inventory ledger
@@ -85,7 +85,7 @@ Stages 10 and 11 are deferred for this delivery round. The controlled pilot must
 active operating branch and must not depend on stock transfers, consolidated transfer
 control, subscription billing, self-service onboarding, or SaaS-plan suspension.
 
-The proposed Stage 12 brief combines the remaining pre-pilot gates with optional sanitized
+The approved Stage 12 brief combines the remaining pre-pilot gates with optional sanitized
 product images, responsive internal/public catalog cards, an accessible online sale picker,
 a branch Telebirr merchant QR that retains manual reference evidence, and a credential-free
 staff login QR. It does not add Telebirr APIs, public ordering, provider verification,

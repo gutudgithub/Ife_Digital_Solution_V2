@@ -5,7 +5,7 @@ foundation is reusable for inventory-based retail while the first pilot is tailo
 clothing and footwear.
 
 This repository contains the independently reviewed Stages 1 through 5 and 7, plus the
-implemented Stage 8 private-document and Stage 9A offline-sales slices:
+implemented Stage 8 private-document, Stage 9A offline-sales, and Stage 12 pre-pilot slices:
 
 - email-based authentication and Django administration;
 - business and branch records;
@@ -41,11 +41,19 @@ implemented Stage 8 private-document and Stage 9A offline-sales slices:
 - an installable offline-sales PWA screen with a tenant/branch-partitioned IndexedDB draft
   queue, narrow catalog snapshot, manual idempotent synchronization, and explicit conflict
   review before normal online posting;
+- responsive internal/public product cards with sanitized private product images;
+- an accessible visual online sale picker backed by the ordinary server-validated formset;
+- owner-controlled branch Telebirr merchant QR display with manual-reference posting only;
+- a printable credential-free HTTPS staff-entry QR;
+- CSP, security headers, shared-cache rate-limit controls, dependency/container scanning,
+  restore attestations, and strict pre-pilot readiness checks;
 - English, Amharic, and Afaan Oromoo locale configuration;
 - PostgreSQL-compatible settings, Docker Compose, CI, and pre-commit checks.
 
 Customer and loyalty work remains deferred. Broader offline workflows, multi-branch
-transfers, SaaS, and production launch remain separately gated delivery slices.
+transfers, SaaS, and production launch remain separately gated. Human accountant,
+translation, legal/privacy, security, restore, mobile/accessibility, operator-training, and
+final-acceptance evidence is still required before a controlled pilot.
 
 ## Requirements
 

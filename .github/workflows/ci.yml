@@ -37,14 +37,54 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+      - run: python -m pip install pip==26.2
       - run: python -m pip install -e ".[dev]"
       - run: ruff check .
       - run: ruff format --check .
       - run: mypy apps config
+      - run: pip-audit
       - run: python manage.py makemigrations --check --dry-run
+      - name: Create deployment-check recovery fixture
+        run: |
+          printf '%s\n' \
+            '{"approved_by":"CI configuration test","evidence_url":"https://example.com/restore-evidence","database_restore_tested_at":"2026-09-20T00:00:00Z","object_restore_tested_at":"2026-09-20T00:00:00Z","measured_rpo_hours":"1","measured_rto_hours":"4"}' \
+            > "${RUNNER_TEMP}/recovery-attestation.json"
       - run: python manage.py check --deploy
         env:
           DJANGO_DEBUG: "false"
           DJANGO_SECRET_KEY: ci-only-7Yf2K9qP4mX8vN6cR3sW5tZ1bH0jL7dG9aE2uQ8iC4oM
           DJANGO_ALLOWED_HOSTS: example.com
+          DJANGO_CSRF_TRUSTED_ORIGINS: https://example.com
+          PUBLIC_SITE_ORIGIN: https://example.com
+          PUBLIC_SUPPORT_URL: https://example.com/support
+          DOCUMENT_STORAGE_BACKEND: s3
+          DOCUMENT_S3_BUCKET: ci-private-documents
+          DOCUMENT_SCANNER_BACKEND: apps.documents.scanning.ClamAVDocumentScanner
+          DOCUMENT_CONFIRMED_RETENTION_POLICY_APPROVED: "true"
+          CATALOG_MEDIA_STORAGE_BACKEND: s3
+          CATALOG_MEDIA_S3_BUCKET: ci-private-catalog
+          DJANGO_CACHE_BACKEND: django.core.cache.backends.db.DatabaseCache
+          DJANGO_CACHE_LOCATION: ife_ci_rate_limits
+          RATE_LIMIT_BACKEND_APPROVED: "true"
+          STAGE12_RECOVERY_ATTESTATION_PATH: ${{ runner.temp }}/recovery-attestation.json
+          STAGE12_SECURITY_REVIEW_APPROVED: "true"
+          STAGE12_PRIVACY_LEGAL_APPROVED: "true"
+          STAGE12_INCIDENT_RESPONSE_APPROVED: "true"
+          STAGE12_OPERATOR_TRAINING_APPROVED: "true"
+          STAGE12_TRANSLATION_REVIEW_APPROVED: "true"
       - run: pytest
+
+  container-security:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build --tag ife-ci:${{ github.sha }} .
+      - uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: ife-ci:${{ github.sha }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH

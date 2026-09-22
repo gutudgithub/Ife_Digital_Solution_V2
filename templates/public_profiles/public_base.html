@@ -12,12 +12,26 @@
     <link rel="stylesheet" href="{% static 'css/app.css' %}">
   </head>
   <body class="public-site">
+    <a class="skip-link" href="#main-content">{% translate "Skip to main content" %}</a>
     <header class="site-header">
       <div class="site-header__inner">
         <a class="brand" href="/">{% translate "Ife Digital Solution" %}</a>
+        <form method="post" action="{% url 'set_language' %}" class="language-switcher">
+          {% csrf_token %}
+          <input name="next" type="hidden" value="{{ request.get_full_path }}">
+          <label class="visually-hidden" for="public-language">{% translate "Language" %}</label>
+          <select id="public-language" name="language">
+            {% get_current_language as CURRENT_LANGUAGE %}
+            {% get_available_languages as AVAILABLE_LANGUAGES %}
+            {% for code, name in AVAILABLE_LANGUAGES %}
+              <option value="{{ code }}"{% if code == CURRENT_LANGUAGE %} selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+          </select>
+          <button class="link-button" type="submit">{% translate "Change language" %}</button>
+        </form>
       </div>
     </header>
-    <main class="page public-page">
+    <main class="page public-page" id="main-content" tabindex="-1">
       {% block content %}{% endblock %}
     </main>
     <footer class="public-footer">
@@ -26,5 +40,6 @@
         <a href="{{ support_url }}">{% translate "Request a correction or report misuse" %}</a>
       {% endif %}
     </footer>
+    <script src="{% static 'js/print-page.js' %}" defer></script>
   </body>
 </html>

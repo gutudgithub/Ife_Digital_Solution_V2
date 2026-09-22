@@ -1,12 +1,15 @@
 import uuid
+from collections.abc import Iterable
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
+from django.db.models.base import ModelBase
 from django.utils.translation import gettext_lazy as _
 
-from apps.businesses.models import Business
+from apps.businesses.models import Business, BusinessMembership
+from apps.catalog.storage import catalog_media_storage, product_image_upload_path
 
 
 class StockUnit(models.TextChoices):
@@ -163,3 +166,185 @@ class ProductVariant(models.Model):
                 raise ValidationError(
                     {"low_stock_threshold": _("This stock unit requires a whole-number threshold.")}
                 )
+
+
+class ProductImageAction(models.TextChoices):
+    ADDED = "added", _("Added")
+    REPLACED = "replaced", _("Replaced")
+    REMOVED = "removed", _("Removed")
+    RECONCILED = "reconciled", _("Reconciled")
+
+
+class ProductImage(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    business = models.ForeignKey(
+        Business,
+        on_delete=models.PROTECT,
+        related_name="product_images",
+    )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.PROTECT,
+        related_name="images",
+    )
+    source = models.FileField(
+        storage=catalog_media_storage,
+        upload_to=product_image_upload_path,
+        max_length=255,
+    )
+    media_type = models.CharField(max_length=32)
+    width = models.PositiveIntegerField()
+    height = models.PositiveIntegerField()
+    size = models.PositiveBigIntegerField()
+    sha256 = models.CharField(max_length=64)
+    alt_text = models.CharField(max_length=240)
+    uploaded_by = models.ForeignKey(
+        BusinessMembership,
+        on_delete=models.PROTECT,
+        related_name="product_images_uploaded",
+    )
+    removed_by = models.ForeignKey(
+        BusinessMembership,
+        on_delete=models.PROTECT,
+        related_name="product_images_removed",
+        null=True,
+        blank=True,
+    )
+    removed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("product",),
+                condition=Q(removed_at__isnull=True),
+                name="catalog_one_current_image_per_product",
+            ),
+            models.CheckConstraint(
+                condition=Q(width__gte=1) & Q(height__gte=1) & Q(size__gte=1),
+                name="catalog_product_image_dimensions_size_positive",
+            ),
+            models.CheckConstraint(
+                condition=Q(media_type="image/webp"),
+                name="catalog_product_image_media_type_webp",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(removed_at__isnull=True, removed_by__isnull=True)
+                    | Q(removed_at__isnull=False, removed_by__isnull=False)
+                ),
+                name="catalog_product_image_removal_evidence_matches",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.product} — {self.sha256[:12]}"
+
+    def clean(self) -> None:
+        super().clean()
+        errors: dict[str, ValidationError] = {}
+        if self.product_id and self.product.business_id != self.business_id:
+            errors["product"] = ValidationError(_("Product image must belong to this business."))
+        if self.uploaded_by_id and self.uploaded_by.business_id != self.business_id:
+            errors["uploaded_by"] = ValidationError(_("Uploader must belong to this business."))
+        removed_by = self.removed_by
+        if removed_by is not None and removed_by.business_id != self.business_id:
+            errors["removed_by"] = ValidationError(
+                _("Removing membership must belong to this business.")
+            )
+        if not self.alt_text.strip():
+            errors["alt_text"] = ValidationError(_("Describe the product image."))
+        if errors:
+            raise ValidationError(errors)
+
+    @property
+    def is_current(self) -> bool:
+        return self.removed_at is None
+
+    def delete(
+        self,
+        using: str | None = None,
+        keep_parents: bool = False,
+    ) -> tuple[int, dict[str, int]]:
+        raise ValidationError(_("Product image records cannot be deleted."))
+
+
+class ProductImageEvent(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    business = models.ForeignKey(
+        Business,
+        on_delete=models.PROTECT,
+        related_name="product_image_events",
+    )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.PROTECT,
+        related_name="image_events",
+    )
+    image = models.ForeignKey(
+        ProductImage,
+        on_delete=models.PROTECT,
+        related_name="events",
+        null=True,
+        blank=True,
+    )
+    actor = models.ForeignKey(
+        BusinessMembership,
+        on_delete=models.PROTECT,
+        related_name="product_image_events",
+    )
+    action = models.CharField(max_length=16, choices=ProductImageAction.choices)
+    previous_sha256 = models.CharField(max_length=64, blank=True)
+    resulting_sha256 = models.CharField(max_length=64, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(action__in=ProductImageAction.values),
+                name="catalog_product_image_event_action_valid",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.product} — {self.get_action_display()}"
+
+    def save(
+        self,
+        *,
+        force_insert: bool | tuple[ModelBase, ...] = False,
+        force_update: bool = False,
+        using: str | None = None,
+        update_fields: Iterable[str] | None = None,
+    ) -> None:
+        if not self._state.adding:
+            raise ValidationError(_("Product image events cannot be modified."))
+        self.full_clean()
+        super().save(
+            force_insert=force_insert,
+            force_update=force_update,
+            using=using,
+            update_fields=update_fields,
+        )
+
+    def delete(
+        self,
+        using: str | None = None,
+        keep_parents: bool = False,
+    ) -> tuple[int, dict[str, int]]:
+        raise ValidationError(_("Product image events cannot be deleted."))
+
+    def clean(self) -> None:
+        super().clean()
+        errors: dict[str, ValidationError] = {}
+        if self.product_id and self.product.business_id != self.business_id:
+            errors["product"] = ValidationError(_("Product must belong to this business."))
+        image = self.image
+        if image is not None and image.business_id != self.business_id:
+            errors["image"] = ValidationError(_("Image must belong to this business."))
+        if self.actor_id and self.actor.business_id != self.business_id:
+            errors["actor"] = ValidationError(_("Actor must belong to this business."))
+        if errors:
+            raise ValidationError(errors)

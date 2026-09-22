@@ -12,7 +12,7 @@
         <p>{{ report.selection.start_date }} – {{ report.selection.end_date }}</p>
       {% endif %}
     </div>
-    <button class="print-hidden" type="button" onclick="window.print()">{% translate "Print" %}</button>
+    <button class="print-hidden" type="button" data-print-page>{% translate "Print" %}</button>
   </div>
   {% if report %}
     {% include "performance/_summary.html" %}

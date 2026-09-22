@@ -62,6 +62,11 @@ urlpatterns = [
         name="public-product",
     ),
     path(
+        "p/<uuid:public_id>/products/<uuid:product_public_id>/image/",
+        views.public_product_image,
+        name="public-product-image",
+    ),
+    path(
         "verify/receipts/sale/<uuid:token>/",
         views.verify_sale_receipt,
         name="verify-sale-receipt",

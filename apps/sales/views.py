@@ -3,19 +3,22 @@ from decimal import Decimal
 from typing import cast
 from uuid import UUID
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.files.uploadedfile import UploadedFile
 from django.core.paginator import Paginator
-from django.db.models import Q, QuerySet
-from django.http import HttpRequest, HttpResponse
+from django.db.models import Prefetch, Q, QuerySet
+from django.http import FileResponse, Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.translation import gettext as _
+from django.views.decorators.http import require_POST, require_safe
 
 from apps.businesses.models import Branch, Business, BusinessMembership
 from apps.businesses.types import TenantRequest
 from apps.cash.models import CashSession, CashSessionStatus
-from apps.catalog.models import ProductVariant
+from apps.catalog.models import Product, ProductImage, ProductVariant
 from apps.forms import add_accessible_error_attributes
 from apps.public_profiles.models import (
     PublicReturnReceiptIdentity,
@@ -28,6 +31,7 @@ from apps.public_profiles.services import (
 from apps.sales.forms import (
     BaseSaleLineFormSet,
     BaseSaleReturnLineFormSet,
+    BranchTelebirrProfileForm,
     ReceiptLookupForm,
     SaleCancelForm,
     SaleFilterForm,
@@ -42,6 +46,7 @@ from apps.sales.forms import (
     SaleReturnReversalForm,
 )
 from apps.sales.models import (
+    BranchTelebirrProfile,
     InternalReceipt,
     InternalReturnReceipt,
     Sale,
@@ -63,6 +68,13 @@ from apps.sales.services import (
     save_sale_draft,
     save_sale_return_draft,
 )
+from apps.sales.telebirr import (
+    activate_telebirr_profile,
+    configure_telebirr_profile,
+    deactivate_telebirr_profile,
+    remove_telebirr_profile,
+)
+from config.rate_limit import rate_limit
 
 
 def _tenant(request: HttpRequest) -> TenantRequest:
@@ -186,10 +198,40 @@ def _sale_form_response(
     add_accessible_error_attributes(form)
     for line_form in formset.forms:
         add_accessible_error_attributes(line_form)
+    picker_products = (
+        Product.objects.filter(
+            business=business,
+            is_active=True,
+            variants__is_active=True,
+        )
+        .select_related("category")
+        .prefetch_related(
+            Prefetch(
+                "variants",
+                queryset=ProductVariant.objects.filter(is_active=True).order_by(
+                    "size",
+                    "color",
+                    "sku",
+                ),
+            ),
+            Prefetch(
+                "images",
+                queryset=ProductImage.objects.filter(removed_at__isnull=True),
+                to_attr="current_images",
+            ),
+        )
+        .distinct()
+        .order_by("name")
+    )
     return render(
         request,
         "sales/sale_form.html",
-        {"form": form, "formset": formset, "sale": sale},
+        {
+            "form": form,
+            "formset": formset,
+            "sale": sale,
+            "picker_products": picker_products,
+        },
     )
 
 
@@ -328,6 +370,12 @@ def sale_post(request: HttpRequest, sale_id: UUID) -> HttpResponse:
         open_cash_session is not None and open_cash_session.business_date != sale.sale_date
     )
     form = SalePostForm(request.POST or None)
+    telebirr_profile = BranchTelebirrProfile.objects.filter(
+        business=business,
+        branch=sale.branch,
+        is_active=True,
+        removed_at__isnull=True,
+    ).first()
     if request.method == "POST" and form.is_valid():
         try:
             posted_sale = post_sale(
@@ -351,8 +399,122 @@ def sale_post(request: HttpRequest, sale_id: UUID) -> HttpResponse:
             "form": form,
             "open_cash_session": open_cash_session,
             "cash_session_date_mismatch": cash_session_date_mismatch,
+            "telebirr_profile": telebirr_profile,
         },
     )
+
+
+@login_required
+@rate_limit(
+    scope="telebirr-qr-upload",
+    limit=settings.UPLOAD_RATE_LIMIT,
+    window_seconds=settings.UPLOAD_RATE_LIMIT_WINDOW_SECONDS,
+)
+def telebirr_settings(request: HttpRequest) -> HttpResponse:
+    tenant_request = _tenant(request)
+    business = cast(Business, tenant_request.active_business)
+    membership = cast(BusinessMembership, tenant_request.active_membership)
+    if not membership.can_manage_payment_qr:
+        raise PermissionDenied(_("Only an owner can manage Telebirr merchant QR settings."))
+    form = BranchTelebirrProfileForm(request.POST or None, request.FILES or None)
+    form.scope_to_business(business)
+    if request.method == "POST" and form.is_valid():
+        branch = form.cleaned_data["branch"]
+        upload = form.cleaned_data["qr_image"]
+        if not isinstance(branch, Branch) or not isinstance(upload, UploadedFile):
+            raise TypeError("Validated Telebirr form returned invalid values.")
+        try:
+            configure_telebirr_profile(
+                actor=membership,
+                branch=branch,
+                merchant_display_name=str(form.cleaned_data["merchant_display_name"]),
+                merchant_identifier=str(form.cleaned_data["merchant_identifier"]),
+                upload=upload,
+            )
+        except ValidationError as error:
+            form.add_error(None, error)
+        else:
+            messages.success(
+                request,
+                _("Merchant QR saved inactive. Test-scan it before activation."),
+            )
+            return redirect("sales:telebirr-settings")
+    add_accessible_error_attributes(form)
+    profiles = BranchTelebirrProfile.objects.filter(
+        business=business,
+        removed_at__isnull=True,
+    ).select_related("branch", "confirmed_by__user")
+    return render(
+        request,
+        "sales/telebirr_settings.html",
+        {"form": form, "profiles": profiles},
+    )
+
+
+def _telebirr_profile_for_owner(
+    request: HttpRequest,
+    profile_id: UUID,
+) -> tuple[BusinessMembership, BranchTelebirrProfile]:
+    tenant_request = _tenant(request)
+    membership = cast(BusinessMembership, tenant_request.active_membership)
+    if not membership.can_manage_payment_qr:
+        raise PermissionDenied(_("Only an owner can manage Telebirr merchant QR settings."))
+    profile = get_object_or_404(
+        BranchTelebirrProfile,
+        pk=profile_id,
+        business=membership.business,
+        removed_at__isnull=True,
+    )
+    return membership, profile
+
+
+@login_required
+@require_POST
+def telebirr_activate(request: HttpRequest, profile_id: UUID) -> HttpResponse:
+    membership, profile = _telebirr_profile_for_owner(request, profile_id)
+    activate_telebirr_profile(actor=membership, profile=profile)
+    messages.success(request, _("Telebirr merchant QR activated."))
+    return redirect("sales:telebirr-settings")
+
+
+@login_required
+@require_POST
+def telebirr_deactivate(request: HttpRequest, profile_id: UUID) -> HttpResponse:
+    membership, profile = _telebirr_profile_for_owner(request, profile_id)
+    deactivate_telebirr_profile(actor=membership, profile=profile)
+    messages.success(request, _("Telebirr merchant QR deactivated."))
+    return redirect("sales:telebirr-settings")
+
+
+@login_required
+@require_POST
+def telebirr_remove(request: HttpRequest, profile_id: UUID) -> HttpResponse:
+    membership, profile = _telebirr_profile_for_owner(request, profile_id)
+    remove_telebirr_profile(actor=membership, profile=profile)
+    messages.success(request, _("Telebirr merchant QR removed."))
+    return redirect("sales:telebirr-settings")
+
+
+@login_required
+@require_safe
+def telebirr_qr(request: HttpRequest, profile_id: UUID) -> FileResponse:
+    tenant_request = _tenant(request)
+    membership = cast(BusinessMembership, tenant_request.active_membership)
+    if not membership.can_sell and not membership.can_manage_payment_qr:
+        raise PermissionDenied(_("Sales permission is required."))
+    profile = get_object_or_404(
+        BranchTelebirrProfile,
+        pk=profile_id,
+        business=membership.business,
+        removed_at__isnull=True,
+    )
+    try:
+        response = FileResponse(profile.qr_source.open("rb"), content_type="image/png")
+    except (FileNotFoundError, OSError):
+        raise Http404 from None
+    response["Cache-Control"] = "private, no-store"
+    response["Content-Disposition"] = 'inline; filename="telebirr-merchant-qr.png"'
+    return response
 
 
 @login_required

@@ -17,30 +17,52 @@
       {% endif %}
     </div>
   </div>
-  <section class="card table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>{% translate "Product" %}</th>
-          <th>{% translate "Category" %}</th>
-          <th>{% translate "Variants" %}</th>
-          <th>{% translate "Status" %}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for product in products %}
-          <tr>
-            <td>{{ product.name }}</td>
-            <td>{{ product.category.name|default:"—" }}</td>
-            <td>{{ product.variant_count }}</td>
-            <td>{% if product.is_active %}{% translate "Active" %}{% else %}{% translate "Inactive" %}{% endif %}</td>
-          </tr>
-        {% empty %}
-          <tr>
-            <td colspan="4">{% translate "No products have been added yet." %}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <section class="catalog-grid" aria-label="{% translate 'Product catalog' %}">
+    {% for product in products %}
+      <article class="card catalog-card">
+        <div class="catalog-card__image">
+          {% with image=product.current_images.0 %}
+            {% if image %}
+              <img src="{% url 'catalog:product-image' image.id %}" alt="{{ image.alt_text }}" loading="lazy" width="{{ image.width }}" height="{{ image.height }}">
+            {% else %}
+              <div class="catalog-card__placeholder" role="img" aria-label="{% translate 'No product image' %}">{{ product.name|first }}</div>
+            {% endif %}
+          {% endwith %}
+        </div>
+        {% if product.category %}<p class="eyebrow">{{ product.category.name }}</p>{% endif %}
+        <h2>{{ product.name }}</h2>
+        {% if product.description %}<p>{{ product.description }}</p>{% endif %}
+        <p class="muted">
+          {% if product.is_active %}{% translate "Active" %}{% else %}{% translate "Inactive" %}{% endif %}
+          · {% blocktranslate trimmed count count=product.variant_count %}{{ count }} variant{% plural %}{{ count }} variants{% endblocktranslate %}
+        </p>
+        <ul class="variant-list">
+          {% for variant in product.variants.all %}
+            <li>
+              <strong>{{ variant.size|default:"—" }}{% if variant.color %} · {{ variant.color }}{% endif %}</strong>
+              <span>{{ variant.get_stock_unit_display }} · ETB {{ variant.selling_price|floatformat:2 }}</span>
+              {% if can_view_inventory_cost %}
+                <span class="muted">{% translate "Reference cost" %}: {% if variant.cost_price != None %}ETB {{ variant.cost_price|floatformat:2 }}{% else %}—{% endif %}</span>
+              {% endif %}
+            </li>
+          {% empty %}
+            <li>{% translate "No variants yet." %}</li>
+          {% endfor %}
+        </ul>
+        {% if can_manage_catalog %}
+          <div class="action-row">
+            <a class="button button--secondary" href="{% url 'catalog:product-image-manage' product.id %}">{% translate "Add or replace image" %}</a>
+            {% if product.current_images.0 %}
+              <form method="post" action="{% url 'catalog:product-image-remove' product.id %}">
+                {% csrf_token %}
+                <button class="button button--danger" type="submit">{% translate "Remove image" %}</button>
+              </form>
+            {% endif %}
+          </div>
+        {% endif %}
+      </article>
+    {% empty %}
+      <div class="card"><p>{% translate "No products have been added yet." %}</p></div>
+    {% endfor %}
   </section>
 {% endblock %}

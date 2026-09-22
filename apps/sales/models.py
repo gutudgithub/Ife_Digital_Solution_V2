@@ -11,6 +11,7 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.businesses.models import Branch, Business, BusinessMembership
 from apps.catalog.models import ProductVariant, StockUnit, validate_stock_quantity
+from apps.catalog.storage import catalog_media_storage, telebirr_qr_upload_path
 
 MONEY_QUANTUM = Decimal("0.01")
 
@@ -36,6 +37,14 @@ class SalePaymentStatus(models.TextChoices):
 class SalePaymentMethod(models.TextChoices):
     CASH = "cash", _("Cash")
     TELEBIRR = "telebirr", _("Telebirr")
+
+
+class TelebirrProfileAction(models.TextChoices):
+    CREATED = "created", _("Created")
+    REPLACED = "replaced", _("Replaced")
+    ACTIVATED = "activated", _("Activated")
+    DEACTIVATED = "deactivated", _("Deactivated")
+    REMOVED = "removed", _("Removed")
 
 
 class SaleReturnPurpose(models.TextChoices):
@@ -1410,5 +1419,195 @@ class SaleReturnReversal(models.Model):
             )
         if not self.reason.strip():
             errors["reason"] = ValidationError(_("A reversal reason is required."))
+        if errors:
+            raise ValidationError(errors)
+
+
+class BranchTelebirrProfile(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    business = models.ForeignKey(
+        Business,
+        on_delete=models.PROTECT,
+        related_name="telebirr_profiles",
+    )
+    branch = models.OneToOneField(
+        Branch,
+        on_delete=models.PROTECT,
+        related_name="telebirr_profile",
+    )
+    merchant_display_name = models.CharField(max_length=160)
+    merchant_identifier = models.CharField(max_length=120)
+    qr_source = models.FileField(
+        storage=catalog_media_storage,
+        upload_to=telebirr_qr_upload_path,
+        max_length=255,
+        blank=True,
+    )
+    qr_media_type = models.CharField(max_length=32, blank=True)
+    qr_width = models.PositiveIntegerField(default=0)
+    qr_height = models.PositiveIntegerField(default=0)
+    qr_size = models.PositiveBigIntegerField(default=0)
+    qr_sha256 = models.CharField(max_length=64, blank=True)
+    is_active = models.BooleanField(default=False)
+    confirmed_by = models.ForeignKey(
+        BusinessMembership,
+        on_delete=models.PROTECT,
+        related_name="telebirr_profiles_confirmed",
+        null=True,
+        blank=True,
+    )
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    removed_by = models.ForeignKey(
+        BusinessMembership,
+        on_delete=models.PROTECT,
+        related_name="telebirr_profiles_removed",
+        null=True,
+        blank=True,
+    )
+    removed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("branch",)
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(qr_media_type="") | Q(qr_media_type="image/png"),
+                name="sales_telebirr_qr_media_type_png",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(removed_at__isnull=True, removed_by__isnull=True)
+                    | Q(removed_at__isnull=False, removed_by__isnull=False, is_active=False)
+                ),
+                name="sales_telebirr_removal_evidence_matches",
+            ),
+            models.CheckConstraint(
+                condition=Q(is_active=False)
+                | (
+                    Q(confirmed_at__isnull=False, confirmed_by__isnull=False)
+                    & ~Q(qr_source="")
+                    & ~Q(qr_sha256="")
+                ),
+                name="sales_active_telebirr_profile_is_confirmed",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.branch} — {self.merchant_display_name}"
+
+    def clean(self) -> None:
+        super().clean()
+        errors: dict[str, ValidationError] = {}
+        if self.branch_id and self.branch.business_id != self.business_id:
+            errors["branch"] = ValidationError(_("Branch must belong to this business."))
+        for field_name in ("confirmed_by", "removed_by"):
+            actor = getattr(self, field_name)
+            if actor is not None and actor.business_id != self.business_id:
+                errors[field_name] = ValidationError(_("Membership must belong to this business."))
+        if self.confirmed_by is not None and not self.confirmed_by.can_manage_payment_qr:
+            errors["confirmed_by"] = ValidationError(
+                _("Only an owner can confirm a Telebirr merchant QR.")
+            )
+        has_source = bool(self.qr_source)
+        has_metadata = bool(
+            self.qr_media_type
+            and self.qr_width > 0
+            and self.qr_height > 0
+            and self.qr_size > 0
+            and self.qr_sha256
+        )
+        if has_source != has_metadata:
+            errors["qr_source"] = ValidationError(
+                _("Telebirr QR file and metadata must be recorded together.")
+            )
+        if self.is_active and (
+            not has_source or self.confirmed_by is None or self.confirmed_at is None
+        ):
+            errors["is_active"] = ValidationError(
+                _("An active Telebirr QR must have an owner confirmation.")
+            )
+        if errors:
+            raise ValidationError(errors)
+
+
+class BranchTelebirrEvent(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    business = models.ForeignKey(
+        Business,
+        on_delete=models.PROTECT,
+        related_name="telebirr_profile_events",
+    )
+    branch = models.ForeignKey(
+        Branch,
+        on_delete=models.PROTECT,
+        related_name="telebirr_profile_events",
+    )
+    profile = models.ForeignKey(
+        BranchTelebirrProfile,
+        on_delete=models.PROTECT,
+        related_name="events",
+    )
+    actor = models.ForeignKey(
+        BusinessMembership,
+        on_delete=models.PROTECT,
+        related_name="telebirr_profile_events",
+    )
+    action = models.CharField(max_length=16, choices=TelebirrProfileAction.choices)
+    previous_sha256 = models.CharField(max_length=64, blank=True)
+    resulting_sha256 = models.CharField(max_length=64, blank=True)
+    merchant_display_name = models.CharField(max_length=160)
+    merchant_identifier = models.CharField(max_length=120)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(action__in=TelebirrProfileAction.values),
+                name="sales_telebirr_event_action_valid",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.branch} — {self.get_action_display()}"
+
+    def save(
+        self,
+        *,
+        force_insert: bool | tuple[ModelBase, ...] = False,
+        force_update: bool = False,
+        using: str | None = None,
+        update_fields: Iterable[str] | None = None,
+    ) -> None:
+        if not self._state.adding:
+            raise ValidationError(_("Telebirr profile events cannot be modified."))
+        self.full_clean()
+        super().save(
+            force_insert=force_insert,
+            force_update=force_update,
+            using=using,
+            update_fields=update_fields,
+        )
+
+    def delete(
+        self,
+        using: str | None = None,
+        keep_parents: bool = False,
+    ) -> tuple[int, dict[str, int]]:
+        raise ValidationError(_("Telebirr profile events cannot be deleted."))
+
+    def clean(self) -> None:
+        super().clean()
+        errors: dict[str, ValidationError] = {}
+        if self.branch_id:
+            if self.branch.business_id != self.business_id:
+                errors["branch"] = ValidationError(_("Branch must belong to this business."))
+            if self.profile_id and self.profile.branch_id != self.branch_id:
+                errors["profile"] = ValidationError(_("Profile must belong to this branch."))
+        if self.profile_id and self.profile.business_id != self.business_id:
+            errors["profile"] = ValidationError(_("Profile must belong to this business."))
+        if self.actor_id and self.actor.business_id != self.business_id:
+            errors["actor"] = ValidationError(_("Actor must belong to this business."))
         if errors:
             raise ValidationError(errors)

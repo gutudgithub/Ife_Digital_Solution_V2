@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
-from apps.accounts.views import SecureLogoutView
+from apps.accounts.views import SecureLogoutView, staff_entry_poster, staff_entry_qr
 from apps.businesses.views import dashboard
 
 urlpatterns = [
@@ -13,6 +13,9 @@ urlpatterns = [
         name="login",
     ),
     path("logout/", SecureLogoutView.as_view(), name="logout"),
+    path("staff-entry/", staff_entry_poster, name="staff-entry-poster"),
+    path("staff-entry/qr.svg", staff_entry_qr, name="staff-entry-qr"),
+    path("i18n/", include("django.conf.urls.i18n")),
     path("", dashboard, name="dashboard"),
     path("attendance/", include("apps.attendance.urls")),
     path("catalog/", include("apps.catalog.urls")),

@@ -14,7 +14,7 @@
           · {% blocktranslate with sequence=closure.sequence %}Closure {{ sequence }}{% endblocktranslate %}
         </p>
       </div>
-      <button class="button print-hidden" type="button" onclick="window.print()">{% translate "Print" %}</button>
+      <button class="button print-hidden" type="button" data-print-page>{% translate "Print" %}</button>
     </div>
     <div class="receipt-notice">
       {% translate "This is an internal physical-cash control record. It is not an accounting statement, tax record, bank reconciliation, or provider settlement." %}

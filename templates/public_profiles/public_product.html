@@ -10,6 +10,11 @@
 {% block content %}
   <p><a href="{% url 'public_profiles:public-profile' page.public_id %}">← {{ page.display_name }}</a></p>
   <article class="card">
+    {% if product.has_image %}
+      <img class="product-detail__image"
+           src="{% url 'public_profiles:public-product-image' page.public_id product.public_id %}"
+           alt="{{ product.image_alt_text }}">
+    {% endif %}
     {% if product.category %}<p class="eyebrow">{{ product.category }}</p>{% endif %}
     <h1>{{ product.name }}</h1>
     <p>{{ product.description|linebreaksbr }}</p>

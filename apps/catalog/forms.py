@@ -25,6 +25,18 @@ class ProductForm(forms.ModelForm):
         return name
 
 
+class ProductImageForm(forms.Form):
+    image = forms.ImageField(
+        label=_("Product image"),
+        help_text=_("JPEG, PNG, or WebP. The image is sanitized and stored as WebP."),
+    )
+    alt_text = forms.CharField(
+        max_length=240,
+        label=_("Image description"),
+        help_text=_("Describe the item for people who cannot see the image."),
+    )
+
+
 class ProductVariantForm(forms.ModelForm):
     class Meta:
         model = ProductVariant

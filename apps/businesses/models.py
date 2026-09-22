@@ -223,3 +223,7 @@ class BusinessMembership(models.Model):
     @property
     def can_confirm_documents(self) -> bool:
         return self.role == MembershipRole.OWNER
+
+    @property
+    def can_manage_payment_qr(self) -> bool:
+        return self.role == MembershipRole.OWNER
