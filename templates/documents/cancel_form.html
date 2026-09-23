@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{{ heading }} · {% translate "Ife Digital Solution" %}{% endblock %}
+{% block content %}
+  <div class="page-heading"><div><h1>{{ heading }}</h1></div></div>
+  <div class="card form-card">
+    <form method="post">
+      {% csrf_token %}
+      {% include "includes/form_fields.html" with form=form %}
+      <div class="action-row">
+        <button class="button" type="submit">{% translate "Cancel evidence" %}</button>
+        {% if transcription %}
+          <a class="button button--secondary" href="{% url 'documents:detail' transcription.document.id %}">{% translate "Keep evidence" %}</a>
+        {% else %}
+          <a class="button button--secondary" href="{% url 'documents:detail' document.id %}">{% translate "Keep evidence" %}</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+{% endblock %}

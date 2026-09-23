@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ heading }} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading"><div><p class="eyebrow">{% translate "Operational settlement" %}</p><h1>{{ heading }}</h1><p class="muted">{% translate "Internal evidence only; not provider confirmation, a certified payable, or an official tax document." %}</p></div></div>
+  {% if totals %}
+    <section class="card">
+      {% for label, value in totals %}<p><strong>{{ label }}:</strong> ETB {{ value|floatformat:2 }}</p>{% endfor %}
+    </section>
+  {% endif %}
+  <section class="card form-card section-gap">
+    <form method="post">
+      {% csrf_token %}
+      {% include "includes/form_fields.html" with form=form %}
+      <button class="button" type="submit">{% translate "Post evidence" %}</button>
+    </form>
+  </section>
+{% endblock %}

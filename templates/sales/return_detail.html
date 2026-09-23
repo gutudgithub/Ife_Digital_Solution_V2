@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ sale_return.internal_number }} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Sale correction" %}</p>
+      <h1>{{ sale_return.internal_number }}</h1>
+      <p class="muted">{{ sale_return.get_purpose_display }} · {{ sale_return.get_status_display }}</p>
+    </div>
+    <div class="action-row">
+      {% if sale_return.status == "draft" %}
+        <a class="button button--secondary" href="{% url 'sales:return-edit' sale_return.id %}">{% translate "Edit draft" %}</a>
+        {% if can_manage_returns %}
+          <a class="button" href="{% url 'sales:return-post' sale_return.id %}">{% translate "Post return and refund evidence" %}</a>
+        {% endif %}
+        <a class="danger-link" href="{% url 'sales:return-cancel' sale_return.id %}">{% translate "Cancel draft" %}</a>
+      {% elif sale_return.status == "posted" %}
+        <a class="button button--secondary" href="{% url 'sales:return-receipt-detail' sale_return.receipt.id %}">{% translate "View internal return receipt" %}</a>
+        {% if can_manage_returns %}
+          <a class="danger-link" href="{% url 'sales:return-reverse' sale_return.id %}">{% translate "Reverse posted return" %}</a>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+
+  <section class="grid">
+    <article class="card">
+      <h2>{% translate "Return details" %}</h2>
+      <p><strong>{% translate "Original sale" %}:</strong> <a href="{% url 'sales:sale-detail' sale_return.sale.id %}">{{ sale_return.sale.internal_number }}</a></p>
+      <p><strong>{% translate "Branch" %}:</strong> {{ sale_return.branch.name }}</p>
+      <p><strong>{% translate "Return date" %}:</strong> {{ sale_return.return_date }}</p>
+      <p><strong>{% translate "Reason" %}:</strong> {{ sale_return.reason }}</p>
+      <p><strong>{% translate "Exact refund total" %}:</strong> ETB {{ sale_return.total_refund_amount|floatformat:2 }}</p>
+    </article>
+    {% if sale_return.status == "posted" or sale_return.status == "reversed" %}
+      <article class="card">
+        <h2>{% translate "Refund evidence" %}</h2>
+        <p><strong>{% translate "Method" %}:</strong> {{ sale_return.refund.get_method_display }}</p>
+        <p><strong>{% translate "Amount" %}:</strong> ETB {{ sale_return.refund.amount|floatformat:2 }}</p>
+        {% if sale_return.refund.telebirr_reference %}
+          <p><strong>{% translate "Telebirr refund reference" %}:</strong> {{ sale_return.refund.telebirr_reference }}</p>
+        {% endif %}
+        <p class="muted">{% translate "This is manually entered operational evidence. It does not verify provider acceptance, completion, settlement, or reconciliation." %}</p>
+      </article>
+    {% endif %}
+  </section>
+
+  <section class="card section-gap">
+    <h2>{% translate "Return lines" %}</h2>
+    <div class="table-wrap">
+      <table>
+        <caption class="visually-hidden">{% translate "Sale return line details" %}</caption>
+        <thead>
+          <tr>
+            <th>{% translate "Product" %}</th>
+            <th>{% translate "SKU" %}</th>
+            <th>{% translate "Returned quantity" %}</th>
+            <th>{% translate "Original unit price" %}</th>
+            <th>{% translate "Refund line total" %}</th>
+            {% if can_view_sale_cost and sale_return.status != "draft" %}
+              <th>{% translate "Original assigned inventory cost" %}</th>
+              <th>{% translate "Restored inventory value" %}</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for line in lines %}
+            <tr>
+              <td>{{ line.product_name_snapshot }}</td>
+              <td>{{ line.sku_snapshot }}</td>
+              <td>{{ line.returned_quantity }} {{ line.get_unit_snapshot_display }}</td>
+              <td>ETB {{ line.original_selling_unit_price|floatformat:2 }}</td>
+              <td>ETB {{ line.refund_line_total|floatformat:2 }}</td>
+              {% if can_view_sale_cost and sale_return.status != "draft" %}
+                <td>ETB {{ line.original_assigned_inventory_unit_cost|floatformat:6 }}</td>
+                <td>ETB {{ line.inventory_value_delta|floatformat:6 }}</td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  {% if sale_return.status == "reversed" %}
+    <section class="card section-gap">
+      <h2>{% translate "Return reversal" %}</h2>
+      <p><strong>{% translate "Reason" %}:</strong> {{ sale_return.reversal.reason }}</p>
+      <p>{{ sale_return.reversal.reversed_by.user.full_name }} · {{ sale_return.reversal.posted_at|date:"SHORT_DATETIME_FORMAT" }}</p>
+      <p class="muted">{% translate "The reversal removes the same quantity and inventory value added by the posted return." %}</p>
+    </section>
+  {% endif %}
+{% endblock %}

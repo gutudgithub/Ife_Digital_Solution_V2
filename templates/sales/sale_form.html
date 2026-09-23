@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% load i18n static %}
+
+{% block title %}{% translate "Sale draft" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Counter sales" %}</p>
+      <h1>{% if sale.pk %}{% translate "Edit sale draft" %}{% else %}{% translate "New sale draft" %}{% endif %}</h1>
+      <p class="muted">{% translate "Draft sales do not change inventory or record payment." %}</p>
+    </div>
+  </div>
+  <form method="post">
+    {% csrf_token %}
+    <section class="card form-card">
+      {% include "includes/form_fields.html" %}
+    </section>
+    <section class="card section-gap sale-picker"
+             data-sale-picker
+             data-added-message="{% translate 'added to the sale lines' %}"
+             hidden>
+      <h2>{% translate "Visual product picker" %}</h2>
+      <p class="muted">{% translate "Search and choose an item. The ordinary sale-line fields below remain the authoritative server-validated form." %}</p>
+      <label for="sale-picker-search">{% translate "Search products, sizes, colors, or SKU" %}</label>
+      <input id="sale-picker-search" type="search" data-sale-picker-search autocomplete="off">
+      <div class="catalog-grid sale-picker__grid">
+        {% for product in picker_products %}
+          <article class="catalog-card sale-picker__product" data-sale-picker-product data-search="{{ product.name }} {{ product.category.name }}">
+            {% with image=product.current_images.0 %}
+              {% if image %}
+                <img class="product-card__image" src="{% url 'catalog:product-image' image.id %}" alt="{{ image.alt_text }}" loading="lazy">
+              {% else %}
+                <div class="catalog-card__placeholder" role="img" aria-label="{% translate 'No product image' %}">{{ product.name|first }}</div>
+              {% endif %}
+            {% endwith %}
+            <h3>{{ product.name }}</h3>
+            <div class="sale-picker__variants">
+              {% for variant in product.variants.all %}
+                <button class="button button--secondary"
+                        type="button"
+                        data-sale-picker-variant="{{ variant.id }}"
+                        data-sale-picker-label="{{ product.name }} · {{ variant.size|default:'—' }} · {{ variant.color|default:'—' }} · {{ variant.sku }}">
+                  {{ variant.size|default:"—" }}{% if variant.color %} · {{ variant.color }}{% endif %} · ETB {{ variant.selling_price|floatformat:2 }}
+                </button>
+              {% endfor %}
+            </div>
+          </article>
+        {% empty %}
+          <p>{% translate "No active sellable products are available." %}</p>
+        {% endfor %}
+      </div>
+      <p data-sale-picker-status role="status" aria-live="polite"></p>
+    </section>
+    <section class="card section-gap">
+      <h2>{% translate "Sale lines" %}</h2>
+      <p class="muted">{% translate "The current catalog selling price is copied automatically. Discounts and price overrides are not available." %}</p>
+      {{ formset.management_form }}
+      {% if formset.non_form_errors %}
+        <div class="errorlist" role="alert">
+          <ul>{% for error in formset.non_form_errors %}<li>{{ error }}</li>{% endfor %}</ul>
+        </div>
+      {% endif %}
+      {% for line_form in formset %}
+        <fieldset class="line-form" data-sale-line>
+          <legend>{% blocktranslate trimmed with number=forloop.counter %}Line {{ number }}{% endblocktranslate %}</legend>
+          {% include "includes/form_fields.html" with form=line_form %}
+        </fieldset>
+      {% endfor %}
+      <template id="sale-line-empty-template">
+        <fieldset class="line-form" data-sale-line>
+          <legend>{% translate "Additional line" %}</legend>
+          {% include "includes/form_fields.html" with form=formset.empty_form %}
+        </fieldset>
+      </template>
+      <div class="action-row">
+        <button class="button" type="submit">{% translate "Save draft" %}</button>
+        <a href="{% url 'sales:sale-list' %}">{% translate "Cancel" %}</a>
+      </div>
+    </section>
+  </form>
+{% endblock %}
+
+{% block extra_scripts %}
+  {{ block.super }}
+  <script src="{% static 'js/sale-picker.js' %}" defer></script>
+{% endblock %}

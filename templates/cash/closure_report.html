@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Cash close report" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <article class="card receipt">
+    <div class="page-heading">
+      <div>
+        <p class="eyebrow">{% translate "Internal cash-control record" %}</p>
+        <h1>{% translate "Cash close report" %}</h1>
+        <p class="muted">
+          {{ closure.branch.name }} · {{ closure.session.business_date }}
+          · {% blocktranslate with sequence=closure.sequence %}Closure {{ sequence }}{% endblocktranslate %}
+        </p>
+      </div>
+      <button class="button print-hidden" type="button" data-print-page>{% translate "Print" %}</button>
+    </div>
+    <div class="receipt-notice">
+      {% translate "This is an internal physical-cash control record. It is not an accounting statement, tax record, bank reconciliation, or provider settlement." %}
+    </div>
+    <dl class="receipt-meta">
+      <div>
+        <dt>{% translate "Expected drawer cash" %}</dt>
+        <dd>ETB {{ closure.expected_cash|floatformat:2 }}</dd>
+      </div>
+      <div>
+        <dt>{% translate "Actual physical cash" %}</dt>
+        <dd>ETB {{ closure.actual_cash|floatformat:2 }}</dd>
+      </div>
+      <div>
+        <dt>{% translate "Variance" %}</dt>
+        <dd>ETB {{ closure.variance|floatformat:2 }}</dd>
+      </div>
+      <div>
+        <dt>{% translate "Closed by" %}</dt>
+        <dd>{{ closure.closed_by.user.full_name }}</dd>
+      </div>
+      <div>
+        <dt>{% translate "Closed at" %}</dt>
+        <dd>{{ closure.posted_at|date:"SHORT_DATETIME_FORMAT" }}</dd>
+      </div>
+    </dl>
+    {% if closure.explanation %}
+      <h2>{% translate "Variance explanation" %}</h2>
+      <p>{{ closure.explanation }}</p>
+    {% endif %}
+    <p class="print-hidden section-gap">
+      <a href="{% url 'cash:session-detail' closure.session.id %}">{% translate "Back to cash session" %}</a>
+    </p>
+  </article>
+{% endblock %}

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Ife Digital Solution</title>
+  <rect width="512" height="512" rx="96" fill="#17365d"/>
+  <path d="M136 116h240v60H286v160h90v60H136v-60h90V176h-90z" fill="#fff"/>
+  <circle cx="256" cy="256" r="36" fill="#f2c46d"/>
+</svg>

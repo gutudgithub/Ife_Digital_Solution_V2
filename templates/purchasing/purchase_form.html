@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Purchase draft" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Purchasing" %}</p>
+      <h1>{% if purchase.pk %}{% translate "Edit purchase draft" %}{% else %}{% translate "New purchase draft" %}{% endif %}</h1>
+      <p class="muted">{% translate "Draft purchases have no stock effect." %}</p>
+    </div>
+  </div>
+  <form method="post">
+    {% csrf_token %}
+    <section class="card form-card">
+      {% include "includes/form_fields.html" %}
+    </section>
+    <section class="card section-gap">
+      <h2>{% translate "Purchase lines" %}</h2>
+      {{ formset.management_form }}
+      {% if formset.non_form_errors %}
+        <div class="errorlist" role="alert">
+          <ul>{% for error in formset.non_form_errors %}<li>{{ error }}</li>{% endfor %}</ul>
+        </div>
+      {% endif %}
+      {% for line_form in formset %}
+        <fieldset class="line-form">
+          <legend>{% blocktranslate trimmed with number=forloop.counter %}Line {{ number }}{% endblocktranslate %}</legend>
+          {% include "includes/form_fields.html" with form=line_form %}
+        </fieldset>
+      {% endfor %}
+      <div class="action-row">
+        <button class="button" type="submit">{% translate "Save draft" %}</button>
+        <a href="{% url 'purchasing:purchase-list' %}">{% translate "Cancel" %}</a>
+      </div>
+    </section>
+  </form>
+{% endblock %}

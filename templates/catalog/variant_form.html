@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Product variant" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Catalog" %}</p>
+      <h1>{% if variant.pk %}{% translate "Edit product variant" %}{% else %}{% translate "Add product variant" %}{% endif %}</h1>
+    </div>
+  </div>
+  <form class="card form-card" method="post">
+    {% csrf_token %}
+    {% include "includes/form_fields.html" %}
+    <div class="action-row">
+      <button class="button" type="submit">{% translate "Save variant" %}</button>
+      <a href="{% url 'catalog:variant-list' %}">{% translate "Cancel" %}</a>
+    </div>
+  </form>
+{% endblock %}

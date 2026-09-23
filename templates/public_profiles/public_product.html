@@ -1,0 +1,52 @@
+{% extends "public_profiles/public_base.html" %}
+{% load i18n %}
+
+{% block title %}{{ product.name }} · {{ page.display_name }}{% endblock %}
+{% block metadata %}
+  <meta property="og:title" content="{{ product.name }} · {{ page.display_name }}">
+  <meta property="og:description" content="{{ product.description|truncatechars:180 }}">
+{% endblock %}
+
+{% block content %}
+  <p><a href="{% url 'public_profiles:public-profile' page.public_id %}">← {{ page.display_name }}</a></p>
+  <article class="card">
+    {% if product.has_image %}
+      <img class="product-detail__image"
+           src="{% url 'public_profiles:public-product-image' page.public_id product.public_id %}"
+           alt="{{ product.image_alt_text }}">
+    {% endif %}
+    {% if product.category %}<p class="eyebrow">{{ product.category }}</p>{% endif %}
+    <h1>{{ product.name }}</h1>
+    <p>{{ product.description|linebreaksbr }}</p>
+    <h2>{% translate "Active variants" %}</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>{% translate "Size" %}</th>
+            <th>{% translate "Color" %}</th>
+            <th>{% translate "Unit" %}</th>
+            <th>{% translate "Price" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for variant in product.variants %}
+            <tr>
+              <td>{{ variant.size|default:"—" }}</td>
+              <td>{{ variant.color|default:"—" }}</td>
+              <td>{{ variant.stock_unit }}</td>
+              <td>
+                {% if variant.selling_price is not None %}
+                  {{ variant.selling_price|floatformat:2 }} ETB
+                {% else %}
+                  {% translate "Contact business" %}
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="receipt-notice">{% translate "No stock or availability claim is made on this page. Confirm current details directly with the business." %}</p>
+  </article>
+{% endblock %}

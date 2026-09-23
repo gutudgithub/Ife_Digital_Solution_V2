@@ -1,0 +1,18 @@
+{% extends "public_profiles/public_base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Receipt record verification" %}{% endblock %}
+
+{% block content %}
+  <article class="card receipt">
+    <p class="eyebrow">{% translate "Internal record verification" %}</p>
+    <h1>{{ receipt.business_name }}</h1>
+    <dl class="receipt-meta">
+      <div><dt>{% translate "Receipt type" %}</dt><dd>{{ receipt.receipt_type }}</dd></div>
+      <div><dt>{% translate "Internal receipt identifier" %}</dt><dd>{{ receipt.receipt_number }}</dd></div>
+      <div><dt>{% translate "Issue date" %}</dt><dd>{{ receipt.issued_at|date:"Y-m-d" }}</dd></div>
+      <div><dt>{% translate "Record status" %}</dt><dd>{{ receipt.status }}</dd></div>
+    </dl>
+    <p class="receipt-notice">{% translate "This page only confirms that an internal Ife record exists. It is not an official tax invoice and does not verify a payment provider, settlement, authenticity, legality, or ownership." %}</p>
+  </article>
+{% endblock %}

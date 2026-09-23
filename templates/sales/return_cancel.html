@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Cancel sale return draft" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Draft cancellation" %}</p>
+      <h1>{% translate "Cancel sale return draft" %}</h1>
+      <p class="muted">{{ sale_return.internal_number }}</p>
+    </div>
+  </div>
+  <section class="card form-card">
+    <form method="post">
+      {% csrf_token %}
+      {% include "includes/form_fields.html" %}
+      <div class="action-row">
+        <button class="button" type="submit">{% translate "Cancel return draft" %}</button>
+        <a href="{% url 'sales:return-detail' sale_return.id %}">{% translate "Keep draft" %}</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

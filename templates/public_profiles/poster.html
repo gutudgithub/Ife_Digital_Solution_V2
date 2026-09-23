@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Public profile poster" %}{% endblock %}
+
+{% block content %}
+  <article class="card qr-poster">
+    <p class="eyebrow">{% translate "Browse our selected products" %}</p>
+    <h1>{{ profile.display_name }}</h1>
+    <img src="{% url 'public_profiles:profile-qr' %}" alt="{% translate 'QR code for the public business profile' %}">
+    <p class="qr-text-url">{{ public_url }}</p>
+    <p>{% translate "Scan the QR code or type the address. Browsing only; contact the business to confirm current details." %}</p>
+    <button class="button print-hidden" type="button" data-print-page>{% translate "Print poster" %}</button>
+  </article>
+{% endblock %}

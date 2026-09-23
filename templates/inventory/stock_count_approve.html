@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Approve stock count" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Inventory reconciliation approval" %}</p>
+      <h1>{% translate "Approve stock count" %}</h1>
+      <p class="muted">{{ stock_count.branch.name }} · {{ stock_count.business_date }}</p>
+    </div>
+  </div>
+  <section class="card">
+    <p>{% translate "Approval posts one immutable inventory movement for every nonzero stock count quantity variance. Zero-variance lines create no movement." %}</p>
+    <p><strong>{% translate "Positive-variance lines" %}:</strong> {{ summary.positive_variance_line_count }}</p>
+    <p><strong>{% translate "Negative-variance lines" %}:</strong> {{ summary.negative_variance_line_count }}</p>
+    <p><strong>{% translate "Zero-variance lines" %}:</strong> {{ summary.zero_variance_line_count }}</p>
+    <p><strong>{% translate "Signed inventory-value adjustment" %}:</strong> ETB {{ summary.total_inventory_value_adjustment|floatformat:6 }}</p>
+    <form method="post">
+      {% csrf_token %}
+      {% include "includes/form_fields.html" with form=form %}
+      <div class="action-row">
+        <button class="button" type="submit">{% translate "Approve and post adjustments" %}</button>
+        <a href="{% url 'inventory:stock-count-review' stock_count.id %}">{% translate "Return to review" %}</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

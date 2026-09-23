@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ purchase_return.internal_number }} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Purchase return" %}</p>
+      <h1>{{ purchase_return.internal_number }}</h1>
+      <p class="muted">{{ purchase_return.supplier.name }} · {{ purchase_return.branch.name }} · {{ purchase_return.get_status_display }}</p>
+    </div>
+    <div class="action-row">
+      {% if purchase_return.status == "draft" %}
+        <a class="button button--secondary" href="{% url 'purchasing:purchase-return-edit' purchase_return.id %}">{% translate "Edit draft" %}</a>
+        {% if can_manage_purchasing %}
+          <a class="button" href="{% url 'purchasing:purchase-return-post' purchase_return.id %}">{% translate "Post return" %}</a>
+        {% endif %}
+      {% endif %}
+      {% if can_manage_purchasing and purchase_return.status == "posted" %}
+        <a class="button button--secondary" href="{% url 'purchasing:purchase-return-reverse' purchase_return.id %}">{% translate "Reverse return" %}</a>
+      {% endif %}
+      {% if can_manage_settlement and purchase_return.status == "posted" %}
+        <a class="button" href="{% url 'expenses:return-settlement-create' purchase_return.id %}">{% translate "Record supplier settlement" %}</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <section class="grid">
+    <article class="card">
+      <h2>{% translate "Return details" %}</h2>
+      <p><strong>{% translate "Purchase" %}:</strong> <a href="{% url 'purchasing:purchase-detail' purchase_return.purchase.id %}">{{ purchase_return.purchase.internal_number }}</a></p>
+      <p><strong>{% translate "Return date" %}:</strong> {{ purchase_return.return_date }}</p>
+      <p><strong>{% translate "Reason" %}:</strong> {{ purchase_return.reason }}</p>
+      <p><strong>{% translate "Supplier document reference" %}:</strong> {{ purchase_return.supplier_document_reference|default:"—" }}</p>
+      <p><strong>{% translate "Prepared by" %}:</strong> {{ purchase_return.created_by.user.full_name }}</p>
+    </article>
+    <article class="card">
+      <h2>{% translate "Posting history" %}</h2>
+      {% if purchase_return.posted_at %}
+        <p><strong>{% translate "Posted by" %}:</strong> {{ purchase_return.posted_by.user.full_name }}</p>
+        <p class="muted">{{ purchase_return.posted_at|date:"SHORT_DATETIME_FORMAT" }}</p>
+      {% else %}
+        <p class="muted">{% translate "This draft has no inventory effect." %}</p>
+      {% endif %}
+      {% if purchase_return.status == "reversed" %}
+        <p><strong>{% translate "Reversed by" %}:</strong> {{ purchase_return.reversal.reversed_by.user.full_name }}</p>
+        <p><strong>{% translate "Reversal reason" %}:</strong> {{ purchase_return.reversal.reason }}</p>
+        <p class="muted">{{ purchase_return.reversal.posted_at|date:"SHORT_DATETIME_FORMAT" }}</p>
+      {% endif %}
+      {% if purchase_return.status == "cancelled" %}
+        <p><strong>{% translate "Cancelled by" %}:</strong> {{ purchase_return.cancelled_by.user.full_name }}</p>
+        <p class="muted">{{ purchase_return.cancelled_at|date:"SHORT_DATETIME_FORMAT" }}</p>
+      {% endif %}
+      {% if can_manage_purchasing and purchase_return.status == "draft" %}
+        <form method="post" action="{% url 'purchasing:purchase-return-cancel' purchase_return.id %}">
+          {% csrf_token %}
+          <button class="link-button danger-link" type="submit">{% translate "Cancel return" %}</button>
+        </form>
+      {% endif %}
+    </article>
+  </section>
+
+  {% if can_manage_settlement and settlement_totals %}
+    <section class="card section-gap">
+      <h2>{% translate "Supplier settlement evidence" %}</h2>
+      <p class="muted">{% translate "Supplier reference, inventory value reduction, and supplier-accepted settlement are distinct operational amounts. They are not automatically profit, loss, expense, payable, or tax adjustments." %}</p>
+      <div class="grid">
+        {% for label, value in settlement_totals.items %}
+          <p><strong>{{ label }}:</strong> ETB {{ value|floatformat:2 }}</p>
+        {% endfor %}
+      </div>
+      <div class="table-wrap">
+        <table>
+          <caption class="visually-hidden">{% translate "Supplier return settlement history" %}</caption>
+          <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Type" %}</th><th>{% translate "Method" %}</th><th>{% translate "Reference" %}</th><th>{% translate "Amount" %}</th><th>{% translate "Actions" %}</th></tr></thead>
+          <tbody>
+            {% for settlement in supplier_settlements %}
+              <tr>
+                <td>{{ settlement.business_date }}</td>
+                <td>{{ settlement.get_settlement_type_display }}</td>
+                <td>{{ settlement.get_method_display|default:"—" }}</td>
+                <td>{{ settlement.supplier_reference|default:"—" }}</td>
+                <td>ETB {{ settlement.amount|floatformat:2 }}</td>
+                <td><a href="{% url 'expenses:return-settlement-print' settlement.id %}">{% translate "Print" %}</a>{% if not settlement.reversal %} · <a href="{% url 'expenses:return-settlement-reverse' settlement.id %}">{% translate "Reverse" %}</a>{% endif %}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="6">{% translate "No supplier return settlements have been recorded." %}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% endif %}
+
+  <section class="card section-gap">
+    <h2>{% translate "Return lines" %}</h2>
+    <div class="table-wrap">
+      <table>
+        <caption class="visually-hidden">{% translate "Purchase return line details" %}</caption>
+        <thead>
+          <tr>
+            <th>{% translate "Receipt" %}</th>
+            <th>{% translate "Product" %}</th>
+            <th>{% translate "SKU" %}</th>
+            <th>{% translate "Quantity" %}</th>
+            <th>{% translate "Receipt unit cost" %}</th>
+            <th>{% translate "Supplier reference amount" %}</th>
+            {% if can_view_inventory_value %}
+              <th>{% translate "Assigned inventory cost" %}</th>
+              <th>{% translate "Inventory value reduction" %}</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for line in return_lines %}
+            <tr>
+              <td>{{ line.receipt_line.receipt.internal_number }}</td>
+              <td>{{ line.product_name_snapshot }}</td>
+              <td>{{ line.sku_snapshot }}</td>
+              <td>{{ line.returned_quantity }} {{ line.get_unit_snapshot_display }}</td>
+              <td>ETB {{ line.receipt_unit_cost|floatformat:2 }}</td>
+              <td>ETB {{ line.supplier_reference_total|floatformat:2 }}</td>
+              {% if can_view_inventory_value %}
+                <td>ETB {{ line.assigned_inventory_unit_cost|floatformat:6 }}</td>
+                <td>ETB {{ line.inventory_value_delta|floatformat:6 }}</td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="muted">{% translate "Supplier reference amounts use receipt costs. Inventory value reductions use the current moving-average cost and may differ." %}</p>
+  </section>
+{% endblock %}

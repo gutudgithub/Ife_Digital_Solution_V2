@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Start stock count" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Full-branch physical count" %}</p>
+      <h1>{% translate "Start stock count" %}</h1>
+    </div>
+  </div>
+  <section class="card">
+    <h2>{% translate "Inventory posting will pause" %}</h2>
+    <p>{% translate "Starting captures every eligible product-variant snapshot atomically and freezes inventory posting for the selected branch." %}</p>
+    <p>{% translate "Sales and other drafts may continue, but sales, receipts, returns, reversals, opening stock, and manual stock adjustments cannot post until approval or cancellation." %}</p>
+    <form method="post">
+      {% csrf_token %}
+      {% include "includes/form_fields.html" with form=form %}
+      <div class="action-row">
+        <button class="button" type="submit">{% translate "Start count and freeze inventory" %}</button>
+        <a href="{% url 'inventory:stock-count-list' %}">{% translate "Cancel" %}</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

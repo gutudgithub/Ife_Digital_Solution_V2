@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Sign in" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <section class="card auth-card">
+    <p class="eyebrow">{% translate "Business control" %}</p>
+    <h1>{% translate "Sign in to Ife" %}</h1>
+    <p class="muted">{% translate "Use your business account to continue." %}</p>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      {% for field in form %}
+        <div class="form-row">
+          {{ field.label_tag }}
+          {{ field }}
+          {{ field.errors }}
+        </div>
+      {% endfor %}
+      <button class="button" type="submit">{% translate "Sign in" %}</button>
+    </form>
+  </section>
+{% endblock %}

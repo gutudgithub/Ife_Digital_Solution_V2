@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Telebirr merchant QR" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Owner-controlled payment display" %}</p>
+      <h1>{% translate "Telebirr merchant QR" %}</h1>
+      <p class="muted">{% translate "The system does not contact Telebirr or verify settlement. Activation only confirms that the owner test-scanned the displayed merchant QR." %}</p>
+    </div>
+  </div>
+  <section class="card">
+    <h2>{% translate "Upload or replace a branch QR" %}</h2>
+    <form method="post" enctype="multipart/form-data" class="form-card">
+      {% csrf_token %}
+      {% include "includes/form_fields.html" %}
+      <button class="button" type="submit">{% translate "Save inactive QR" %}</button>
+    </form>
+  </section>
+  <section class="catalog-grid section-gap" aria-label="{% translate 'Configured Telebirr merchant QR profiles' %}">
+    {% for profile in profiles %}
+      <article class="card catalog-card">
+        <p class="eyebrow">{{ profile.branch.name }}</p>
+        <h2>{{ profile.merchant_display_name }}</h2>
+        <p>{{ profile.merchant_identifier }}</p>
+        <img class="payment-qr"
+             src="{% url 'sales:telebirr-qr' profile.id %}"
+             alt="{% blocktranslate trimmed with merchant=profile.merchant_display_name %}Telebirr merchant QR for {{ merchant }}{% endblocktranslate %}">
+        <p>
+          {% if profile.is_active %}
+            <strong>{% translate "Active for cashier display" %}</strong>
+          {% else %}
+            <strong>{% translate "Inactive" %}</strong>
+          {% endif %}
+        </p>
+        <div class="action-row">
+          {% if profile.is_active %}
+            <form method="post" action="{% url 'sales:telebirr-deactivate' profile.id %}">
+              {% csrf_token %}
+              <button class="button button--secondary" type="submit">{% translate "Deactivate" %}</button>
+            </form>
+          {% else %}
+            <form method="post" action="{% url 'sales:telebirr-activate' profile.id %}">
+              {% csrf_token %}
+              <button class="button" type="submit">{% translate "I test-scanned it; activate" %}</button>
+            </form>
+          {% endif %}
+          <form method="post" action="{% url 'sales:telebirr-remove' profile.id %}">
+            {% csrf_token %}
+            <button class="button button--danger" type="submit">{% translate "Remove" %}</button>
+          </form>
+        </div>
+      </article>
+    {% empty %}
+      <div class="card"><p>{% translate "No Telebirr merchant QR has been configured." %}</p></div>
+    {% endfor %}
+  </section>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% load i18n %}
+<section class="card report-chart" aria-labelledby="{{ chart.title|slugify }}-title">
+  <h2 id="{{ chart.title|slugify }}-title">{{ chart.title }}</h2>
+  <p id="{{ chart.title|slugify }}-description" class="helptext">{{ chart.description }}</p>
+  {% if chart.has_values %}
+    <div class="chart-legend" aria-hidden="true">
+      {% for series in chart.series %}
+        <span><span class="chart-swatch {{ series.css_class }}"></span>{{ series.label }}</span>
+      {% endfor %}
+    </div>
+    <svg
+      class="line-chart"
+      viewBox="0 0 {{ chart.width }} {{ chart.height }}"
+      role="img"
+      aria-labelledby="{{ chart.title|slugify }}-title {{ chart.title|slugify }}-description"
+    >
+      <line class="chart-axis" x1="42" x2="858" y1="{{ chart.zero_y }}" y2="{{ chart.zero_y }}"></line>
+      {% for series in chart.series %}
+        {% for segment in series.segments %}
+          <polyline class="chart-line {{ series.css_class }}" points="{{ segment }}"></polyline>
+        {% endfor %}
+        {% for x, y, label, value in series.points %}
+          <circle class="chart-point {{ series.css_class }}" cx="{{ x }}" cy="{{ y }}" r="4">
+            <title>{{ series.label }} — {{ label }}: {{ value }}</title>
+          </circle>
+        {% endfor %}
+      {% endfor %}
+    </svg>
+    <div class="chart-scale" aria-hidden="true">
+      <span>{{ chart.max_label }}</span>
+      <span>{{ chart.min_label }}</span>
+    </div>
+  {% else %}
+    <p>{% translate "No chart values are available for this range." %}</p>
+  {% endif %}
+</section>

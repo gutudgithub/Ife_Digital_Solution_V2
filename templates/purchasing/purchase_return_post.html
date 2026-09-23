@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Post purchase return" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Immutable posting" %}</p>
+      <h1>{% translate "Post purchase return" %} {{ purchase_return.internal_number }}</h1>
+      <p class="muted">{% translate "Posting reduces stock at the current moving-average inventory cost. Supplier reference amounts remain based on receipt costs and may differ." %}</p>
+    </div>
+  </div>
+  <form class="card form-card" method="post">
+    {% csrf_token %}
+    {% include "includes/form_fields.html" %}
+    <div class="action-row">
+      <button class="button" type="submit">{% translate "Post immutable return" %}</button>
+      <a href="{% url 'purchasing:purchase-return-detail' purchase_return.id %}">{% translate "Cancel" %}</a>
+    </div>
+  </form>
+{% endblock %}

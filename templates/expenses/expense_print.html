@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ expense.internal_number }} · {% translate "Expense evidence" %}{% endblock %}
+
+{% block content %}
+  <article class="card">
+    <h1>{% translate "Internal operating expense evidence" %}</h1>
+    <p class="muted">{% translate "Not an official tax document or statutory accounting record." %}</p>
+    <p><strong>{% translate "Reference" %}:</strong> {{ expense.internal_number }}</p>
+    <p><strong>{% translate "Date" %}:</strong> {{ expense.business_date }}</p>
+    <p><strong>{% translate "Branch" %}:</strong> {{ expense.branch.name }}</p>
+    <p><strong>{% translate "Category" %}:</strong> {{ expense.category.name }}</p>
+    <p><strong>{% translate "Payee" %}:</strong> {{ expense.payee|default:"—" }}</p>
+    <p><strong>{% translate "Description" %}:</strong> {{ expense.description }}</p>
+    <p><strong>{% translate "Amount" %}:</strong> ETB {{ expense.amount|floatformat:2 }}</p>
+    {% if payment %}<p><strong>{% translate "Payment method" %}:</strong> {{ payment.get_method_display }}</p><p><strong>{% translate "Telebirr reference" %}:</strong> {{ payment.telebirr_reference|default:"—" }}</p>{% endif %}
+    {% if reversal %}<p><strong>{% translate "Reversed" %}:</strong> {{ reversal.reason }}</p>{% endif %}
+  </article>
+{% endblock %}

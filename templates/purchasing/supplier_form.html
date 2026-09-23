@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% if supplier %}{% translate "Edit supplier" %}{% else %}{% translate "Add supplier" %}{% endif %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Purchasing" %}</p>
+      <h1>{% if supplier %}{% translate "Edit supplier" %}{% else %}{% translate "Add supplier" %}{% endif %}</h1>
+    </div>
+  </div>
+  <form class="card form-card" method="post">
+    {% csrf_token %}
+    {% include "includes/form_fields.html" %}
+    <div class="action-row">
+      <button class="button" type="submit">{% translate "Save supplier" %}</button>
+      <a href="{% url 'purchasing:supplier-list' %}">{% translate "Cancel" %}</a>
+    </div>
+  </form>
+{% endblock %}

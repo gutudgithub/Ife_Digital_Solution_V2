@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Operating expense draft" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading"><div><p class="eyebrow">{% translate "Operating expenses" %}</p><h1>{% translate "Operating expense draft" %}</h1><p class="muted">{% translate "A draft has no cash or reporting effect until posted." %}</p></div></div>
+  <section class="card form-card">
+    <form method="post">
+      {% csrf_token %}
+      {% include "includes/form_fields.html" with form=form %}
+      <button class="button" type="submit">{% translate "Save draft" %}</button>
+    </form>
+  </section>
+{% endblock %}

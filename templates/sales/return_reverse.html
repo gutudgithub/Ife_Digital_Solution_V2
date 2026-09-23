@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Reverse sale return" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Compensating correction" %}</p>
+      <h1>{% translate "Reverse posted sale return" %}</h1>
+      <p class="muted">{{ sale_return.internal_number }}</p>
+    </div>
+  </div>
+  <section class="card form-card">
+    <p>{% translate "The complete posted return is reversed once. Current stock must cover every restored quantity." %}</p>
+    <form method="post">
+      {% csrf_token %}
+      {% include "includes/form_fields.html" %}
+      <div class="action-row">
+        <button class="button" type="submit">{% translate "Reverse posted return" %}</button>
+        <a href="{% url 'sales:return-detail' sale_return.id %}">{% translate "Back to return" %}</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

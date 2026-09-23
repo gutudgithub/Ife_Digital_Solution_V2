@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Review stock count" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Owner or manager review" %}</p>
+      <h1>{{ stock_count.branch.name }} · {{ stock_count.business_date }}</h1>
+      <p class="muted">{% translate "Stock count quantity variance equals approved physical quantity minus system quantity snapshot." %}</p>
+    </div>
+    <div class="action-row">
+      <a class="button" href="{% url 'inventory:stock-count-approve' stock_count.id %}">{% translate "Approve adjustments" %}</a>
+      <a class="button button--secondary" href="{% url 'inventory:stock-count-return' stock_count.id %}">{% translate "Return for recount" %}</a>
+    </div>
+  </div>
+
+  <section class="grid">
+    <article class="card">
+      <h2>{% translate "Variance line counts" %}</h2>
+      <p><strong>{% translate "Positive" %}:</strong> {{ summary.positive_variance_line_count }}</p>
+      <p><strong>{% translate "Negative" %}:</strong> {{ summary.negative_variance_line_count }}</p>
+      <p><strong>{% translate "Zero" %}:</strong> {{ summary.zero_variance_line_count }}</p>
+      <p><strong>{% translate "Missing exceptional costs" %}:</strong> {{ summary.missing_exceptional_cost_line_count }}</p>
+    </article>
+    <article class="card">
+      <h2>{% translate "Inventory-value evidence" %}</h2>
+      <p class="metric">ETB {{ summary.total_inventory_value_adjustment|floatformat:6 }}</p>
+      <p class="muted">{% translate "Signed stock count inventory-value adjustment using assigned count-adjustment costs." %}</p>
+    </article>
+  </section>
+
+  <section class="card section-gap">
+    <h2>{% translate "Quantity variance by stock unit" %}</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>{% translate "Stock unit" %}</th><th>{% translate "Positive quantity" %}</th><th>{% translate "Negative quantity" %}</th><th>{% translate "Zero-variance lines" %}</th></tr></thead>
+        <tbody>
+          {% for unit in unit_summary_rows %}
+            <tr><td>{{ unit.label }}</td><td>{{ unit.positive_quantity }}</td><td>{{ unit.negative_quantity }}</td><td>{{ unit.zero_variance_line_count }}</td></tr>
+          {% empty %}<tr><td colspan="4">{% translate "No quantity summaries are available." %}</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  {% for row in line_rows %}
+    <section class="card section-gap">
+      <h2>{{ row.line.product_name_snapshot }} · {{ row.line.variant_label_snapshot }} · {{ row.line.sku_snapshot }}</h2>
+      <div class="table-wrap">
+        <table>
+          <tbody>
+            <tr><th>{% translate "Stock unit" %}</th><td>{{ row.line.get_stock_unit_snapshot_display }}</td></tr>
+            <tr><th>{% translate "System quantity snapshot" %}</th><td>{{ row.line.system_quantity_snapshot }}</td></tr>
+            <tr><th>{% translate "Physical quantity" %}</th><td>{{ row.line.physical_quantity }}</td></tr>
+            <tr><th>{% translate "Stock count quantity variance" %}</th><td>{{ row.line.variance_quantity }}</td></tr>
+            <tr><th>{% translate "Moving-average cost snapshot" %}</th><td>ETB {{ row.line.average_unit_cost_snapshot|floatformat:6 }}</td></tr>
+            <tr><th>{% translate "Inventory-value snapshot" %}</th><td>ETB {{ row.line.inventory_value_snapshot|floatformat:6 }}</td></tr>
+            <tr><th>{% translate "Assigned count-adjustment unit cost" %}</th><td>{% if row.line.assigned_count_adjustment_unit_cost is not None %}ETB {{ row.line.assigned_count_adjustment_unit_cost|floatformat:6 }}{% else %}—{% endif %}</td></tr>
+            <tr><th>{% translate "Calculated inventory-value adjustment" %}</th><td>{% if row.value_adjustment is not None %}ETB {{ row.value_adjustment|floatformat:6 }}{% else %}—{% endif %}</td></tr>
+          </tbody>
+        </table>
+      </div>
+      {% if row.line.variance_quantity != 0 %}
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="line_id" value="{{ row.line.id }}">
+          {% include "includes/form_fields.html" with form=row.form %}
+          <button class="button button--secondary" type="submit">{% translate "Save review evidence" %}</button>
+        </form>
+      {% else %}
+        <p>{% translate "No inventory movement will be created for this zero-variance line." %}</p>
+      {% endif %}
+    </section>
+  {% endfor %}
+{% endblock %}

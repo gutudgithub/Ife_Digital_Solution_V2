@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Performance intelligence" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <h1>{% translate "Performance intelligence" %}</h1>
+      <p>{% translate "Reconciled operational performance from immutable sales, return, cost, and expense evidence." %}</p>
+    </div>
+    {% if report %}
+      <div class="button-row print-hidden">
+        <a class="button button-secondary" href="{% url 'performance:time-series-csv' %}?{{ request.GET.urlencode }}">{% translate "Export time buckets" %}</a>
+        <a class="button button-secondary" href="{% url 'performance:products-csv' %}?{{ request.GET.urlencode }}">{% translate "Export products" %}</a>
+        <a class="button" href="{% url 'performance:print' %}?{{ request.GET.urlencode }}">{% translate "Print summary" %}</a>
+      </div>
+    {% endif %}
+  </div>
+
+  <section class="card print-hidden" aria-labelledby="performance-filter-title">
+    <h2 id="performance-filter-title">{% translate "Report filters" %}</h2>
+    <form method="get" class="filter-form">
+      {% if filter_form.non_field_errors %}
+        <div class="errorlist" role="alert">{{ filter_form.non_field_errors }}</div>
+      {% endif %}
+      {% for field in filter_form %}
+        <div class="form-field">
+          {{ field.label_tag }}
+          {{ field }}
+          {{ field.errors }}
+        </div>
+      {% endfor %}
+      <button type="submit">{% translate "Apply filters" %}</button>
+    </form>
+  </section>
+
+  {% if report %}
+    <div class="report-context">
+      <strong>{{ report.selection.start_date }} – {{ report.selection.end_date }}</strong>
+      <span>{{ report.selection.branch_label }}</span>
+      <span>{% translate "Generated" %}: {{ report.generated_at|date:"DATETIME_FORMAT" }}</span>
+    </div>
+
+    {% include "performance/_summary.html" %}
+
+    <div class="grid chart-grid">
+      {% include "performance/_line_chart.html" with chart=money_chart %}
+      {% include "performance/_line_chart.html" with chart=percentage_chart %}
+    </div>
+    {% include "performance/_time_table.html" %}
+    {% include "performance/_product_table.html" %}
+
+    <div class="grid report-two-column">
+      <section class="card" aria-labelledby="expense-analysis-title">
+        <h2 id="expense-analysis-title">{% translate "Expense-category analysis" %}</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">{% translate "Category" %}</th>
+                <th scope="col">{% translate "Posted (ETB)" %}</th>
+                <th scope="col">{% translate "Reversed (ETB)" %}</th>
+                <th scope="col">{% translate "Net (ETB)" %}</th>
+                <th scope="col">{% translate "Share" %}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for category in report.expense_categories %}
+                <tr>
+                  <th scope="row">{{ category.category_name }}</th>
+                  <td>{{ category.posted_amount|floatformat:2 }}</td>
+                  <td>{{ category.reversed_amount|floatformat:2 }}</td>
+                  <td>{{ category.net_amount|floatformat:2 }}</td>
+                  <td>
+                    {% if category.percentage_of_expenses is not None %}
+                      {{ category.percentage_of_expenses|floatformat:2 }}%
+                    {% else %}
+                      {% translate "Not available" %}
+                    {% endif %}
+                  </td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="5">{% translate "No posted operating expenses were found." %}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="operational-controls-title">
+        <h2 id="operational-controls-title">{% translate "Operational controls" %}</h2>
+        <p class="helptext">
+          {% translate "These controls are disclosed separately and are not included automatically in gross or operational result." %}
+        </p>
+        <dl class="definition-list">
+          <div><dt>{% translate "Latest active cash-closure variance" %}</dt><dd>{{ report.controls.cash_variance|floatformat:2 }} ETB</dd></div>
+          <div><dt>{% translate "Unresolved supplier-return reference" %}</dt><dd>{{ report.controls.unresolved_supplier_return_reference|floatformat:2 }} ETB</dd></div>
+          <div><dt>{% translate "Manual inventory adjustment value" %}</dt><dd>{{ report.controls.manual_inventory_adjustment_value|floatformat:6 }} ETB</dd></div>
+          <div><dt>{% translate "Stock-count adjustment value" %}</dt><dd>{{ report.controls.stock_count_adjustment_value|floatformat:6 }} ETB</dd></div>
+          <div><dt>{% translate "Stock-count reversal value" %}</dt><dd>{{ report.controls.stock_count_reversal_value|floatformat:6 }} ETB</dd></div>
+        </dl>
+        <div class="button-row print-hidden">
+          <a href="{% url 'cash:session-list' %}">{% translate "Cash evidence" %}</a>
+          <a href="{% url 'expenses:settlement-activity' %}">{% translate "Supplier settlement evidence" %}</a>
+          <a href="{% url 'inventory:stock-count-list' %}">{% translate "Stock-count evidence" %}</a>
+        </div>
+      </section>
+    </div>
+
+    <section class="card" aria-labelledby="inventory-context-title">
+      <h2 id="inventory-context-title">{% translate "Current inventory context" %}</h2>
+      <p class="helptext">
+        {% blocktranslate trimmed with generated=report.inventory.generated_at|date:"DATETIME_FORMAT" %}
+          Current point-in-time balances generated {{ generated }}; they are not historical closing balances.
+        {% endblocktranslate %}
+      </p>
+      <div class="grid metrics-grid">
+        <article class="metric"><span>{% translate "Inventory value" %}</span><strong>{{ report.inventory.inventory_value|floatformat:6 }} ETB</strong></article>
+        <article class="metric"><span>{% translate "Out-of-stock variants" %}</span><strong>{{ report.inventory.out_of_stock_variant_count }}</strong></article>
+        <article class="metric"><span>{% translate "Low-stock variants" %}</span><strong>{{ report.inventory.low_stock_variant_count }}</strong></article>
+        {% for quantity in report.inventory.quantity_by_unit %}
+          <article class="metric"><span>{{ quantity.stock_unit }}</span><strong>{{ quantity.quantity_on_hand|floatformat:3 }}</strong></article>
+        {% endfor %}
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">{% translate "Product" %}</th>
+              <th scope="col">{% translate "SKU" %}</th>
+              <th scope="col">{% translate "Unit" %}</th>
+              <th scope="col">{% translate "On hand" %}</th>
+              <th scope="col">{% translate "Moving-average cost" %}</th>
+              <th scope="col">{% translate "Inventory value" %}</th>
+              <th scope="col">{% translate "Status" %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in report.inventory.rows %}
+              <tr>
+                <th scope="row">{{ row.product_name }} — {{ row.size }}{% if row.size and row.color %} / {% endif %}{{ row.color }}</th>
+                <td>{{ row.sku }}</td>
+                <td>{{ row.stock_unit }}</td>
+                <td>{{ row.quantity_on_hand|floatformat:3 }}</td>
+                <td>{{ row.average_unit_cost|floatformat:6 }}</td>
+                <td>{{ row.inventory_value|floatformat:6 }}</td>
+                <td>
+                  {% if row.quantity_on_hand == 0 %}
+                    {% translate "Out of stock" %}
+                  {% elif row.is_low_stock %}
+                    {% translate "Low stock" %}
+                  {% else %}
+                    {% translate "In stock" %}
+                  {% endif %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="7">{% translate "No inventory variants were found." %}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <aside class="card report-disclaimer" aria-labelledby="report-boundary-title">
+      <h2 id="report-boundary-title">{% translate "Reporting boundary" %}</h2>
+      <p>
+        {% translate "Operational net result is an internal operational measure, not statutory net profit, a tax return, or certified financial statements. It excludes payroll, depreciation, financing, tax, accrual, and owner-drawing classifications." %}
+      </p>
+      <p>{% blocktranslate with version=report.formula_version %}Formula version: {{ version }}.{% endblocktranslate %}</p>
+    </aside>
+  {% endif %}
+{% endblock %}

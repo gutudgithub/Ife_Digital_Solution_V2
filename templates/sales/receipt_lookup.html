@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Find internal receipt" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Receipt lookup" %}</p>
+      <h1>{% translate "Find internal receipt" %}</h1>
+    </div>
+  </div>
+  <section class="card form-card">
+    <form method="get">
+      {% include "includes/form_fields.html" %}
+      <button class="button" type="submit">{% translate "Find receipt" %}</button>
+    </form>
+  </section>
+{% endblock %}

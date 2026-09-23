@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ expense.internal_number }} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div><p class="eyebrow">{% translate "Operating expense" %}</p><h1>{{ expense.internal_number }}</h1><p class="muted">{% translate "Internal operational evidence only; not an official tax document or statutory accounting record." %}</p></div>
+    <div class="action-row">
+      {% if expense.status == "draft" %}
+        <a class="button button--secondary" href="{% url 'expenses:expense-edit' expense.id %}">{% translate "Edit draft" %}</a>
+        <a class="button" href="{% url 'expenses:expense-post' expense.id %}">{% translate "Post expense" %}</a>
+      {% endif %}
+      {% if expense.status == "posted" %}<a class="button button--secondary" href="{% url 'expenses:expense-reverse' expense.id %}">{% translate "Reverse" %}</a>{% endif %}
+      {% if payment %}<a class="button button--secondary" href="{% url 'expenses:expense-print' expense.id %}">{% translate "Print evidence" %}</a>{% endif %}
+    </div>
+  </div>
+  {% if source_document %}
+    <section class="card section-gap">
+      <h2>{% translate "Source document" %}</h2>
+      <p><a href="{% url 'documents:detail' source_document.id %}">{% translate "Review the owner-confirmed source and transcription" %}</a></p>
+    </section>
+  {% endif %}
+  <section class="grid">
+    <article class="card">
+      <h2>{% translate "Expense details" %}</h2>
+      <p><strong>{% translate "Branch" %}:</strong> {{ expense.branch.name }}</p>
+      <p><strong>{% translate "Category" %}:</strong> {{ expense.category.name }}</p>
+      <p><strong>{% translate "Date" %}:</strong> {{ expense.business_date|default:"—" }}</p>
+      <p><strong>{% translate "Payee" %}:</strong> {{ expense.payee|default:"—" }}</p>
+      <p><strong>{% translate "Description" %}:</strong> {{ expense.description }}</p>
+      <p><strong>{% translate "Amount" %}:</strong> ETB {{ expense.amount|floatformat:2 }}</p>
+      <p><strong>{% translate "Status" %}:</strong> {{ expense.get_status_display }}</p>
+    </article>
+    <article class="card">
+      <h2>{% translate "Posting evidence" %}</h2>
+      {% if payment %}
+        <p><strong>{% translate "Payment method" %}:</strong> {{ payment.get_method_display }}</p>
+        <p><strong>{% translate "Telebirr reference" %}:</strong> {{ payment.telebirr_reference|default:"—" }}</p>
+        <p><strong>{% translate "Posted by" %}:</strong> {{ payment.posted_by.user.full_name }}</p>
+        <p>{{ payment.posted_at|date:"SHORT_DATETIME_FORMAT" }}</p>
+      {% else %}<p class="muted">{% translate "This draft has no payment or cash evidence." %}</p>{% endif %}
+      {% if reversal %}
+        <p><strong>{% translate "Reversal reason" %}:</strong> {{ reversal.reason }}</p>
+        <p><strong>{% translate "Reversed by" %}:</strong> {{ reversal.reversed_by.user.full_name }}</p>
+      {% endif %}
+    </article>
+  </section>
+  {% if expense.status == "draft" %}
+    <form method="post" action="{% url 'expenses:expense-cancel' expense.id %}">
+      {% csrf_token %}
+      <button class="link-button danger-link" type="submit">{% translate "Cancel draft" %}</button>
+    </form>
+  {% endif %}
+{% endblock %}

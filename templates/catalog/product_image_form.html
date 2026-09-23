@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Product image" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Catalog media" %}</p>
+      <h1>{% blocktranslate trimmed with product_name=product.name %}Image for {{ product_name }}{% endblocktranslate %}</h1>
+      <p class="muted">{% translate "Uploads are decoded, resized, stripped of metadata, and re-encoded before storage." %}</p>
+    </div>
+  </div>
+  <form class="card form-card" method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {% include "includes/form_fields.html" %}
+    <div class="action-row">
+      <button class="button" type="submit">{% translate "Save image" %}</button>
+      <a href="{% url 'catalog:product-list' %}">{% translate "Cancel" %}</a>
+    </div>
+  </form>
+{% endblock %}

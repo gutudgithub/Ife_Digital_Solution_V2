@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Post sale return" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Final return posting" %}</p>
+      <h1>{% translate "Post return and refund evidence" %}</h1>
+      <p class="muted">{{ sale_return.internal_number }} · {% blocktranslate trimmed with total=sale_return.total_refund_amount|floatformat:2 %}Exact refund evidence required: ETB {{ total }}{% endblocktranslate %}</p>
+    </div>
+  </div>
+  <section class="card form-card">
+    <p>{% translate "Posting restores saleable stock, records one exact refund-evidence entry, and issues one internal return receipt." %}</p>
+    <form method="post">
+      {% csrf_token %}
+      {% include "includes/form_fields.html" %}
+      <div class="action-row">
+        <button class="button" type="submit">{% translate "Post sale return" %}</button>
+        <a href="{% url 'sales:return-detail' sale_return.id %}">{% translate "Back to return" %}</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

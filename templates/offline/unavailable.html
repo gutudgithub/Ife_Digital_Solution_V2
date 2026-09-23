@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Offline" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <section class="card form-card">
+    <p class="eyebrow">{% translate "Connection unavailable" %}</p>
+    <h1>{% translate "This page is not available offline" %}</h1>
+    <p>{% translate "Only the prepared offline sales draft screen works without a connection. Reconnect before opening private reports, documents, receipts, or other workflows." %}</p>
+    <p>{% translate "Reconnect or return to the exact business and branch offline-sales page that you prepared earlier." %}</p>
+  </section>
+{% endblock %}

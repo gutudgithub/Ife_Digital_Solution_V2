@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ purchase.internal_number }} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Purchase" %}</p>
+      <h1>{{ purchase.internal_number }}</h1>
+      <p class="muted">{{ purchase.supplier.name }} · {{ purchase.branch.name }} · {{ purchase.get_status_display }}</p>
+    </div>
+    <div class="action-row">
+      {% if can_manage_purchasing and purchase.status == "draft" %}
+        <a class="button button--secondary" href="{% url 'purchasing:purchase-edit' purchase.id %}">{% translate "Edit draft" %}</a>
+        <form method="post" action="{% url 'purchasing:purchase-approve' purchase.id %}">
+          {% csrf_token %}
+          <button class="button" type="submit">{% translate "Approve purchase" %}</button>
+        </form>
+      {% endif %}
+      {% if can_receive_inventory and purchase.status == "approved" or can_receive_inventory and purchase.status == "partially_received" %}
+        <a class="button" href="{% url 'purchasing:purchase-receive' purchase.id %}">{% translate "Receive stock" %}</a>
+      {% endif %}
+      {% if can_receive_inventory and has_receipts %}
+        <a class="button button--secondary" href="{% url 'purchasing:purchase-return-create' purchase.id %}">{% translate "Prepare return" %}</a>
+      {% endif %}
+      {% if can_manage_settlement and purchase.status != "draft" and purchase.status != "cancelled" %}
+        <a class="button button--secondary" href="{% url 'expenses:supplier-payment-create' purchase.id %}">{% translate "Record supplier payment" %}</a>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if source_document %}
+    <section class="card section-gap">
+      <h2>{% translate "Source document" %}</h2>
+      <p><a href="{% url 'documents:detail' source_document.id %}">{% translate "Review the owner-confirmed source and transcription" %}</a></p>
+    </section>
+  {% endif %}
+
+  <section class="grid">
+    <article class="card">
+      <h2>{% translate "Purchase details" %}</h2>
+      <p><strong>{% translate "Purchase date" %}:</strong> {{ purchase.purchase_date }}</p>
+      <p><strong>{% translate "Expected date" %}:</strong> {{ purchase.expected_date|default:"—" }}</p>
+      <p><strong>{% translate "Supplier reference" %}:</strong> {{ purchase.supplier_reference|default:"—" }}</p>
+      <p><strong>{% translate "Settlement terms" %}:</strong> {{ purchase.settlement_terms|default:"—" }}</p>
+      <p><strong>{% translate "Total" %}:</strong> ETB {{ purchase.total_amount|floatformat:2 }}</p>
+    </article>
+    <article class="card">
+      <h2>{% translate "Approval" %}</h2>
+      {% if purchase.approved_at %}
+        <p>{{ purchase.approved_by.user.full_name }}</p>
+        <p class="muted">{{ purchase.approved_at|date:"SHORT_DATETIME_FORMAT" }}</p>
+      {% else %}
+        <p class="muted">{% translate "Not approved yet." %}</p>
+      {% endif %}
+      {% if can_manage_purchasing and purchase.status == "draft" or can_manage_purchasing and purchase.status == "approved" %}
+        <form method="post" action="{% url 'purchasing:purchase-cancel' purchase.id %}">
+          {% csrf_token %}
+          <button class="link-button danger-link" type="submit">{% translate "Cancel purchase" %}</button>
+        </form>
+      {% endif %}
+    </article>
+  </section>
+
+  {% if can_manage_settlement %}
+    <section class="card section-gap">
+      <h2>{% translate "Operational settlement summary" %}</h2>
+      <p class="muted">{% translate "Operational reference evidence only; not a certified payable, supplier statement, or general ledger." %}</p>
+      <div class="grid">
+        {% for label, value in settlement_totals.items %}
+          <p><strong>{{ label }}:</strong> ETB {{ value|floatformat:2 }}</p>
+        {% endfor %}
+      </div>
+      <div class="table-wrap">
+        <table>
+          <caption class="visually-hidden">{% translate "Supplier payment history" %}</caption>
+          <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Method" %}</th><th>{% translate "Supplier reference" %}</th><th>{% translate "Amount" %}</th><th>{% translate "Actions" %}</th></tr></thead>
+          <tbody>
+            {% for payment in supplier_payments %}
+              <tr>
+                <td>{{ payment.business_date }}</td>
+                <td>{{ payment.get_method_display }}</td>
+                <td>{{ payment.supplier_reference|default:"—" }}</td>
+                <td>ETB {{ payment.amount|floatformat:2 }}</td>
+                <td><a href="{% url 'expenses:supplier-payment-print' payment.id %}">{% translate "Print" %}</a>{% if not payment.reversal %} · <a href="{% url 'expenses:supplier-payment-reverse' payment.id %}">{% translate "Reverse" %}</a>{% endif %}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="5">{% translate "No supplier payments have been recorded." %}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% endif %}
+
+  <section class="card section-gap">
+    <h2>{% translate "Lines" %}</h2>
+    <div class="table-wrap">
+      <table>
+        <caption class="visually-hidden">{% translate "Purchase line receiving progress" %}</caption>
+        <thead>
+          <tr>
+            <th>{% translate "Product" %}</th>
+            <th>{% translate "SKU" %}</th>
+            <th>{% translate "Ordered" %}</th>
+            <th>{% translate "Gross received" %}</th>
+            <th>{% translate "Returned" %}</th>
+            <th>{% translate "Net received" %}</th>
+            <th>{% translate "Remaining to receive" %}</th>
+            <th>{% translate "Unit cost" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in line_progress %}
+            <tr>
+              <td>{{ item.line.product_name_snapshot|default:item.line.variant.product.name }}</td>
+              <td>{{ item.line.sku_snapshot|default:item.line.variant.sku }}</td>
+              <td>{{ item.line.ordered_quantity }} {{ item.line.get_unit_snapshot_display|default:item.line.variant.get_stock_unit_display }}</td>
+              <td>{{ item.received_quantity }}</td>
+              <td>{{ item.returned_quantity }}</td>
+              <td>{{ item.net_received_quantity }}</td>
+              <td>{{ item.remaining_quantity }}</td>
+              <td>ETB {{ item.line.unit_cost|floatformat:2 }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card section-gap">
+    <h2>{% translate "Receipt history" %}</h2>
+    <div class="table-wrap">
+      <table>
+        <caption class="visually-hidden">{% translate "Posted goods receipts" %}</caption>
+        <thead>
+          <tr>
+            <th>{% translate "Receipt" %}</th>
+            <th>{% translate "Posted" %}</th>
+            <th>{% translate "Received by" %}</th>
+            <th>{% translate "Supplier reference" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for receipt in receipts %}
+            <tr>
+              <td>{{ receipt.internal_number }}</td>
+              <td>{{ receipt.posted_at|date:"SHORT_DATETIME_FORMAT" }}</td>
+              <td>{{ receipt.received_by.user.full_name }}</td>
+              <td>{{ receipt.supplier_document_reference|default:"—" }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4">{% translate "No stock has been received for this purchase." %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card section-gap">
+    <h2>{% translate "Return history" %}</h2>
+    <div class="table-wrap">
+      <table>
+        <caption class="visually-hidden">{% translate "Purchase return history" %}</caption>
+        <thead>
+          <tr>
+            <th>{% translate "Return" %}</th>
+            <th>{% translate "Return date" %}</th>
+            <th>{% translate "Status" %}</th>
+            <th>{% translate "Prepared by" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for purchase_return in purchase_returns %}
+            <tr>
+              <td><a href="{% url 'purchasing:purchase-return-detail' purchase_return.id %}">{{ purchase_return.internal_number }}</a></td>
+              <td>{{ purchase_return.return_date }}</td>
+              <td>{{ purchase_return.get_status_display }}</td>
+              <td>{{ purchase_return.created_by.user.full_name }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4">{% translate "No returns have been prepared for this purchase." %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}

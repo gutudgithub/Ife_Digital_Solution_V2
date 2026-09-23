@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Attendance detail" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Attendance record" %}</p>
+      <h1>{{ attendance_record.employee.user.full_name }}</h1>
+      <p class="muted">{{ attendance_record.work_date }} · {{ attendance_record.branch.name }}</p>
+    </div>
+    {% if can_manage_attendance %}
+      <a class="button" href="{% url 'attendance:attendance-correct' attendance_record.id %}">
+        {% translate "Correct attendance" %}
+      </a>
+    {% endif %}
+  </div>
+  <section class="grid">
+    <article class="card">
+      <span class="muted">{% translate "Status" %}</span>
+      <p class="metric">{{ attendance_record.get_status_display }}</p>
+    </article>
+    <article class="card">
+      <span class="muted">{% translate "Check in" %}</span>
+      <p>{{ attendance_record.check_in_at|date:"SHORT_DATETIME_FORMAT"|default:"—" }}</p>
+    </article>
+    <article class="card">
+      <span class="muted">{% translate "Check out" %}</span>
+      <p>{{ attendance_record.check_out_at|date:"SHORT_DATETIME_FORMAT"|default:"—" }}</p>
+    </article>
+  </section>
+  <section class="card section-gap">
+    <h2>{% translate "Correction history" %}</h2>
+    {% for correction in corrections %}
+      <article class="history-entry">
+        <strong>
+          {% blocktranslate trimmed with corrected_at=correction.created_at|date:"SHORT_DATETIME_FORMAT" name=correction.corrected_by.user.full_name %}
+            Corrected {{ corrected_at }} by {{ name }}
+          {% endblocktranslate %}
+        </strong>
+        <p>{{ correction.reason }}</p>
+        <p class="muted">
+          <span aria-hidden="true">
+            {{ correction.get_previous_status_display }} → {{ correction.get_replacement_status_display }}
+          </span>
+          <span class="visually-hidden">
+            {% blocktranslate trimmed with previous=correction.get_previous_status_display replacement=correction.get_replacement_status_display %}
+              Status changed from {{ previous }} to {{ replacement }}
+            {% endblocktranslate %}
+          </span>
+        </p>
+        <p class="muted">
+          {% translate "Check in" %}:
+          {{ correction.previous_check_in_at|date:"SHORT_DATETIME_FORMAT"|default:"—" }}
+          <span aria-hidden="true">→</span>
+          <span class="visually-hidden">{% translate "changed to" %}</span>
+          {{ correction.replacement_check_in_at|date:"SHORT_DATETIME_FORMAT"|default:"—" }}
+        </p>
+        <p class="muted">
+          {% translate "Check out" %}:
+          {{ correction.previous_check_out_at|date:"SHORT_DATETIME_FORMAT"|default:"—" }}
+          <span aria-hidden="true">→</span>
+          <span class="visually-hidden">{% translate "changed to" %}</span>
+          {{ correction.replacement_check_out_at|date:"SHORT_DATETIME_FORMAT"|default:"—" }}
+        </p>
+      </article>
+    {% empty %}
+      <p class="muted">{% translate "No corrections recorded." %}</p>
+    {% endfor %}
+  </section>
+{% endblock %}

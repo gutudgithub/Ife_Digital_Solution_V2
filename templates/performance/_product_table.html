@@ -1,0 +1,68 @@
+{% load i18n %}
+<section class="card" aria-labelledby="product-performance-title">
+  <h2 id="product-performance-title">{% translate "Product and SKU performance" %}</h2>
+  <p class="helptext">{% translate "Quantities remain separated by SKU and stock unit." %}</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">{% translate "Product" %}</th>
+          <th scope="col">{% translate "SKU" %}</th>
+          <th scope="col">{% translate "Variant" %}</th>
+          <th scope="col">{% translate "Unit" %}</th>
+          <th scope="col">{% translate "Gross quantity" %}</th>
+          <th scope="col">{% translate "Returned / reversed" %}</th>
+          <th scope="col">{% translate "Net quantity" %}</th>
+          <th scope="col">{% translate "Gross sales (ETB)" %}</th>
+          <th scope="col">{% translate "Return deduction (ETB)" %}</th>
+          <th scope="col">{% translate "Net sales (ETB)" %}</th>
+          <th scope="col">{% translate "Assigned cost (ETB)" %}</th>
+          <th scope="col">{% translate "Gross result (ETB)" %}</th>
+          <th scope="col">{% translate "Gross margin" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for product in product_rows %}
+          <tr>
+            <th scope="row">{{ product.product_name }}</th>
+            <td>{{ product.sku }}</td>
+            <td>{{ product.size }}{% if product.size and product.color %} / {% endif %}{{ product.color }}</td>
+            <td>{{ product.stock_unit }}</td>
+            <td>{{ product.gross_quantity_sold|floatformat:3 }}</td>
+            <td>{{ product.returned_quantity|floatformat:3 }}</td>
+            <td>{{ product.net_quantity_sold|floatformat:3 }}</td>
+            <td>{{ product.gross_sales|floatformat:2 }}</td>
+            <td>{{ product.sale_refunds_and_reversals|floatformat:2 }}</td>
+            <td>{{ product.net_sales|floatformat:2 }}</td>
+            <td>{{ product.net_assigned_inventory_cost|floatformat:6 }}</td>
+            <td>{{ product.gross_operating_result|floatformat:2 }}</td>
+            <td>
+              {% if product.gross_margin_percentage is not None %}
+                {{ product.gross_margin_percentage|floatformat:2 }}%
+              {% else %}
+                {% translate "Not available" %}
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="13">{% translate "No matching posted product activity was found." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if product_page and product_page.paginator.num_pages > 1 %}
+    <nav class="pagination" aria-label="{% translate 'Product performance pages' %}">
+      {% if product_page.has_previous %}
+        <a href="{% querystring page=product_page.previous_page_number %}">{% translate "Previous" %}</a>
+      {% endif %}
+      <span>
+        {% blocktranslate trimmed with current=product_page.number total=product_page.paginator.num_pages %}
+          Page {{ current }} of {{ total }}
+        {% endblocktranslate %}
+      </span>
+      {% if product_page.has_next %}
+        <a href="{% querystring page=product_page.next_page_number %}">{% translate "Next" %}</a>
+      {% endif %}
+    </nav>
+  {% endif %}
+</section>

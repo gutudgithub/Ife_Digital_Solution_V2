@@ -1,0 +1,55 @@
+{% load i18n %}
+<section class="card" aria-labelledby="time-series-table-title">
+  <h2 id="time-series-table-title">{% translate "Exact time-series values" %}</h2>
+  <p class="helptext">
+    {% translate "This table is the text alternative for both graphs. Negative values are shown with a minus sign." %}
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">{% translate "Period" %}</th>
+          <th scope="col">{% translate "Net sales (ETB)" %}</th>
+          <th scope="col">{% translate "Gross result (ETB)" %}</th>
+          <th scope="col">{% translate "Operational result (ETB)" %}</th>
+          <th scope="col">{% translate "Gross margin" %}</th>
+          <th scope="col">{% translate "Operating margin" %}</th>
+          <th scope="col">{% translate "Net-sales growth" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for bucket in report.buckets %}
+          <tr>
+            <th scope="row">{{ bucket.label }}</th>
+            <td>{{ bucket.metrics.net_sales|floatformat:2 }}</td>
+            <td>{{ bucket.metrics.gross_operating_result|floatformat:2 }}</td>
+            <td>{{ bucket.metrics.operational_net_result|floatformat:2 }}</td>
+            <td>
+              {% if bucket.metrics.gross_margin_percentage is not None %}
+                {{ bucket.metrics.gross_margin_percentage|floatformat:2 }}%
+              {% else %}
+                {% translate "Not available" %}
+              {% endif %}
+            </td>
+            <td>
+              {% if bucket.metrics.operating_margin_percentage is not None %}
+                {{ bucket.metrics.operating_margin_percentage|floatformat:2 }}%
+              {% else %}
+                {% translate "Not available" %}
+              {% endif %}
+            </td>
+            <td>
+              {% if bucket.net_sales_growth_percentage is not None %}
+                {{ bucket.net_sales_growth_percentage|floatformat:2 }}%
+              {% else %}
+                {% translate "Not available" %}
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="7">{% translate "No performance events were found." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>

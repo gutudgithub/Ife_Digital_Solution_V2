@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ife-digital-solution"
+version = "0.1.0"
+description = "Bilingual business-control platform for Ethiopian small businesses"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "Django==5.2.17",
+    "boto3==1.43.85",
+    "django-storages==1.14.6",
+    "gunicorn==23.0.0",
+    "Pillow==12.3.0",
+    "psycopg[binary]==3.2.13",
+    "segno==1.6.6",
+    "whitenoise==6.10.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "django-stubs[compatible-mypy]==5.2.8",
+    "mypy==1.17.1",
+    "pip-audit==2.9.0",
+    "pre-commit==4.3.0",
+    "pytest==9.0.3",
+    "pytest-django==4.13.0",
+    "ruff==0.16.4",
+]
+
+[tool.setuptools.packages.find]
+include = ["apps*", "config*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["migrations"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "DJ", "RUF"]
+ignore = ["RUF012"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+python_files = ["test_*.py", "*_test.py", "tests.py"]
+addopts = "-ra --strict-markers"
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["mypy_django_plugin.main"]
+check_untyped_defs = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+exclude = ["migrations/"]
+
+[tool.django-stubs]
+django_settings_module = "config.settings"

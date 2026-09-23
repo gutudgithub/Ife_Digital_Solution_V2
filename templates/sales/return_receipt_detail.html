@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ receipt.internal_number }} · {% translate "Internal return receipt" %}{% endblock %}
+
+{% block content %}
+  <article class="card receipt">
+    <div class="page-heading">
+      <div>
+        <p class="eyebrow">{% translate "Internal return and refund record" %}</p>
+        <h1>{{ receipt.business.name }}</h1>
+        <p>{{ receipt.branch.name }}</p>
+      </div>
+      <button class="button print-hidden" type="button" data-print-page>{% translate "Print" %}</button>
+    </div>
+    <div class="receipt-notice" role="note">
+      <strong>{% translate "This is an internal transaction record. It is not an official tax invoice or tax credit note." %}</strong>
+    </div>
+    <dl class="receipt-meta">
+      <div><dt>{% translate "Return receipt number" %}</dt><dd>{{ receipt.internal_number }}</dd></div>
+      <div><dt>{% translate "Return number" %}</dt><dd>{{ receipt.sale_return.internal_number }}</dd></div>
+      <div><dt>{% translate "Original sale" %}</dt><dd>{{ receipt.sale_return.sale.internal_number }}</dd></div>
+      <div><dt>{% translate "Original receipt" %}</dt><dd>{{ receipt.original_receipt.internal_number }}</dd></div>
+      <div><dt>{% translate "Issued" %}</dt><dd>{{ receipt.issued_at|date:"SHORT_DATETIME_FORMAT" }}</dd></div>
+      <div><dt>{% translate "Operator" %}</dt><dd>{{ receipt.issued_by.user.full_name }}</dd></div>
+    </dl>
+    <div class="table-wrap">
+      <table>
+        <caption class="visually-hidden">{% translate "Internal return receipt items" %}</caption>
+        <thead>
+          <tr>
+            <th>{% translate "Item" %}</th>
+            <th>{% translate "Returned quantity" %}</th>
+            <th>{% translate "Original unit price" %}</th>
+            <th>{% translate "Refund total" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for line in lines %}
+            <tr>
+              <td>{{ line.product_name_snapshot }}<br><span class="muted">{{ line.sku_snapshot }}</span></td>
+              <td>{{ line.returned_quantity }} {{ line.get_unit_snapshot_display }}</td>
+              <td>ETB {{ line.original_selling_unit_price|floatformat:2 }}</td>
+              <td>ETB {{ line.refund_line_total|floatformat:2 }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr><th colspan="3">{% translate "Refund evidence total" %}</th><td><strong>ETB {{ receipt.total_amount|floatformat:2 }}</strong></td></tr>
+        </tfoot>
+      </table>
+    </div>
+    <p><strong>{% translate "Refund evidence method" %}:</strong> {{ receipt.get_refund_method_display }}</p>
+    {% if receipt.telebirr_reference %}
+      <p><strong>{% translate "Telebirr refund reference" %}:</strong> {{ receipt.telebirr_reference }}</p>
+    {% endif %}
+    <p class="muted">{% translate "Refund evidence is manually entered and does not verify provider acceptance, completion, settlement, or reconciliation." %}</p>
+    {% if public_url %}
+      <section class="card">
+        <h2>{% translate "Public record verification" %}</h2>
+        <img src="{% url 'public_profiles:return-receipt-qr' public_identity.public_token %}" alt="{% translate 'QR code for minimal public return-receipt verification' %}">
+        <p class="break-anywhere">{{ public_url }}</p>
+        <p class="muted">{% translate "The public page shows only the business display name, internal receipt identifier, issue date, receipt type, and record status." %}</p>
+      </section>
+    {% endif %}
+    <p class="print-hidden"><a href="{% url 'sales:return-detail' receipt.sale_return.id %}">{% translate "Back to return" %}</a></p>
+  </article>
+{% endblock %}

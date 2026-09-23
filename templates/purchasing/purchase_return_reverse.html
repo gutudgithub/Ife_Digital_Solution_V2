@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Reverse purchase return" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Compensating inventory event" %}</p>
+      <h1>{% translate "Reverse purchase return" %} {{ purchase_return.internal_number }}</h1>
+      <p class="muted">{% translate "This restores every return line at its originally assigned inventory cost. The posted return remains immutable." %}</p>
+    </div>
+  </div>
+  <form class="card form-card" method="post">
+    {% csrf_token %}
+    {% include "includes/form_fields.html" %}
+    <div class="action-row">
+      <button class="button" type="submit">{% translate "Post full reversal" %}</button>
+      <a href="{% url 'purchasing:purchase-return-detail' purchase_return.id %}">{% translate "Cancel" %}</a>
+    </div>
+  </form>
+{% endblock %}

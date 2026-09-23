@@ -1,0 +1,118 @@
+{% load i18n static %}
+<!doctype html>
+<html lang="{{ LANGUAGE_CODE }}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#17365d">
+    <title>{% block title %}{% translate "Ife Digital Solution" %}{% endblock %}</title>
+    {% if user.is_authenticated and active_membership.can_sell %}<link rel="manifest" href="{% url 'offline:manifest' %}" crossorigin="use-credentials">{% endif %}
+    <link rel="icon" href="{% static 'img/ife-app-icon.svg' %}" type="image/svg+xml">
+    <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  </head>
+  <body {% if user.is_authenticated and active_membership %}data-active-membership-id="{{ active_membership.id }}" data-session-expires-in="{{ request.session.get_expiry_age }}" data-service-worker-url="{% url 'offline:service-worker' %}" data-service-worker-scope="/offline/" data-logout-drafts-warning="{% translate 'This browser still has offline sale draft(s) that are not safely completed. Sign out anyway?' %}"{% endif %}>
+    <a class="skip-link" href="#main-content">{% translate "Skip to main content" %}</a>
+    <header class="site-header">
+      <div class="site-header__inner">
+        <a class="brand" href="{% url 'dashboard' %}">{% translate "Ife Digital Solution" %}</a>
+        {% if user.is_authenticated %}
+          <nav class="nav" aria-label="{% translate 'Primary navigation' %}">
+            <a href="{% url 'dashboard' %}">{% translate "Dashboard" %}</a>
+            <a href="{% url 'catalog:product-list' %}">{% translate "Products" %}</a>
+            <a href="{% url 'inventory:inventory-list' %}">{% translate "Inventory" %}</a>
+            {% if active_membership.can_count_inventory %}
+              <a href="{% url 'inventory:stock-count-list' %}">{% translate "Stock counts" %}</a>
+            {% endif %}
+            {% if active_membership.can_sell %}
+              <a href="{% url 'sales:sale-list' %}">{% translate "Sales" %}</a>
+              <a href="{% url 'offline:sales' %}?business={{ active_business.id }}">{% translate "Offline sales" %}</a>
+              <a href="{% url 'sales:return-list' %}">{% translate "Sale returns" %}</a>
+            {% endif %}
+            {% if active_membership.can_manage_payment_qr %}
+              <a href="{% url 'sales:telebirr-settings' %}">{% translate "Telebirr QR" %}</a>
+            {% endif %}
+            {% if active_membership.can_manage_catalog %}
+              <a href="{% url 'staff-entry-poster' %}">{% translate "Staff entry QR" %}</a>
+            {% endif %}
+            {% if active_membership.can_use_cash_sessions %}
+              <a href="{% url 'cash:session-list' %}">{% translate "Cash sessions" %}</a>
+            {% endif %}
+            {% if active_membership.can_manage_purchasing or active_membership.can_receive_inventory %}
+              <a href="{% url 'purchasing:purchase-list' %}">{% translate "Purchases" %}</a>
+              <a href="{% url 'purchasing:purchase-return-list' %}">{% translate "Purchase returns" %}</a>
+            {% endif %}
+            {% if active_membership.can_manage_operating_expenses %}
+              <a href="{% url 'expenses:expense-list' %}">{% translate "Expenses" %}</a>
+              <a href="{% url 'expenses:settlement-activity' %}">{% translate "Supplier settlement" %}</a>
+            {% endif %}
+            {% if active_membership.can_view_performance %}
+              <a href="{% url 'performance:dashboard' %}">{% translate "Performance" %}</a>
+            {% endif %}
+            {% if active_membership.can_manage_public_profile %}
+              <a href="{% url 'public_profiles:manage' %}">{% translate "Public profile" %}</a>
+            {% endif %}
+            {% if active_membership.can_manage_documents %}
+              <a href="{% url 'documents:list' %}">{% translate "Documents" %}</a>
+            {% endif %}
+            {% if perms.public_profiles.review_public_verification or perms.public_profiles.suspend_public_profile %}
+              <a href="{% url 'public_profiles:staff-queue' %}">{% translate "Profile review" %}</a>
+            {% endif %}
+            <a href="{% url 'attendance:attendance-list' %}">{% translate "Attendance" %}</a>
+            <form method="post" action="{% url 'set_language' %}" class="language-switcher">
+              {% csrf_token %}
+              <input name="next" type="hidden" value="{{ request.get_full_path }}">
+              <label class="visually-hidden" for="site-language">{% translate "Language" %}</label>
+              <select id="site-language" name="language">
+                {% get_current_language as CURRENT_LANGUAGE %}
+                {% get_available_languages as AVAILABLE_LANGUAGES %}
+                {% for code, name in AVAILABLE_LANGUAGES %}
+                  <option value="{{ code }}"{% if code == CURRENT_LANGUAGE %} selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+              </select>
+              <button class="link-button" type="submit">{% translate "Change language" %}</button>
+            </form>
+            <form method="post" action="{% url 'logout' %}" data-offline-logout-form>
+              {% csrf_token %}
+              <button class="link-button" type="submit">{% translate "Sign out" %}</button>
+            </form>
+          </nav>
+        {% else %}
+          <nav class="nav" aria-label="{% translate 'Language selection' %}">
+            <form method="post" action="{% url 'set_language' %}" class="language-switcher">
+              {% csrf_token %}
+              <input name="next" type="hidden" value="{{ request.get_full_path }}">
+              <label class="visually-hidden" for="site-language">{% translate "Language" %}</label>
+              <select id="site-language" name="language">
+                {% get_current_language as CURRENT_LANGUAGE %}
+                {% get_available_languages as AVAILABLE_LANGUAGES %}
+                {% for code, name in AVAILABLE_LANGUAGES %}
+                  <option value="{{ code }}"{% if code == CURRENT_LANGUAGE %} selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+              </select>
+              <button class="link-button" type="submit">{% translate "Change language" %}</button>
+            </form>
+          </nav>
+        {% endif %}
+      </div>
+    </header>
+    <div id="connection-status"
+         class="connection-status"
+         data-online="{% translate 'Online' %}"
+         data-offline="{% translate 'Offline — local drafts only' %}"
+         role="status"
+         aria-live="polite"
+         hidden></div>
+    <main class="page" id="main-content" tabindex="-1">
+      <div class="messages">
+        {% for message in messages %}
+          <div class="card"
+               {% if "error" in message.tags %}role="alert"{% else %}role="status" aria-live="polite"{% endif %}>{{ message }}</div>
+        {% endfor %}
+      </div>
+      {% block content %}{% endblock %}
+    </main>
+    <script src="{% static 'js/pwa-shell.js' %}" defer></script>
+    <script src="{% static 'js/print-page.js' %}" defer></script>
+    {% block extra_scripts %}{% endblock %}
+  </body>
+</html>

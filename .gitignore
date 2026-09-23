@@ -1,0 +1,17 @@
+.DS_Store
+.env
+.idea/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.venv/
+.vscode/
+__pycache__/
+*.egg-info/
+*.py[cod]
+*.sqlite3
+coverage.xml
+htmlcov/
+media/
+private_media/
+staticfiles/

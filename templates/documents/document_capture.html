@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "Capture document" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <div class="eyebrow">{% translate "Stage 8 intake" %}</div>
+      <h1>{% translate "Capture a private source document" %}</h1>
+    </div>
+  </div>
+  <div class="card form-card">
+    <div class="receipt-notice">
+      {% translate "The browser may offer the rear camera on a supported phone. Files are quarantined and unavailable until scanning succeeds. Do not upload customer records or unrelated personal data." %}
+    </div>
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {% include "includes/form_fields.html" with form=form %}
+      <div class="action-row">
+        <button class="button" type="submit">{% translate "Upload and scan" %}</button>
+        <a class="button button--secondary" href="{% url 'documents:list' %}">{% translate "Cancel" %}</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

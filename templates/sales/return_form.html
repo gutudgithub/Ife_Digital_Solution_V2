@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Sale return draft" %} · {% translate "Ife Digital Solution" %}{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">{% translate "Sale correction" %}</p>
+      <h1>
+        {% if purpose == "sale_reversal" %}
+          {% translate "Full sale reversal draft" %}
+        {% else %}
+          {% translate "Customer return draft" %}
+        {% endif %}
+      </h1>
+      <p class="muted">{{ sale.internal_number }} · {{ sale.branch.name }}</p>
+    </div>
+  </div>
+  <form method="post">
+    {% csrf_token %}
+    <section class="card form-card">
+      {% include "includes/form_fields.html" %}
+    </section>
+    <section class="card section-gap">
+      <h2>{% translate "Original sale lines" %}</h2>
+      <p class="muted">{% translate "Each line must identify the exact original sale line. The original selling price determines the refund." %}</p>
+      {{ formset.management_form }}
+      {% if formset.non_form_errors %}
+        <div class="errorlist" role="alert">
+          <ul>{% for error in formset.non_form_errors %}<li>{{ error }}</li>{% endfor %}</ul>
+        </div>
+      {% endif %}
+      {% for line_form in formset %}
+        <fieldset class="line-form">
+          <legend>{% blocktranslate trimmed with number=forloop.counter %}Return line {{ number }}{% endblocktranslate %}</legend>
+          {% include "includes/form_fields.html" with form=line_form %}
+        </fieldset>
+      {% endfor %}
+      <div class="action-row">
+        <button class="button" type="submit">{% translate "Save return draft" %}</button>
+        <a href="{% url 'sales:sale-detail' sale.id %}">{% translate "Back to sale" %}</a>
+      </div>
+    </section>
+  </form>
+{% endblock %}
